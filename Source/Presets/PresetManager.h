@@ -39,8 +39,9 @@ public:
     void refresh();
 
     int getCurrentIndex() const { return currentIndex; }
-    juce::String getCurrentName() const { return currentName; }
-    juce::String getCurrentCategory() const { return currentCategory; }
+    // Name/category may be read by the host's state calls on any thread.
+    juce::String getCurrentName() const { const juce::ScopedLock sl(nameLock); return currentName; }
+    juce::String getCurrentCategory() const { const juce::ScopedLock sl(nameLock); return currentCategory; }
 
     bool load(int index);
     void loadInit();
@@ -65,6 +66,7 @@ private:
     void saveFavourites();
     juce::String favouriteKey(const Entry& e) const;
     int findIndexByName(const juce::String& name, bool factory) const;
+    void setCurrent(const juce::String& name, const juce::String& category);
 
     juce::AudioProcessorValueTreeState& state;
     std::vector<PresetData> factory;
@@ -73,6 +75,7 @@ private:
     std::vector<Entry> entries;
     juce::StringArray favourites;
     int currentIndex = -1;
+    juce::CriticalSection nameLock;
     juce::String currentName { "Init" };
     juce::String currentCategory { "Init" };
     juce::String lastError;

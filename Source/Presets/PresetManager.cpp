@@ -38,9 +38,16 @@ juce::String PresetManager::favouriteKey(const Entry& e) const
     return (e.factory ? "F:" : "U:") + e.name;
 }
 
+void PresetManager::setCurrent(const juce::String& name, const juce::String& category)
+{
+    const juce::ScopedLock sl(nameLock);
+    currentName = name;
+    currentCategory = category;
+}
+
 void PresetManager::refresh()
 {
-    const auto previousName = currentName;
+    const auto previousName = getCurrentName();
     const bool previousFactory = currentIndex >= 0 && currentIndex < (int) entries.size() && entries[(size_t) currentIndex].factory;
 
     entries.clear();
@@ -127,10 +134,7 @@ bool PresetManager::load(int index)
 
     applyPreset(data, state);
     currentIndex = index;
-    currentName = data.name;
-    currentCategory = data.category;
-    state.state.setProperty("presetName", currentName, nullptr);
-    state.state.setProperty("presetCategory", currentCategory, nullptr);
+    setCurrent(data.name, data.category);
     sendChangeMessage();
     return true;
 }
@@ -140,10 +144,7 @@ void PresetManager::loadInit()
     PresetData init;
     applyPreset(init, state);
     currentIndex = -1;
-    currentName = "Init";
-    currentCategory = "Init";
-    state.state.setProperty("presetName", currentName, nullptr);
-    state.state.setProperty("presetCategory", currentCategory, nullptr);
+    setCurrent("Init", "Init");
     sendChangeMessage();
 }
 
@@ -178,10 +179,7 @@ juce::Result PresetManager::saveUser(const juce::String& rawName, const juce::St
         return result;
     }
 
-    currentName = name;
-    currentCategory = data.category;
-    state.state.setProperty("presetName", currentName, nullptr);
-    state.state.setProperty("presetCategory", currentCategory, nullptr);
+    setCurrent(name, data.category);
     refresh();
     currentIndex = findIndexByName(name, false);
     sendChangeMessage();
@@ -215,8 +213,8 @@ juce::Result PresetManager::renameUser(int index, const juce::String& rawName)
         favourites.add("U:" + name);
     saveFavourites();
 
-    if (currentName == e.name)
-        currentName = name;
+    if (getCurrentName() == e.name)
+        setCurrent(name, getCurrentCategory());
     refresh();
     return juce::Result::ok();
 }
@@ -251,9 +249,8 @@ void PresetManager::setFavourite(int index, bool favourite)
 
 void PresetManager::setCurrentNameFromState(const juce::String& name, const juce::String& category)
 {
-    currentName = name.isEmpty() ? juce::String("Init") : name;
-    currentCategory = category;
-    currentIndex = findIndexByName(currentName, true);
+    setCurrent(name.isEmpty() ? juce::String("Init") : name, category);
+    currentIndex = findIndexByName(getCurrentName(), true);
     sendChangeMessage();
 }
 
