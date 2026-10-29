@@ -21,3 +21,13 @@ if(NOT MSVC)
 endif()
 
 add_test(NAME state COMMAND ZSynthStateTests)
+
+# Loads the built VST3 through JUCE's VST3 hosting code, like a DAW would.
+juce_add_console_app(ZSynthVst3HostTest PRODUCT_NAME "ZSynthVst3HostTest")
+target_sources(ZSynthVst3HostTest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Vst3HostTest.cpp)
+target_compile_definitions(ZSynthVst3HostTest PRIVATE
+    JUCE_PLUGINHOST_VST3=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_STANDALONE_APPLICATION=1)
+target_link_libraries(ZSynthVst3HostTest PRIVATE
+    juce::juce_audio_processors juce::juce_gui_basics juce::juce_recommended_config_flags)
+add_dependencies(ZSynthVst3HostTest ZSynth_VST3)
+add_test(NAME vst3_host COMMAND ZSynthVst3HostTest $<TARGET_FILE_DIR:ZSynth_VST3>/../../../Z.SYNTH.vst3)

@@ -65,8 +65,9 @@ set(ZSYNTH_APP_DEFINITIONS
     $<$<PLATFORM_ID:Linux>:JUCE_ALSA=1>
     CACHE INTERNAL "")
 
-target_sources(ZSynth PRIVATE ${ZSYNTH_APP_SOURCES})
-target_compile_definitions(ZSynth PUBLIC ${ZSYNTH_APP_DEFINITIONS})
+juce_generate_juce_header(ZSynth)
+target_sources(ZSynth PRIVATE ${ZSYNTH_APP_SOURCES} ${CMAKE_SOURCE_DIR}/Source/App/StandaloneApp.cpp)
+target_compile_definitions(ZSynth PUBLIC ${ZSYNTH_APP_DEFINITIONS} JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1)
 target_link_libraries(ZSynth
     PRIVATE
         zsynth_dsp
