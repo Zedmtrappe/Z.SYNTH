@@ -1,0 +1,1731 @@
+# =============================================================================
+#  Z.SYNTH "Classic Machines" bank — original programming of sounds in the
+#  style of famous instruments, one folder (category) per instrument.
+#  Instrument names are trademarks of their owners and are used only to
+#  describe the style; Z.SYNTH is not affiliated with them.
+#  Same format as FactoryBank.zsbank (see docs/PRESET_FORMAT.md).
+# =============================================================================
+
+# ------------------------------------------------------------ Minimoog ----
+
+[Minimoog - Fat Bass]
+category = Moog Minimoog
+comment = Three saws, osc 3 an octave down, ladder at 24 dB, quick contour.
+voice.mode = Mono
+voice.priority = Low
+osc1.octave = 16'
+osc2.on = on
+osc2.octave = 16'
+osc2.fine = 6
+osc3.on = on
+osc3.octave = 32'
+osc3.wave = Saw
+osc3.fine = -4
+osc3.level = 0.7
+flt.model = Ladder
+flt.cutoff = 220
+flt.res = 0.2
+flt.env = 0.4
+flt.key = 0.33
+env2.d = 0.35
+env2.s = 0.2
+env1.s = 1
+env1.r = 0.06
+mix.drive = 0.5
+osc.drift = 0.3
+voice.vintage = 0.3
+amp.level = 0.478
+
+[Minimoog - Solo Lead]
+category = Moog Minimoog
+comment = The classic solo lead: saw + square, glide, mod wheel vibrato.
+voice.mode = Legato
+voice.priority = Low
+voice.glide = 0.09
+voice.glidemode = Legato
+osc2.on = on
+osc2.wave = Square
+osc2.fine = 5
+osc3.on = on
+osc3.wave = Saw
+osc3.octave = 16'
+osc3.level = 0.4
+flt.model = Ladder
+flt.cutoff = 1100
+flt.res = 0.35
+flt.env = 0.3
+flt.key = 0.66
+env2.a = 0.02
+env2.d = 0.9
+env2.s = 0.55
+env1.s = 1
+env1.r = 0.2
+mix.drive = 0.45
+lfo1.dest = Pitch
+lfo1.rate = 5.6
+mod1.src = Mod Wheel
+mod1.dst = LFO1 Amount
+mod1.amt = 0.025
+fx.dly.on = on
+fx.dly.div = 1/4D
+fx.dly.mix = 0.18
+amp.level = 0.447
+
+[Minimoog - Pluck Bass]
+category = Moog Minimoog
+voice.mode = Mono
+osc1.octave = 16'
+osc2.on = on
+osc2.wave = Square
+osc2.octave = 16'
+osc2.fine = -7
+flt.model = Ladder
+flt.cutoff = 160
+flt.res = 0.45
+flt.env = 0.55
+env2.d = 0.18
+env2.s = 0
+env1.d = 0.6
+env1.s = 0.3
+env1.r = 0.08
+mix.drive = 0.4
+amp.level = 1.000
+
+[Minimoog - Resonant Sweep]
+category = Moog Minimoog
+voice.mode = Legato
+osc1.octave = 16'
+osc2.on = on
+osc2.octave = 16'
+osc2.fine = 8
+flt.model = Ladder
+flt.cutoff = 250
+flt.res = 0.8
+flt.env = 0.5
+env2.a = 0.6
+env2.d = 1.5
+env2.s = 0.2
+env1.s = 1
+env1.r = 0.4
+fx.dly.on = on
+fx.dly.mix = 0.2
+amp.level = 0.550
+
+# -------------------------------------------------------- Moog Modular ----
+
+[Modular - Bach Lead]
+category = Moog Modular
+comment = Bright, slightly hollow lead from the early electronic Bach records era.
+voice.mode = Legato
+osc1.wave = Pulse
+osc1.pw = 30
+osc2.on = on
+osc2.wave = Saw
+osc2.octave = 4'
+osc2.level = 0.4
+flt.model = Ladder
+flt.cutoff = 2200
+flt.res = 0.2
+flt.env = 0.2
+env2.d = 0.25
+env2.s = 0.6
+env1.a = 0.01
+env1.d = 0.3
+env1.s = 0.8
+env1.r = 0.1
+fx.rev.on = on
+fx.rev.mix = 0.15
+amp.level = 0.607
+
+[Modular - Sequenced Bass]
+category = Moog Modular
+seq.mode = Note
+seq.div = 1/8
+seq.len = 8
+seq.s1.val = 0
+seq.s2.val = 0.5833
+seq.s3.val = 1
+seq.s4.val = 0.5833
+seq.s5.val = 0.25
+seq.s6.val = 0.8333
+seq.s7.val = 0.5
+seq.s8.val = 0.4167
+seq.s1.acc = on
+seq.s5.acc = on
+osc1.octave = 16'
+osc2.on = on
+osc2.octave = 16'
+osc2.fine = 5
+osc3.on = on
+osc3.wave = Square
+osc3.octave = 32'
+osc3.level = 0.4
+flt.model = Ladder
+flt.cutoff = 300
+flt.res = 0.5
+flt.env = 0.45
+env2.d = 0.2
+env2.s = 0.05
+env1.d = 0.3
+env1.s = 0.5
+env1.r = 0.05
+fx.dly.on = on
+fx.dly.div = 1/8D
+fx.dly.mix = 0.2
+amp.level = 0.919
+
+[Modular - Big Brass Wall]
+category = Moog Modular
+osc2.on = on
+osc2.fine = 7
+osc3.on = on
+osc3.wave = Saw
+osc3.fine = -7
+osc3.level = 0.7
+flt.model = Ladder
+flt.cutoff = 450
+flt.env = 0.45
+env2.a = 0.08
+env2.d = 0.8
+env2.s = 0.5
+env1.a = 0.03
+env1.s = 0.9
+env1.r = 0.4
+voice.vintage = 0.4
+fx.rev.on = on
+fx.rev.mix = 0.25
+amp.level = 0.259
+
+[Modular - Percussive Blip]
+category = Moog Modular
+osc1.wave = Triangle
+osc1.octave = 4'
+env3.dest = Pitch
+env3.amt = 0.08
+env3.d = 0.05
+env3.s = 0
+flt.model = Ladder
+flt.cutoff = 900
+flt.res = 0.6
+flt.env = 0.4
+env2.d = 0.12
+env2.s = 0
+env1.d = 0.25
+env1.s = 0
+env1.r = 0.15
+fx.dly.on = on
+fx.dly.div = 1/8D
+fx.dly.mix = 0.3
+amp.level = 1.000
+
+# ----------------------------------------------------------- ARP 2600 ----
+
+[2600 - Sample and Hold]
+category = ARP 2600
+comment = The classic random filter burble, clocked from LFO 1.
+osc1.wave = Saw
+osc2.on = on
+osc2.wave = Pulse
+osc2.pw = 25
+osc2.semi = 7
+osc2.level = 0.6
+flt.model = OTA
+flt.cutoff = 500
+flt.res = 0.8
+lfo1.dest = Cutoff
+lfo1.wave = S&H
+lfo1.rate = 8
+lfo1.amt = 0.35
+env1.s = 1
+env1.r = 0.3
+fx.rev.on = on
+fx.rev.mix = 0.25
+amp.level = 0.319
+
+[2600 - Ring Mod Bell]
+category = ARP 2600
+osc1.wave = Sine
+osc1.octave = 4'
+osc2.on = on
+osc2.wave = Triangle
+osc2.octave = 4'
+osc2.semi = 9
+osc2.fine = 14
+osc2.xmod = 1
+flt.model = OTA
+flt.cutoff = 6000
+env1.d = 2
+env1.s = 0
+env1.r = 1.2
+fx.rev.on = on
+fx.rev.mix = 0.3
+amp.level = 0.462
+
+[2600 - Sync Lead]
+category = ARP 2600
+voice.mode = Legato
+voice.glide = 0.06
+osc1.level = 0.3
+osc2.on = on
+osc2.sync = on
+osc2.semi = 5
+mod1.src = LFO 2
+mod1.dst = Osc2 Pitch
+mod1.amt = 0.15
+lfo2.rate = 0.4
+lfo2.wave = Triangle
+flt.model = OTA
+flt.cutoff = 4000
+env1.s = 1
+env1.r = 0.15
+fx.dly.on = on
+fx.dly.mix = 0.18
+amp.level = 0.477
+
+[2600 - Space Wind]
+category = ARP 2600
+osc1.on = off
+osc.noise.level = 1
+osc.noise.type = Pink
+flt.model = OTA
+flt.type = BP
+flt.cutoff = 900
+flt.res = 0.75
+flt.key = 0.5
+lfo1.dest = Cutoff
+lfo1.wave = Triangle
+lfo1.rate = 0.15
+lfo1.amt = 0.2
+env1.a = 0.8
+env1.s = 1
+env1.r = 2
+fx.rev.on = on
+fx.rev.size = 0.9
+fx.rev.mix = 0.4
+amp.level = 0.236
+
+# --------------------------------------------------------- ARP Odyssey ----
+
+[Odyssey - PWM Lead]
+category = ARP Odyssey
+voice.mode = Legato
+voice.glide = 0.05
+osc1.wave = Pulse
+osc1.pw = 35
+lfo1.dest = PW
+lfo1.rate = 4
+lfo1.amt = 0.3
+osc2.on = on
+osc2.wave = Saw
+osc2.fine = 9
+osc2.level = 0.5
+flt.model = OTA
+flt.cutoff = 1800
+flt.res = 0.4
+flt.env = 0.25
+env2.d = 0.4
+env2.s = 0.4
+env1.s = 1
+env1.r = 0.15
+amp.level = 0.519
+
+[Odyssey - Funk Bass]
+category = ARP Odyssey
+voice.mode = Mono
+osc1.wave = Pulse
+osc1.pw = 20
+osc1.octave = 16'
+flt.model = OTA
+flt.cutoff = 260
+flt.res = 0.55
+flt.env = 0.45
+flt.vel = 0.35
+env2.d = 0.15
+env2.s = 0.05
+env1.d = 0.3
+env1.s = 0.5
+env1.r = 0.05
+amp.level = 1.000
+
+[Odyssey - Sync Sweep]
+category = ARP Odyssey
+voice.mode = Legato
+osc1.level = 0.25
+osc2.on = on
+osc2.sync = on
+env3.dest = Osc2 Pitch
+env3.amt = 0.6
+env3.a = 0.3
+env3.d = 1.2
+env3.s = 0.1
+flt.model = OTA
+flt.cutoff = 3500
+env1.s = 1
+env1.r = 0.2
+amp.level = 0.555
+
+# --------------------------------------------------------- Korg MS-20 ----
+
+[MS-20 - Screaming Lead]
+category = Korg MS-20
+voice.mode = Legato
+voice.glide = 0.04
+osc2.on = on
+osc2.wave = Pulse
+osc2.pw = 20
+osc2.semi = 7
+osc2.level = 0.5
+flt.model = K35
+flt.cutoff = 1500
+flt.res = 0.85
+flt.env = 0.2
+env2.d = 0.4
+env2.s = 0.5
+env1.s = 1
+env1.r = 0.15
+mod1.src = Mod Wheel
+mod1.dst = Cutoff
+mod1.amt = 0.3
+fx.dly.on = on
+fx.dly.mix = 0.15
+amp.level = 0.488
+
+[MS-20 - Growl Bass]
+category = Korg MS-20
+voice.mode = Legato
+osc1.octave = 16'
+osc2.on = on
+osc2.wave = Square
+osc2.octave = 16'
+osc2.fine = 10
+flt.model = K35
+flt.cutoff = 350
+flt.res = 0.7
+flt.drive = 0.6
+flt.env = 0.35
+env2.d = 0.3
+env2.s = 0.2
+flt.hpf = 60
+env1.s = 1
+env1.r = 0.08
+amp.level = 0.435
+
+[MS-20 - High-Pass Pluck]
+category = Korg MS-20
+osc1.wave = Saw
+flt.model = K35
+flt.type = HP
+flt.cutoff = 400
+flt.res = 0.75
+flt.env = 0.35
+env2.d = 0.2
+env2.s = 0
+env1.d = 0.4
+env1.s = 0
+env1.r = 0.2
+fx.dly.on = on
+fx.dly.mix = 0.2
+amp.level = 1.000
+
+[MS-20 - Noise Sweep FX]
+category = Korg MS-20
+osc1.on = off
+osc.noise.level = 1
+flt.model = K35
+flt.cutoff = 300
+flt.res = 0.88
+flt.key = 0
+lfo1.dest = Cutoff
+lfo1.wave = Triangle
+lfo1.rate = 0.25
+lfo1.uni = on
+lfo1.amt = 0.5
+env1.a = 0.2
+env1.s = 1
+env1.r = 1
+fx.rev.on = on
+fx.rev.mix = 0.3
+amp.level = 0.573
+
+# -------------------------------------------------------- Roland SH-101 ----
+
+[SH-101 - Sub Bass]
+category = Roland SH-101
+voice.mode = Mono
+osc1.wave = Saw
+osc.sub.level = 0.7
+osc.sub.wave = Square -1
+flt.model = OTA
+flt.cutoff = 300
+flt.res = 0.3
+flt.env = 0.35
+env2.d = 0.25
+env2.s = 0.1
+env1.s = 1
+env1.r = 0.05
+amp.level = 0.556
+
+[SH-101 - Arp Lead]
+category = Roland SH-101
+arp.on = on
+arp.mode = Up
+arp.div = 1/16
+arp.oct = 2
+arp.gate = 0.5
+osc1.wave = Pulse
+osc1.pw = 30
+osc.sub.level = 0.3
+flt.model = OTA
+flt.cutoff = 700
+flt.res = 0.5
+flt.env = 0.35
+env2.d = 0.12
+env2.s = 0
+env1.d = 0.2
+env1.s = 0.4
+env1.r = 0.05
+fx.dly.on = on
+fx.dly.div = 1/8D
+fx.dly.mix = 0.2
+amp.level = 1.000
+
+[SH-101 - Square Blip]
+category = Roland SH-101
+osc1.wave = Square
+osc1.octave = 4'
+osc.noise.level = 0.05
+flt.model = OTA
+flt.cutoff = 1500
+flt.res = 0.4
+flt.env = 0.3
+env2.d = 0.08
+env2.s = 0
+env1.d = 0.15
+env1.s = 0
+env1.r = 0.05
+amp.level = 0.794
+
+[SH-101 - Pulse Width Bass]
+category = Roland SH-101
+voice.mode = Mono
+osc1.wave = Pulse
+osc1.pw = 20
+lfo1.dest = PW
+lfo1.rate = 0.8
+lfo1.amt = 0.25
+osc.sub.level = 0.5
+flt.model = OTA
+flt.cutoff = 600
+flt.res = 0.25
+flt.env = 0.2
+env2.d = 0.3
+env2.s = 0.3
+env1.s = 1
+env1.r = 0.06
+amp.level = 0.525
+
+# -------------------------------------------------------- Roland TB-303 ----
+
+[TB-303 - Acid Classic]
+category = Roland TB-303
+comment = Hold a key. Accents bite, slides glide; mod wheel opens the cutoff.
+seq.mode = Note
+seq.div = 1/16
+seq.len = 16
+seq.gate = 0.5
+seq.s1.acc = on
+seq.s3.val = 1
+seq.s3.slide = on
+seq.s4.val = 0
+seq.s5.val = 0.25
+seq.s6.gate = off
+seq.s7.val = 0.5833
+seq.s7.acc = on
+seq.s8.val = 0.5833
+seq.s8.slide = on
+seq.s9.val = 0.8333
+seq.s10.gate = off
+seq.s11.val = 0
+seq.s11.acc = on
+seq.s12.val = 0.25
+seq.s13.val = 0.5
+seq.s13.slide = on
+seq.s14.val = 0.4167
+seq.s15.gate = off
+seq.s16.val = 1
+osc1.wave = Saw
+osc1.octave = 16'
+flt.model = Ladder
+flt.cutoff = 330
+flt.res = 0.82
+flt.env = 0.42
+flt.vel = 0.45
+flt.key = 0.25
+env2.d = 0.22
+env2.s = 0
+env2.vel = 0.8
+env1.s = 0.9
+env1.r = 0.02
+mix.drive = 0.3
+mod1.src = Mod Wheel
+mod1.dst = Cutoff
+mod1.amt = 0.35
+fx.dly.on = on
+fx.dly.div = 1/8D
+fx.dly.mix = 0.15
+amp.level = 1.000
+
+[TB-303 - Square Squelch]
+category = Roland TB-303
+seq.mode = Note
+seq.div = 1/16
+seq.len = 8
+seq.s1.acc = on
+seq.s2.val = 1
+seq.s2.slide = on
+seq.s3.val = 0
+seq.s4.val = 0.25
+seq.s4.acc = on
+seq.s5.val = 0.5833
+seq.s6.val = 0.5833
+seq.s6.slide = on
+seq.s7.val = 0.8333
+seq.s8.gate = off
+osc1.wave = Square
+osc1.octave = 16'
+flt.model = Ladder
+flt.cutoff = 380
+flt.res = 0.78
+flt.env = 0.4
+flt.vel = 0.4
+env2.d = 0.18
+env2.s = 0
+env2.vel = 0.8
+env1.s = 0.9
+env1.r = 0.02
+amp.level = 0.741
+
+[TB-303 - Distorted Acid]
+category = Roland TB-303
+seq.mode = Note
+seq.div = 1/16
+seq.len = 16
+seq.s1.acc = on
+seq.s2.val = 0
+seq.s3.val = 0.5
+seq.s3.slide = on
+seq.s4.val = 0.5833
+seq.s5.val = 0
+seq.s5.acc = on
+seq.s6.val = 1
+seq.s7.gate = off
+seq.s8.val = 0.25
+seq.s8.slide = on
+seq.s9.val = 0.4167
+seq.s10.val = 0
+seq.s10.acc = on
+seq.s11.val = 0.8333
+seq.s12.gate = off
+seq.s13.val = 0
+seq.s14.val = 0.5833
+seq.s14.slide = on
+seq.s15.val = 0.25
+seq.s16.val = 0
+seq.s16.acc = on
+osc1.wave = Saw
+osc1.octave = 16'
+flt.model = Ladder
+flt.cutoff = 420
+flt.res = 0.75
+flt.env = 0.45
+flt.vel = 0.45
+env2.d = 0.25
+env2.s = 0
+env2.vel = 0.8
+env1.s = 0.9
+env1.r = 0.02
+fx.drive.on = on
+fx.drive.type = Distortion
+fx.drive.amt = 0.5
+fx.drive.tone = 0.55
+fx.dly.on = on
+fx.dly.div = 1/8D
+fx.dly.mix = 0.2
+amp.level = 0.792
+
+# -------------------------------------------------- Sequential Prophet-5 ----
+
+[Prophet-5 - Sync Lead]
+category = Sequential Prophet-5
+comment = Osc B synced to osc A, swept by the filter envelope (poly-mod style).
+voice.mode = Legato
+voice.glide = 0.04
+osc1.level = 0.35
+osc2.on = on
+osc2.sync = on
+osc2.semi = 7
+mod1.src = Env 2
+mod1.dst = Osc2 Pitch
+mod1.amt = 0.4
+flt.model = OTA
+flt.cutoff = 2500
+flt.res = 0.2
+flt.env = 0.2
+env2.d = 0.7
+env2.s = 0.25
+env1.s = 1
+env1.r = 0.2
+lfo1.rate = 5.5
+mod2.src = Mod Wheel
+mod2.dst = LFO1 Amount
+mod2.amt = 0.02
+voice.vintage = 0.35
+fx.dly.on = on
+fx.dly.mix = 0.18
+amp.level = 0.706
+
+[Prophet-5 - Poly Brass]
+category = Sequential Prophet-5
+osc2.on = on
+osc2.fine = 7
+flt.model = OTA
+flt.cutoff = 600
+flt.res = 0.15
+flt.env = 0.4
+env2.a = 0.06
+env2.d = 0.6
+env2.s = 0.5
+env1.a = 0.02
+env1.s = 0.9
+env1.r = 0.3
+voice.vintage = 0.4
+fx.cho.on = on
+fx.cho.mix = 0.2
+amp.level = 0.445
+
+[Prophet-5 - Poly-Mod Bell]
+category = Sequential Prophet-5
+osc1.wave = Triangle
+osc1.fm = 0.35
+osc3.on = on
+osc3.wave = Sine
+osc3.semi = 7
+osc3.fine = 20
+osc3.level = 0
+mod1.src = Env 3
+mod1.dst = Osc FM
+mod1.amt = 0.4
+env3.d = 1
+env3.s = 0
+flt.model = OTA
+flt.cutoff = 4000
+env1.d = 2
+env1.s = 0
+env1.r = 1
+voice.vintage = 0.3
+fx.rev.on = on
+fx.rev.mix = 0.3
+amp.level = 0.617
+
+[Prophet-5 - Soft Strings]
+category = Sequential Prophet-5
+osc1.wave = Pulse
+osc1.pw = 40
+osc2.on = on
+osc2.fine = 6
+flt.model = OTA
+flt.cutoff = 2200
+flt.hpf = 120
+env1.a = 0.3
+env1.s = 1
+env1.r = 0.9
+lfo1.dest = PW
+lfo1.rate = 0.7
+lfo1.amt = 0.2
+voice.vintage = 0.4
+fx.cho.on = on
+fx.cho.mix = 0.35
+fx.rev.on = on
+fx.rev.mix = 0.25
+amp.level = 0.253
+
+# --------------------------------------------------------- Oberheim OB-X ----
+
+[OB-Xa - Jump Brass]
+category = Oberheim OB-Xa
+comment = Big, bright stab brass. Two saws per voice, 2-voice unison.
+osc2.on = on
+osc2.fine = 9
+voice.unison = on
+voice.univoices = 2
+voice.detune = 0.15
+voice.spread = 0.9
+flt.model = SEM
+flt.slope = 12 dB
+flt.cutoff = 1200
+flt.env = 0.3
+env2.a = 0.01
+env2.d = 0.4
+env2.s = 0.6
+env1.a = 0.005
+env1.s = 1
+env1.r = 0.3
+voice.vintage = 0.4
+fx.rev.on = on
+fx.rev.mix = 0.15
+amp.level = 0.181
+
+[OB-Xa - Big Pad]
+category = Oberheim OB-Xa
+osc2.on = on
+osc2.fine = 11
+osc2.wave = Pulse
+osc2.pw = 40
+flt.model = SEM
+flt.slope = 12 dB
+flt.cutoff = 1400
+flt.env = 0.15
+env2.a = 0.6
+env2.d = 2
+env2.s = 0.5
+env1.a = 0.5
+env1.s = 1
+env1.r = 1.4
+voice.spread = 1
+voice.vintage = 0.5
+fx.cho.on = on
+fx.cho.mix = 0.3
+fx.rev.on = on
+fx.rev.mix = 0.3
+amp.level = 0.221
+
+[OB-Xa - Unison Lead]
+category = Oberheim OB-Xa
+voice.mode = Legato
+voice.glide = 0.06
+voice.unison = on
+voice.univoices = 6
+voice.detune = 0.25
+voice.spread = 0.8
+flt.model = SEM
+flt.cutoff = 2000
+flt.res = 0.25
+flt.env = 0.2
+env2.d = 0.5
+env2.s = 0.5
+env1.s = 1
+env1.r = 0.2
+amp.level = 0.220
+
+# --------------------------------------------------------- Oberheim SEM ----
+
+[SEM - Notch Sweep Pad]
+category = Oberheim SEM
+osc1.wave = Saw
+osc2.on = on
+osc2.wave = Pulse
+osc2.pw = 35
+osc2.fine = 6
+flt.model = SEM
+flt.type = Notch
+flt.cutoff = 600
+flt.res = 0.6
+lfo1.dest = Cutoff
+lfo1.wave = Triangle
+lfo1.rate = 0.12
+lfo1.amt = 0.25
+env1.a = 0.4
+env1.s = 1
+env1.r = 1.2
+fx.rev.on = on
+fx.rev.mix = 0.3
+amp.level = 0.192
+
+[SEM - Bandpass Bass]
+category = Oberheim SEM
+voice.mode = Legato
+osc1.octave = 16'
+osc2.on = on
+osc2.octave = 16'
+osc2.wave = Pulse
+osc2.pw = 30
+flt.model = SEM
+flt.type = BP
+flt.cutoff = 300
+flt.res = 0.45
+flt.env = 0.3
+env2.d = 0.25
+env2.s = 0.2
+env1.s = 1
+env1.r = 0.06
+amp.level = 1.000
+
+[SEM - Brass]
+category = Oberheim SEM
+osc2.on = on
+osc2.fine = 8
+flt.model = SEM
+flt.cutoff = 500
+flt.env = 0.42
+env2.a = 0.08
+env2.d = 0.7
+env2.s = 0.45
+env1.a = 0.03
+env1.s = 0.9
+env1.r = 0.35
+voice.vintage = 0.35
+amp.level = 0.298
+
+# ------------------------------------------------------ Roland Jupiter-8 ----
+
+[Jupiter-8 - Cross-Mod Lead]
+category = Roland Jupiter-8
+voice.mode = Legato
+voice.glide = 0.04
+osc1.wave = Square
+osc2.on = on
+osc2.wave = Saw
+osc2.semi = 12
+osc2.fm = 0.25
+osc2.sync = on
+flt.model = OTA
+flt.cutoff = 2500
+flt.res = 0.2
+flt.env = 0.15
+env2.d = 0.5
+env2.s = 0.5
+env1.s = 1
+env1.r = 0.2
+mod1.src = Mod Wheel
+mod1.dst = Osc FM
+mod1.amt = 0.4
+fx.cho.on = on
+fx.cho.mix = 0.25
+fx.dly.on = on
+fx.dly.mix = 0.15
+amp.level = 0.375
+
+[Jupiter-8 - Arp Pulse]
+category = Roland Jupiter-8
+arp.on = on
+arp.mode = Up/Down
+arp.div = 1/16
+arp.oct = 2
+arp.gate = 0.4
+osc1.wave = Pulse
+osc1.pw = 30
+osc2.on = on
+osc2.wave = Saw
+osc2.fine = 7
+flt.model = OTA
+flt.hpf = 100
+flt.cutoff = 900
+flt.res = 0.35
+flt.env = 0.3
+env2.d = 0.12
+env2.s = 0
+env1.d = 0.25
+env1.s = 0.2
+env1.r = 0.1
+fx.cho.on = on
+fx.cho.mix = 0.3
+fx.dly.on = on
+fx.dly.div = 1/8D
+fx.dly.mix = 0.2
+amp.level = 1.000
+
+[Jupiter-8 - Lush Strings]
+category = Roland Jupiter-8
+osc2.on = on
+osc2.fine = 8
+flt.model = OTA
+flt.hpf = 180
+flt.cutoff = 2800
+env1.a = 0.4
+env1.s = 1
+env1.r = 1.2
+voice.unison = on
+voice.univoices = 2
+voice.detune = 0.12
+voice.spread = 1
+fx.cho.on = on
+fx.cho.mix = 0.4
+fx.rev.on = on
+fx.rev.mix = 0.3
+amp.level = 0.252
+
+[Jupiter-8 - Hollow Pad]
+category = Roland Jupiter-8
+osc1.wave = Square
+osc2.on = on
+osc2.wave = Square
+osc2.octave = 4'
+osc2.fine = 6
+osc2.level = 0.5
+flt.model = OTA
+flt.slope = 12 dB
+flt.cutoff = 1300
+flt.hpf = 200
+env1.a = 0.6
+env1.s = 1
+env1.r = 1.5
+fx.cho.on = on
+fx.cho.mix = 0.4
+fx.rev.on = on
+fx.rev.mix = 0.35
+amp.level = 0.276
+
+# ------------------------------------------------------ Roland Juno-60 ----
+
+[Juno-60 - Chorus Pad]
+category = Roland Juno
+comment = One DCO with PWM and sub through the 24 dB filter, chorus I+II feel.
+osc1.wave = Pulse
+osc1.pw = 35
+lfo1.dest = PW
+lfo1.rate = 0.6
+lfo1.amt = 0.3
+osc.sub.level = 0.35
+flt.model = OTA
+flt.cutoff = 1500
+flt.res = 0.15
+flt.env = 0.12
+env2.a = 0.4
+env2.d = 1.5
+env2.s = 0.4
+env1.a = 0.35
+env1.s = 0.9
+env1.r = 1.2
+osc.drift = 0
+voice.vintage = 0.1
+fx.cho.on = on
+fx.cho.rate = 0.5
+fx.cho.depth = 0.65
+fx.cho.mix = 0.55
+amp.level = 0.410
+
+[Juno-60 - Sub Bass]
+category = Roland Juno
+voice.mode = Mono
+osc1.wave = Saw
+osc.sub.level = 0.8
+flt.model = OTA
+flt.cutoff = 380
+flt.res = 0.25
+flt.env = 0.3
+env2.d = 0.25
+env2.s = 0.15
+env1.s = 1
+env1.r = 0.05
+osc.drift = 0
+amp.level = 0.501
+
+[Juno-106 - Hoover]
+category = Roland Juno
+voice.mode = Legato
+voice.glide = 0.12
+voice.unison = on
+voice.univoices = 6
+voice.detune = 0.55
+voice.spread = 1
+osc1.wave = Pulse
+osc1.pw = 25
+lfo1.dest = PW
+lfo1.rate = 3
+lfo1.amt = 0.4
+osc2.on = on
+osc2.octave = 16'
+env3.dest = Pitch
+env3.amt = -0.12
+env3.d = 0.2
+env3.s = 0
+flt.model = OTA
+flt.cutoff = 3000
+env1.s = 1
+env1.r = 0.3
+fx.cho.on = on
+fx.cho.mix = 0.6
+amp.level = 0.245
+
+[Juno-60 - PWM Strings]
+category = Roland Juno
+osc1.wave = Pulse
+osc1.pw = 50
+lfo1.dest = PW
+lfo1.rate = 1.2
+lfo1.amt = 0.35
+flt.model = OTA
+flt.hpf = 250
+flt.cutoff = 3500
+env1.a = 0.25
+env1.s = 1
+env1.r = 0.8
+fx.cho.on = on
+fx.cho.mix = 0.6
+fx.rev.on = on
+fx.rev.mix = 0.2
+amp.level = 0.345
+
+# -------------------------------------------------------- Yamaha CS-80 ----
+
+[CS-80 - Blade Brass]
+category = Yamaha CS-80
+comment = Slow, swelling brass. Aftertouch adds brightness and vibrato.
+osc2.on = on
+osc2.fine = 9
+osc2.wave = Pulse
+osc2.pw = 40
+flt.model = SEM
+flt.cutoff = 500
+flt.res = 0.25
+flt.env = 0.4
+env2.a = 0.35
+env2.d = 2
+env2.s = 0.6
+env2.r = 1
+env1.a = 0.25
+env1.s = 1
+env1.r = 1.2
+lfo1.rate = 5.5
+mod1.src = Aftertouch
+mod1.dst = Cutoff
+mod1.amt = 0.25
+mod2.src = Aftertouch
+mod2.dst = LFO1 Amount
+mod2.amt = 0.03
+voice.vintage = 0.5
+fx.rev.on = on
+fx.rev.size = 0.9
+fx.rev.mix = 0.4
+amp.level = 0.133
+
+[CS-80 - Ribbon Lead]
+category = Yamaha CS-80
+voice.mode = Legato
+voice.glide = 0.2
+voice.bend = 12
+osc1.wave = Saw
+osc2.on = on
+osc2.wave = Pulse
+osc2.pw = 30
+osc2.fine = 6
+flt.model = SEM
+flt.cutoff = 1200
+flt.res = 0.35
+flt.env = 0.25
+env2.a = 0.15
+env2.d = 1
+env2.s = 0.6
+env1.a = 0.05
+env1.s = 1
+env1.r = 0.5
+lfo1.rate = 5.8
+mod1.src = Aftertouch
+mod1.dst = LFO1 Amount
+mod1.amt = 0.03
+fx.rev.on = on
+fx.rev.mix = 0.35
+amp.level = 0.315
+
+[CS-80 - Dream Strings]
+category = Yamaha CS-80
+osc2.on = on
+osc2.fine = 7
+flt.model = SEM
+flt.hpf = 150
+flt.cutoff = 2400
+env1.a = 0.8
+env1.s = 1
+env1.r = 2
+lfo1.rate = 5
+lfo1.delay = 0.8
+lfo1.amt = 0.006
+voice.vintage = 0.5
+fx.ens.on = on
+fx.ens.mix = 0.5
+fx.rev.on = on
+fx.rev.size = 0.9
+fx.rev.mix = 0.45
+amp.level = 0.349
+
+# -------------------------------------------------------- Korg Polysix ----
+
+[Polysix - Ensemble Strings]
+category = Korg Polysix
+osc1.wave = Saw
+osc.sub.level = 0.25
+flt.model = OTA
+flt.hpf = 150
+flt.cutoff = 3000
+env1.a = 0.3
+env1.s = 1
+env1.r = 1
+fx.ens.on = on
+fx.ens.mix = 0.75
+fx.ens.depth = 0.8
+amp.level = 0.800
+
+[Polysix - Chord Stab]
+category = Korg Polysix
+osc1.wave = Saw
+osc2.on = on
+osc2.semi = 7
+osc2.level = 0.6
+osc3.on = on
+osc3.wave = Saw
+osc3.semi = 4
+osc3.level = 0.5
+flt.model = OTA
+flt.cutoff = 900
+flt.res = 0.3
+flt.env = 0.35
+env2.d = 0.2
+env2.s = 0
+env1.d = 0.35
+env1.s = 0
+env1.r = 0.2
+fx.cho.on = on
+fx.cho.mix = 0.4
+fx.dly.on = on
+fx.dly.div = 1/8D
+fx.dly.mix = 0.2
+amp.level = 1.000
+
+[Polysix - PWM Pad]
+category = Korg Polysix
+osc1.wave = Pulse
+osc1.pw = 45
+lfo1.dest = PW
+lfo1.rate = 0.5
+lfo1.amt = 0.35
+flt.model = OTA
+flt.cutoff = 1700
+flt.env = 0.15
+env2.a = 0.5
+env2.d = 1.5
+env2.s = 0.4
+env1.a = 0.4
+env1.s = 1
+env1.r = 1.2
+fx.pha.on = on
+fx.pha.rate = 0.15
+fx.pha.mix = 0.35
+fx.ens.on = on
+fx.ens.mix = 0.5
+amp.level = 0.547
+
+# ---------------------------------------------------------- Yamaha DX7 ----
+
+[DX7 - E.Piano]
+category = Yamaha DX7
+comment = Tine electric piano: velocity brings in the bell-like bark.
+osc.engine = FM
+fm.algo = 3 Three Pairs
+fm.depth = 0.55
+fm.vel = 0.9
+fm.op1.d = 4
+fm.op1.s = 0
+fm.op1.r = 0.4
+fm.op2.ratio = 1
+fm.op2.level = 0.45
+fm.op2.d = 1.8
+fm.op2.s = 0.05
+fm.op3.ratio = 1
+fm.op3.fine = 0.004
+fm.op3.level = 0.7
+fm.op3.d = 2.5
+fm.op3.s = 0
+fm.op3.r = 0.4
+fm.op4.ratio = 14
+fm.op4.level = 0.32
+fm.op4.d = 0.1
+fm.op4.s = 0
+fm.op5.level = 0
+fm.op6.level = 0
+flt.cutoff = 14000
+flt.key = 0
+env1.d = 4
+env1.s = 0
+env1.r = 0.35
+env1.vel = 0.75
+fx.cho.on = on
+fx.cho.rate = 0.6
+fx.cho.mix = 0.3
+amp.level = 1.000
+
+[DX7 - FM Bass]
+category = Yamaha DX7
+comment = Punchy, slappy digital bass with a fast modulator decay.
+osc.engine = FM
+voice.mode = Mono
+fm.algo = 4 Pair+Stack
+fm.depth = 0.6
+fm.vel = 0.8
+fm.feedback = 0.25
+fm.op1.ratio = 0.5
+fm.op1.d = 1.5
+fm.op1.s = 0.35
+fm.op2.ratio = 0.5
+fm.op2.level = 0.7
+fm.op2.d = 0.22
+fm.op2.s = 0.15
+fm.op3.ratio = 0.5
+fm.op3.level = 0.5
+fm.op3.d = 0.8
+fm.op3.s = 0.2
+fm.op4.ratio = 1
+fm.op4.level = 0.45
+fm.op4.d = 0.12
+fm.op4.s = 0
+fm.op5.level = 0
+fm.op6.level = 0
+flt.cutoff = 8000
+flt.key = 0
+env1.s = 0.9
+env1.r = 0.08
+amp.level = 1.000
+
+[DX7 - Tubular Bells]
+category = Yamaha DX7
+osc.engine = FM
+fm.algo = 3 Three Pairs
+fm.depth = 0.45
+fm.vel = 0.5
+fm.op1.d = 6
+fm.op1.s = 0
+fm.op1.r = 3
+fm.op2.ratio = 3
+fm.op2.fine = 0.1667
+fm.op2.level = 0.55
+fm.op2.d = 3
+fm.op2.s = 0
+fm.op3.ratio = 2
+fm.op3.level = 0.45
+fm.op3.d = 4
+fm.op3.s = 0
+fm.op4.ratio = 5
+fm.op4.fine = 0.05
+fm.op4.level = 0.3
+fm.op4.d = 1.5
+fm.op4.s = 0
+fm.op5.level = 0
+fm.op6.level = 0
+flt.cutoff = 16000
+flt.key = 0
+env1.d = 7
+env1.s = 0
+env1.r = 3
+fx.rev.on = on
+fx.rev.size = 0.8
+fx.rev.mix = 0.3
+amp.level = 0.643
+
+[DX7 - Brass]
+category = Yamaha DX7
+osc.engine = FM
+fm.algo = 1 Stack
+fm.depth = 0.4
+fm.feedback = 0.5
+fm.vel = 0.5
+fm.op1.a = 0.04
+fm.op1.s = 0.9
+fm.op2.level = 0.6
+fm.op2.a = 0.07
+fm.op2.d = 0.5
+fm.op2.s = 0.6
+fm.op3.level = 0.4
+fm.op3.a = 0.09
+fm.op3.s = 0.5
+fm.op4.level = 0
+fm.op5.level = 0
+fm.op6.level = 0
+flt.cutoff = 10000
+flt.key = 0
+env1.a = 0.03
+env1.s = 1
+env1.r = 0.25
+lfo1.rate = 5.5
+mod1.src = Mod Wheel
+mod1.dst = LFO1 Amount
+mod1.amt = 0.02
+fx.rev.on = on
+fx.rev.mix = 0.2
+amp.level = 0.343
+
+[DX7 - Marimba]
+category = Yamaha DX7
+osc.engine = FM
+fm.algo = 3 Three Pairs
+fm.depth = 0.5
+fm.vel = 0.7
+fm.op1.d = 0.7
+fm.op1.s = 0
+fm.op2.ratio = 4
+fm.op2.level = 0.4
+fm.op2.d = 0.05
+fm.op2.s = 0
+fm.op3.ratio = 3
+fm.op3.level = 0.25
+fm.op3.d = 0.2
+fm.op3.s = 0
+fm.op4.level = 0
+fm.op5.level = 0
+fm.op6.level = 0
+flt.cutoff = 12000
+flt.key = 0
+env1.d = 0.8
+env1.s = 0
+env1.r = 0.4
+fx.rev.on = on
+fx.rev.mix = 0.2
+amp.level = 1.000
+
+# ------------------------------------------------------------ PPG Wave ----
+
+[PPG - Wave Sweep]
+category = PPG Wave
+comment = The envelope sweeps through the wavetable; filter adds analogue warmth.
+osc1.wave = Wavetable
+osc2.on = on
+osc2.wave = Wavetable
+osc2.fine = 6
+wt.table = Harmonic Sweep
+wt.pos = 0
+mod1.src = Env 3
+mod1.dst = WT Position
+mod1.amt = 0.85
+env3.a = 0.01
+env3.d = 1.5
+env3.s = 0.2
+flt.model = SEM
+flt.cutoff = 5000
+flt.res = 0.15
+env1.d = 2
+env1.s = 0.6
+env1.r = 0.8
+fx.cho.on = on
+fx.cho.mix = 0.25
+fx.rev.on = on
+fx.rev.mix = 0.25
+amp.level = 0.368
+
+[PPG - Digital Choir]
+category = PPG Wave
+osc1.wave = Wavetable
+osc2.on = on
+osc2.wave = Wavetable
+osc2.fine = 9
+wt.table = Vocal Formant
+wt.pos = 0.3
+lfo1.dest = WT Pos
+lfo1.rate = 0.2
+lfo1.wave = Triangle
+lfo1.amt = 0.2
+flt.model = SEM
+flt.cutoff = 4500
+env1.a = 0.6
+env1.s = 1
+env1.r = 1.5
+fx.cho.on = on
+fx.cho.mix = 0.4
+fx.rev.on = on
+fx.rev.mix = 0.35
+amp.level = 0.814
+
+[PPG - Glass Arp]
+category = PPG Wave
+arp.on = on
+arp.mode = Up
+arp.div = 1/16
+arp.oct = 2
+arp.gate = 0.5
+osc1.wave = Wavetable
+wt.table = Digital Bell
+wt.pos = 0.55
+mod1.src = Env 3
+mod1.dst = WT Position
+mod1.amt = -0.4
+env3.d = 0.2
+env3.s = 0
+flt.cutoff = 8000
+env1.d = 0.3
+env1.s = 0.1
+env1.r = 0.15
+fx.dly.on = on
+fx.dly.div = 1/8D
+fx.dly.mix = 0.3
+fx.rev.on = on
+fx.rev.mix = 0.2
+amp.level = 1.000
+
+[PPG - Sync Bass]
+category = PPG Wave
+voice.mode = Legato
+osc1.wave = Wavetable
+osc1.octave = 16'
+wt.table = Sync Sweep
+wt.pos = 0.2
+mod1.src = Env 2
+mod1.dst = WT Position
+mod1.amt = 0.5
+flt.model = SEM
+flt.cutoff = 900
+flt.env = 0.25
+env2.d = 0.35
+env2.s = 0.1
+env1.s = 1
+env1.r = 0.08
+osc.sub.level = 0.4
+amp.level = 0.589
+
+# ------------------------------------------------------- Roland JD-800 ----
+
+[JD-800 - Crystal Pad]
+category = Roland JD-800
+comment = Bright digital pad with shimmer and a long, wide reverb.
+osc1.wave = Wavetable
+wt.table = Digital Bell
+wt.pos = 0.35
+osc2.on = on
+osc2.wave = Saw
+osc2.fine = 7
+osc2.level = 0.5
+flt.model = SEM
+flt.hpf = 200
+flt.cutoff = 7000
+env1.a = 0.4
+env1.s = 1
+env1.r = 2
+fx.cho.on = on
+fx.cho.mix = 0.4
+fx.dly.on = on
+fx.dly.mix = 0.2
+fx.rev.on = on
+fx.rev.size = 0.9
+fx.rev.mix = 0.4
+amp.level = 0.308
+
+[JD-800 - Digital Piano]
+category = Roland JD-800
+osc.engine = Hybrid
+osc1.wave = Triangle
+osc1.level = 0.4
+fm.level = 0.7
+fm.algo = 3 Three Pairs
+fm.depth = 0.4
+fm.vel = 0.8
+fm.op1.d = 3
+fm.op1.s = 0
+fm.op2.ratio = 1
+fm.op2.level = 0.4
+fm.op2.d = 0.6
+fm.op2.s = 0.1
+fm.op3.ratio = 5
+fm.op3.level = 0.2
+fm.op3.d = 0.3
+fm.op3.s = 0
+fm.op4.level = 0
+fm.op5.level = 0
+fm.op6.level = 0
+flt.cutoff = 9000
+env1.d = 3
+env1.s = 0
+env1.r = 0.4
+fx.cho.on = on
+fx.cho.mix = 0.3
+fx.rev.on = on
+fx.rev.mix = 0.25
+amp.level = 0.782
+
+[JD-800 - Bright Strings]
+category = Roland JD-800
+osc2.on = on
+osc2.fine = 10
+osc2.octave = 4'
+osc2.level = 0.5
+flt.model = OTA
+flt.hpf = 250
+flt.cutoff = 6000
+env1.a = 0.2
+env1.s = 1
+env1.r = 1
+voice.unison = on
+voice.univoices = 2
+voice.detune = 0.15
+fx.ens.on = on
+fx.ens.mix = 0.5
+fx.rev.on = on
+fx.rev.mix = 0.3
+amp.level = 0.419
+
+# -------------------------------------------------------- Elka Synthex ----
+
+[Synthex - Galactic Lead]
+category = Elka Synthex
+voice.mode = Legato
+voice.glide = 0.08
+osc1.wave = Saw
+osc2.on = on
+osc2.wave = Pulse
+osc2.pw = 25
+osc2.fine = 12
+flt.model = SEM
+flt.cutoff = 2000
+flt.res = 0.4
+flt.env = 0.2
+env2.d = 0.6
+env2.s = 0.5
+env1.s = 1
+env1.r = 0.4
+lfo1.rate = 5.5
+mod1.src = Mod Wheel
+mod1.dst = LFO1 Amount
+mod1.amt = 0.03
+fx.cho.on = on
+fx.cho.mix = 0.4
+fx.dly.on = on
+fx.dly.div = 1/4D
+fx.dly.mix = 0.3
+fx.dly.fb = 0.5
+amp.level = 0.421
+
+[Synthex - Stereo Strings]
+category = Elka Synthex
+osc1.wave = Saw
+osc2.on = on
+osc2.wave = Saw
+osc2.fine = 8
+osc2.octave = 4'
+osc2.level = 0.5
+flt.model = SEM
+flt.hpf = 150
+flt.cutoff = 3000
+env1.a = 0.35
+env1.s = 1
+env1.r = 1
+voice.spread = 1
+lfo2.dest = Pan
+lfo2.rate = 0.3
+lfo2.amt = 0.4
+fx.cho.on = on
+fx.cho.mix = 0.5
+fx.rev.on = on
+fx.rev.mix = 0.3
+amp.level = 0.383
+
+# --------------------------------------------------------- ARP Solina ----
+
+[Solina - String Ensemble]
+category = ARP Solina
+comment = Divide-down saw strings through a three-phase ensemble.
+osc1.wave = Saw
+osc2.on = on
+osc2.wave = Saw
+osc2.octave = 4'
+osc2.level = 0.4
+flt.model = SEM
+flt.hpf = 300
+flt.cutoff = 4000
+env1.a = 0.15
+env1.s = 1
+env1.r = 0.6
+osc.drift = 0
+voice.vintage = 0
+fx.ens.on = on
+fx.ens.mix = 0.9
+fx.ens.depth = 0.9
+fx.rev.on = on
+fx.rev.mix = 0.2
+amp.level = 0.576
+
+[Solina - Cellos]
+category = ARP Solina
+osc1.wave = Saw
+osc1.octave = 16'
+flt.model = SEM
+flt.hpf = 120
+flt.cutoff = 1500
+env1.a = 0.2
+env1.s = 1
+env1.r = 0.7
+osc.drift = 0
+voice.vintage = 0
+fx.ens.on = on
+fx.ens.mix = 0.8
+fx.rev.on = on
+fx.rev.mix = 0.2
+amp.level = 0.977
+
+# ------------------------------------------------------------- Buchla ----
+
+[Buchla - West Coast Bongo]
+category = Buchla
+comment = Wavefolded sine through a low-pass "gate": woody, bouncy percussion.
+osc1.wave = Wavetable
+wt.table = Wavefolder
+wt.pos = 0.1
+mod1.src = Env 3
+mod1.dst = WT Position
+mod1.amt = 0.6
+mod2.src = Velocity
+mod2.dst = WT Position
+mod2.amt = 0.25
+env3.d = 0.12
+env3.s = 0
+flt.model = SEM
+flt.cutoff = 2500
+flt.env = 0.4
+env2.d = 0.15
+env2.s = 0
+env1.d = 0.3
+env1.s = 0
+env1.r = 0.2
+fx.rev.on = on
+fx.rev.mix = 0.2
+amp.level = 0.713
+
+[Buchla - Fold Lead]
+category = Buchla
+voice.mode = Legato
+voice.glide = 0.05
+osc1.wave = Wavetable
+wt.table = Wavefolder
+wt.pos = 0.3
+lfo1.dest = WT Pos
+lfo1.rate = 0.4
+lfo1.wave = Triangle
+lfo1.amt = 0.25
+mod1.src = Mod Wheel
+mod1.dst = WT Position
+mod1.amt = 0.5
+flt.cutoff = 6000
+env1.s = 1
+env1.r = 0.25
+fx.dly.on = on
+fx.dly.mix = 0.2
+amp.level = 0.472
+
+[Buchla - Random Voltages]
+category = Buchla
+osc1.wave = Sine
+osc1.fm = 0.4
+osc3.on = on
+osc3.wave = Triangle
+osc3.semi = 7
+osc3.level = 0
+lfo1.dest = Pitch
+lfo1.wave = S&H
+lfo1.sync = on
+lfo1.div = 1/8
+lfo1.amt = 0.25
+mod1.src = S&H
+mod1.dst = Osc FM
+mod1.amt = 0.4
+flt.cutoff = 5000
+env1.s = 1
+env1.r = 0.4
+fx.dly.on = on
+fx.dly.div = 1/8D
+fx.dly.mix = 0.3
+fx.dly.fb = 0.5
+amp.level = 0.274

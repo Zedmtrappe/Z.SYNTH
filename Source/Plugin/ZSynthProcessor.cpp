@@ -11,9 +11,10 @@ namespace
 {
     constexpr int kStateVersion = 1;
 
-    juce::String factoryBankText()
+    std::vector<PresetManager::Bank> factoryBanks()
     {
-        return juce::String::fromUTF8(BinaryData::FactoryBank_zsbank, BinaryData::FactoryBank_zsbankSize);
+        return { { "Z.SYNTH Originals", juce::String::fromUTF8(BinaryData::FactoryBank_zsbank, BinaryData::FactoryBank_zsbankSize) },
+                 { "Classic Machines", juce::String::fromUTF8(BinaryData::ClassicsBank_zsbank, BinaryData::ClassicsBank_zsbankSize) } };
     }
 }
 
@@ -28,7 +29,7 @@ ZSynthProcessor::ZSynthProcessor(juce::File userPresetDir)
     }
 
     events.reserve(kMaxEventsPerBlock);
-    presets = std::make_unique<PresetManager>(apvts, factoryBankText(), userPresetDir);
+    presets = std::make_unique<PresetManager>(apvts, factoryBanks(), userPresetDir);
 
     // Start on a playable factory sound rather than a bare init patch.
     if (! presets->getEntries().empty())

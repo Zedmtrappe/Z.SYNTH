@@ -3,10 +3,19 @@
 namespace zsynth
 {
 
-PresetManager::PresetManager(juce::AudioProcessorValueTreeState& s, const juce::String& factoryBankText, juce::File userDirectory)
+PresetManager::PresetManager(juce::AudioProcessorValueTreeState& s, const std::vector<Bank>& factoryBanks, juce::File userDirectory)
     : state(s), userDir(userDirectory == juce::File() ? defaultUserDirectory() : userDirectory)
 {
-    factory = parsePresetBank(factoryBankText, factoryErrors);
+    for (const auto& bank : factoryBanks)
+    {
+        bankNames.add(bank.name);
+        for (auto& p : parsePresetBank(bank.text, factoryErrors))
+        {
+            factory.push_back(std::move(p));
+            factoryBank.push_back(bank.name);
+        }
+    }
+    bankNames.add(kUserBankName);
     for (const auto& e : factoryErrors)
     {
         juce::ignoreUnused(e);
@@ -57,6 +66,7 @@ void PresetManager::refresh()
         e.name = factory[(size_t) i].name;
         e.category = factory[(size_t) i].category;
         e.author = factory[(size_t) i].author;
+        e.bank = factoryBank[(size_t) i];
         e.factory = true;
         e.factoryIndex = i;
         entries.push_back(e);
@@ -77,6 +87,7 @@ void PresetManager::refresh()
                 e.name = xml->getStringAttribute("name", f.getFileNameWithoutExtension());
                 e.category = xml->getStringAttribute("category", "User");
                 e.author = xml->getStringAttribute("author");
+                e.bank = kUserBankName;
                 e.factory = false;
                 e.file = f;
                 entries.push_back(e);
@@ -100,6 +111,20 @@ int PresetManager::findIndexByName(const juce::String& name, bool isFactory) con
         if (entries[(size_t) i].name == name)
             return i;
     return -1;
+}
+
+juce::StringArray PresetManager::getBankNames() const
+{
+    return bankNames;
+}
+
+juce::StringArray PresetManager::getCategories(const juce::String& bank) const
+{
+    juce::StringArray cats;
+    for (const auto& e : entries)
+        if (e.bank == bank)
+            cats.addIfNotAlreadyThere(e.category);
+    return cats;
 }
 
 juce::StringArray PresetManager::getCategories() const

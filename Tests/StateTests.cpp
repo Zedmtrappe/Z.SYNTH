@@ -15,15 +15,27 @@
 #include "UI/ZSynthEditor.h"
 
 #include <BinaryData.h>
+#include <map>
 #include <juce_audio_formats/juce_audio_formats.h>
 
 using namespace zstest;
 
 namespace
 {
-    juce::String bankText()
+    std::vector<PresetManager::Bank> banks()
     {
-        return juce::String::fromUTF8(BinaryData::FactoryBank_zsbank, BinaryData::FactoryBank_zsbankSize);
+        return { { "Z.SYNTH Originals", juce::String::fromUTF8(BinaryData::FactoryBank_zsbank, BinaryData::FactoryBank_zsbankSize) },
+                 { "Classic Machines", juce::String::fromUTF8(BinaryData::ClassicsBank_zsbank, BinaryData::ClassicsBank_zsbankSize) } };
+    }
+
+    /** Every factory preset from every bank. */
+    std::vector<PresetData> allFactoryPresets(juce::StringArray& errors)
+    {
+        std::vector<PresetData> all;
+        for (const auto& b : banks())
+            for (auto& p : parsePresetBank(b.text, errors))
+                all.push_back(std::move(p));
+        return all;
     }
 
     juce::File tempDir(const juce::String& name)
@@ -359,7 +371,10 @@ ZS_TEST(preset_manager_user_workflow)
     ProcessorFixture f("presetmgr");
     auto& pm = f.processor.getPresets();
     const int factoryCount = (int) pm.getEntries().size();
-    ZS_CHECK(factoryCount >= 128);
+    ZS_CHECK(factoryCount >= 200);
+    ZS_CHECK(pm.getBankNames().size() == 3);
+    ZS_CHECK(pm.getCategories("Classic Machines").contains("Yamaha DX7"));
+    ZS_CHECK(pm.getEntries()[0].bank == "Z.SYNTH Originals");
 
     // Globals are not part of a preset recall.
     f.processor.getState().getParameter("master.volume")->setValueNotifyingHost(0.25f);
@@ -397,7 +412,7 @@ ZS_TEST(preset_manager_user_workflow)
 
     // A fresh manager on the same folder sees the same user presets (restart).
     ZS_CHECK(pm.saveUser("Persistent", "Pad", false).wasOk());
-    PresetManager second(f.processor.getState(), bankText(), f.dir);
+    PresetManager second(f.processor.getState(), banks(), f.dir);
     bool found = false;
     for (const auto& e : second.getEntries())
         found = found || (e.name == "Persistent" && e.category == "Pad");
@@ -409,11 +424,25 @@ ZS_TEST(preset_manager_user_workflow)
 ZS_TEST(factory_bank_parses_cleanly)
 {
     juce::StringArray errors;
-    const auto bank = parsePresetBank(bankText(), errors);
+    const auto bank = allFactoryPresets(errors);
     for (const auto& e : errors)
         std::printf("    %s\n", e.toRawUTF8());
     ZS_CHECK(errors.isEmpty());
-    ZS_CHECK(bank.size() >= 128);
+    ZS_CHECK(bank.size() >= 200);
+
+    // Classic Machines: one folder per instrument, each with at least two sounds.
+    juce::StringArray classicErrors;
+    const auto classics = parsePresetBank(banks()[1].text, classicErrors);
+    std::map<juce::String, int> perMachine;
+    for (const auto& p : classics)
+        ++perMachine[p.category];
+    ZS_CHECK(perMachine.size() >= 18);
+    for (const auto& [machine, count] : perMachine)
+    {
+        if (count < 2)
+            std::printf("    folder '%s' has only %d preset(s)\n", machine.toRawUTF8(), count);
+        ZS_CHECK(count >= 2);
+    }
     juce::StringArray names;
     for (const auto& p : bank)
     {
@@ -441,7 +470,7 @@ ZS_TEST(factory_bank_parses_cleanly)
 ZS_TEST(factory_presets_render_cleanly_and_level_matched)
 {
     juce::StringArray errors;
-    const auto bank = parsePresetBank(bankText(), errors);
+    const auto bank = allFactoryPresets(errors);
     int failures = 0;
     for (const auto& p : bank)
     {
@@ -465,7 +494,7 @@ ZS_TEST(factory_presets_render_cleanly_and_level_matched)
 ZS_TEST(factory_presets_at_other_sample_rates)
 {
     juce::StringArray errors;
-    const auto bank = parsePresetBank(bankText(), errors);
+    const auto bank = allFactoryPresets(errors);
     for (size_t i = 0; i < bank.size(); i += 9)
         for (double sr : { 44100.0, 96000.0 })
         {
@@ -655,9 +684,10 @@ ZS_TEST(processor_renders_midi_and_onscreen_keyboard)
 static int presetReport(const juce::File& wavDir)
 {
     juce::StringArray errors;
-    const auto bank = parsePresetBank(bankText(), errors);
+    const auto bank = allFactoryPresets(errors);
     for (const auto& e : errors)
         std::printf("BANK ERROR: %s\n", e.toRawUTF8());
+    // (all banks)
     if (wavDir != juce::File())
         wavDir.createDirectory();
 

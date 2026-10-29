@@ -18,15 +18,29 @@ public:
     struct Entry
     {
         juce::String name, category, author;
+        juce::String bank;          // e.g. "Z.SYNTH Originals", "Classic Machines", "User"
         bool factory = true;
         int factoryIndex = -1;
         juce::File file;
         bool favourite = false;
     };
 
+    /** A named factory bank (plain-text .zsbank contents). */
+    struct Bank
+    {
+        juce::String name;
+        juce::String text;
+    };
+    static constexpr const char* kUserBankName = "User";
+
     /** userDirectory may be empty to use the platform default. */
-    PresetManager(juce::AudioProcessorValueTreeState& state, const juce::String& factoryBankText,
+    PresetManager(juce::AudioProcessorValueTreeState& state, const std::vector<Bank>& factoryBanks,
                   juce::File userDirectory = {});
+
+    /** Bank names in display order (factory banks, then "User"). */
+    juce::StringArray getBankNames() const;
+    /** Categories (folders) of one bank, in first-appearance order. */
+    juce::StringArray getCategories(const juce::String& bank) const;
 
     static juce::File defaultUserDirectory();
     juce::File getUserDirectory() const { return userDir; }
@@ -70,6 +84,8 @@ private:
 
     juce::AudioProcessorValueTreeState& state;
     std::vector<PresetData> factory;
+    std::vector<juce::String> factoryBank; // bank name per factory preset
+    juce::StringArray bankNames;
     juce::StringArray factoryErrors;
     juce::File userDir;
     std::vector<Entry> entries;

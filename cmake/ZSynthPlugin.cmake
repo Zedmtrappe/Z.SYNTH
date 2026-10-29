@@ -16,7 +16,9 @@ if(APPLE)
     list(APPEND ZSYNTH_FORMATS AU)
 endif()
 
-juce_add_binary_data(ZSynthData SOURCES ${CMAKE_SOURCE_DIR}/Resources/Presets/FactoryBank.zsbank)
+juce_add_binary_data(ZSynthData SOURCES
+    ${CMAKE_SOURCE_DIR}/Resources/Presets/FactoryBank.zsbank
+    ${CMAKE_SOURCE_DIR}/Resources/Presets/ClassicsBank.zsbank)
 set_target_properties(ZSynthData PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 juce_add_plugin(ZSynth
