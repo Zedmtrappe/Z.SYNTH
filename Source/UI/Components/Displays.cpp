@@ -27,7 +27,7 @@ namespace
 // =============================================================== envelope ====
 uint64_t EnvelopeDisplay::stateHash() const
 {
-    const int b = env == 0 ? P::Env1A : (env == 1 ? P::Env2A : P::Env3A);
+    const int b = base;
     uint64_t h = 1469598103934665603ull;
     for (int i = 0; i < 4; ++i)
         h = mix(h, v(b + i));
@@ -40,7 +40,7 @@ void EnvelopeDisplay::paint(juce::Graphics& g)
     fillPanelInset(g, r);
     r = r.reduced(4.0f, 5.0f);
 
-    const int b = env == 0 ? P::Env1A : (env == 1 ? P::Env2A : P::Env3A);
+    const int b = base;
     const float a = v(b), d = v(b + 1), s = v(b + 2), rel = v(b + 3);
     auto width = [](float t) { return std::log2(1.0f + t * 40.0f) + 0.15f; };
     const float wa = width(a), wd = width(d), wr = width(rel), ws = 1.6f;
@@ -576,8 +576,8 @@ void SeqLeds::paint(juce::Graphics& g)
     const auto r = getLocalBounds().toFloat();
     for (int i = 0; i < 16; ++i)
     {
-        const float x = r.getX() + (float) i * 39.0f;
-        const auto led = juce::Rectangle<float>(x + 4.0f, r.getY() + 2.0f, 22.0f, 6.0f);
+        const float x = r.getX() + (float) i * pitch;
+        const auto led = juce::Rectangle<float>(x + 4.0f, r.getY() + 2.0f, ledWidth - 8.0f, 6.0f);
         const bool inPattern = i < length;
         const bool current = running && i == step;
         g.setColour(current ? Colours::ledOn : (inPattern ? Colours::ledOff.brighter(0.3f) : Colours::ledOff.withAlpha(0.3f)));
@@ -717,33 +717,55 @@ void PresetDisplay::paint(juce::Graphics& g)
 void Logo::paint(juce::Graphics& g)
 {
     const auto r = getLocalBounds().toFloat();
-    // Stylised Z: a heavy slash with an amber accent bar.
-    const float h = r.getHeight() - 12.0f;
-    const float x = r.getX() + 2.0f, y = r.getY() + 2.0f;
+    const float h = r.getHeight() - 18.0f;   // mark height; the subtitle sits below
+    const float x = r.getX() + 4.0f, y = r.getY() + 2.0f;
+
+    // Stylised Z mark.
     juce::Path z;
     z.startNewSubPath(x, y);
-    z.lineTo(x + h * 0.8f, y);
-    z.lineTo(x + h * 0.8f, y + h * 0.16f);
-    z.lineTo(x + h * 0.24f, y + h * 0.84f);
-    z.lineTo(x + h * 0.8f, y + h * 0.84f);
-    z.lineTo(x + h * 0.8f, y + h);
+    z.lineTo(x + h * 0.82f, y);
+    z.lineTo(x + h * 0.82f, y + h * 0.17f);
+    z.lineTo(x + h * 0.27f, y + h * 0.83f);
+    z.lineTo(x + h * 0.82f, y + h * 0.83f);
+    z.lineTo(x + h * 0.82f, y + h);
     z.lineTo(x, y + h);
-    z.lineTo(x, y + h * 0.84f);
-    z.lineTo(x + h * 0.56f, y + h * 0.16f);
-    z.lineTo(x, y + h * 0.16f);
+    z.lineTo(x, y + h * 0.83f);
+    z.lineTo(x + h * 0.55f, y + h * 0.17f);
+    z.lineTo(x, y + h * 0.17f);
     z.closeSubPath();
-    juce::ColourGradient grad(Colours::accent.brighter(0.2f), x, y, Colours::accent.darker(0.35f), x, y + h, false);
+
+    // Soft glow behind the mark.
+    for (int i = 4; i >= 1; --i)
+    {
+        g.setColour(Colours::accent.withAlpha(0.05f));
+        g.strokePath(z, juce::PathStrokeType((float) i * 3.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    }
+    juce::ColourGradient grad(Colours::accent.brighter(0.35f), x, y, Colours::accent.darker(0.3f), x, y + h, false);
     g.setGradientFill(grad);
     g.fillPath(z);
-    g.setColour(Colours::accent);
-    g.fillEllipse(x + h * 0.86f, y + h - 8.0f, 8.0f, 8.0f);
 
-    g.setColour(Colours::white);
-    g.setFont(juce::Font(juce::FontOptions(h * 0.98f, juce::Font::bold)).withExtraKerningFactor(0.12f));
-    g.drawText("SYNTH", juce::Rectangle<float>(x + h * 1.02f, y - 2.0f, r.getWidth() - h, h + 4.0f).toNearestInt(), juce::Justification::centredLeft, false);
-    g.setColour(Colours::textDim);
-    g.setFont(labelFont(9.0f).withExtraKerningFactor(0.32f));
-    g.drawText("HYBRID SYNTHESIS INSTRUMENT", juce::Rectangle<float>(x, y + h + 1.0f, r.getWidth(), 10.0f).toNearestInt(), juce::Justification::centredLeft, false);
+    // The dot of "Z.SYNTH".
+    const float dot = h * 0.16f;
+    g.setColour(Colours::accent);
+    g.fillEllipse(x + h * 0.9f, y + h - dot, dot, dot);
+
+    // SYNTH, set tall and wide.
+    const float textX = x + h * 0.9f + dot + h * 0.08f;
+    auto font = juce::Font(juce::FontOptions(h * 1.12f, juce::Font::bold)).withExtraKerningFactor(0.1f);
+    g.setFont(font);
+    juce::ColourGradient tg(juce::Colours::white, 0.0f, y, Colours::white.darker(0.25f), 0.0f, y + h, false);
+    g.setGradientFill(tg);
+    g.drawText("SYNTH", juce::Rectangle<float>(textX, y - h * 0.12f, r.getRight() - textX, h * 1.24f).toNearestInt(),
+               juce::Justification::centredLeft, false);
+
+    // Subtitle with an accent rule.
+    const float subY = y + h + 6.0f;
+    g.setColour(Colours::accent.withAlpha(0.8f));
+    g.fillRect(x, subY + 4.0f, h * 0.82f, 2.0f);
+    g.setColour(Colours::text.withAlpha(0.75f));
+    g.setFont(labelFont(10.5f).withExtraKerningFactor(0.42f));
+    g.drawText("HYBRID SYNTHESIS INSTRUMENT", juce::Rectangle<float>(x + h * 0.9f, subY - 2.0f, r.getWidth() - h, 12.0f).toNearestInt(),
+               juce::Justification::centredLeft, false);
 }
 
 } // namespace zsynth::ui

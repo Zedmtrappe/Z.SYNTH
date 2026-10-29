@@ -49,6 +49,7 @@ private:
                      deleteButton { "Delete" }, initButton { "Init Patch" }, closeButton { "Close" };
     juce::Label status;
     std::vector<int> filtered;
+    std::vector<std::pair<juce::String, juce::String>> folders; // (bank, category) per combo item
 };
 
 /** Modal "Save As" dialog (name + category). */

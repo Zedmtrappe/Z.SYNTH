@@ -40,6 +40,8 @@ public:
     void setHighlighted(bool h) { if (h != highlighted) { highlighted = h; repaint(); } }
     /** Colour used by StepToggle LEDs. */
     void setLedColour(juce::Colour c) { ledColour = c; }
+    /** Section colour used on fader caps (JD-style colour coding). */
+    void setAccent(juce::Colour c) { accent = c; }
 
     juce::String getTooltip() override;
     juce::String getValueText() const { return formatValue(index, value); }
@@ -76,6 +78,7 @@ private:
     void paintSelector(juce::Graphics&);
     void paintSwitch(juce::Graphics&);
     void paintVSlider(juce::Graphics&);
+    void paintFader(juce::Graphics&);
     void paintStepSlider(juce::Graphics&);
     void paintStepToggle(juce::Graphics&);
     void paintHSlider(juce::Graphics&);
@@ -96,6 +99,7 @@ private:
     bool hovered = false, dragging = false, highlighted = false;
     float dragStartNorm = 0.0f, dragNorm = 0.0f;
     juce::Colour ledColour = Colours::accent;
+    juce::Colour accent = Colours::accent;
 };
 
 } // namespace zsynth::ui

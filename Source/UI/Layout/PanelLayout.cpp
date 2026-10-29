@@ -13,8 +13,10 @@ juce::Point<int> controlSize(ControlKind kind)
         case ControlKind::Selector:   return { 90, 40 };
         case ControlKind::Switch:     return { 48, 40 };
         case ControlKind::VSlider:    return { 28, 150 };
-        case ControlKind::StepSlider: return { 30, 84 };
-        case ControlKind::StepToggle: return { 30, 14 };
+        case ControlKind::Fader:      return { 34, 176 };
+        case ControlKind::ShortFader: return { 32, 140 };
+        case ControlKind::StepSlider: return { 44, 160 };
+        case ControlKind::StepToggle: return { 44, 16 };
         case ControlKind::HSlider:    return { 104, 24 };
         case ControlKind::Segmented:  return { 200, 20 };
         default:                      return { 50, 50 };
@@ -43,341 +45,356 @@ juce::Rectangle<int> PanelLayout::utility(const juce::String& id) const
     return {};
 }
 
+juce::Rectangle<int> PanelLayout::pageBounds(const juce::String& page) const
+{
+    if (page == kMainPage)
+        return { 0, 0, kWidth, kHeight };
+    for (const auto& p : pageList)
+        if (p.id == page)
+            return p.boundsOnCanvas.withZeroOrigin();
+    return {};
+}
+
 PanelLayout::PanelLayout()
 {
-    juce::String currentSection;
+    juce::String currentSection, currentPage = kMainPage;
 
+    // Parameter ids built at runtime need stable storage for the const char* in ControlSpec.
+    static juce::StringArray idStore;
+    auto stableId = [](const juce::String& s) -> const char* {
+        const int i = idStore.indexOf(s);
+        if (i >= 0)
+            return idStore[i].toRawUTF8();
+        idStore.add(s);
+        return idStore[idStore.size() - 1].toRawUTF8();
+    };
+
+    auto page = [&](const juce::String& id) { currentPage = id; };
     auto sectionAt = [&](const juce::String& id, const juce::String& title, int x, int y, int w, int h, bool sub = false) {
-        sectionList.push_back({ id, title, { x, y, w, h }, sub });
+        sectionList.push_back({ id, title, { x, y, w, h }, sub, currentPage });
         currentSection = id;
     };
     auto inSection = [&](const juce::String& id) { currentSection = id; };
-    auto add = [&](const char* id, ControlKind kind, int x, int y, const juce::String& label, int w = -1, int h = -1) {
+    auto add = [&](const juce::String& id, ControlKind kind, int x, int y, const juce::String& label, int w = -1, int h = -1) {
         const auto size = controlSize(kind);
-        controlList.push_back({ id, kind, { x, y, w > 0 ? w : size.x, h > 0 ? h : size.y }, label, currentSection });
+        controlList.push_back({ stableId(id), kind, { x, y, w > 0 ? w : size.x, h > 0 ? h : size.y }, label, currentSection, currentPage });
     };
-    auto utilityAt = [&](const juce::String& id, int x, int y, int w, int h) { utilityList.push_back({ id, { x, y, w, h } }); };
-    auto text = [&](const juce::String& t, int x, int y, int w, int h, juce::Justification j = juce::Justification::centred) {
-        labelList.push_back({ t, { x, y, w, h }, j });
+    auto fader = [&](const juce::String& id, int x, int y, const juce::String& label) { add(id, ControlKind::Fader, x, y, label); };
+    auto shortFader = [&](const juce::String& id, int x, int y, const juce::String& label) { add(id, ControlKind::ShortFader, x, y, label); };
+    auto compact = [&](const juce::String& id, int x, int y, const juce::String& label, int w = 38) { add(id, ControlKind::Switch, x, y, label, w, 14); };
+    auto utilityAt = [&](const juce::String& id, int x, int y, int w, int h) { utilityList.push_back({ id, { x, y, w, h }, currentPage }); };
+    auto text = [&](const juce::String& t, int x, int y, int w, int h, juce::Justification j = juce::Justification::centred, bool heading = false) {
+        labelList.push_back({ t, { x, y, w, h }, j, heading, currentPage });
     };
+    auto heading = [&](const juce::String& t, int x, int y, int w) { text(t, x, y, w, 16, juce::Justification::centredLeft, true); };
 
     using K = ControlKind;
 
-    // ================================================================ HEADER
-    sectionAt("header", "", 0, 0, kWidth, 72);
-    utilityAt("logo", 18, 10, 250, 52);
-    utilityAt("presetPrev", 296, 20, 30, 32);
-    utilityAt("presetDisplay", 330, 10, 340, 52);
-    utilityAt("presetNext", 674, 20, 30, 32);
-    utilityAt("presetBrowse", 712, 20, 74, 32);
-    utilityAt("presetSave", 790, 20, 58, 32);
-    utilityAt("presetSaveAs", 852, 20, 74, 32);
-    utilityAt("presetInit", 930, 20, 50, 32);
+    // ======================================================================
+    //                               MAIN PAGE
+    // ======================================================================
 
-    add("master.tune",      K::SmallKnob, 1004, 10, "TUNE");
-    add("master.transpose", K::SmallKnob, 1060, 10, "TRANSP");
-    add("master.octave",    K::SmallKnob, 1116, 10, "OCTAVE");
-    add("master.tempo",     K::SmallKnob, 1172, 10, "TEMPO");
-    for (auto [t, x] : { std::pair<const char*, int> { "TUNE", 1004 }, { "TRANSP", 1060 }, { "OCTAVE", 1116 }, { "TEMPO", 1172 } })
-        text(t, x - 12, 44, 54, 14);
-    add("master.oversampling", K::Selector, 1222, 16, "QUALITY", 92);
-    add("midi.channel",        K::Selector, 1322, 16, "MIDI CH", 70);
-    utilityAt("midiLed", 1402, 16, 56, 40);
-    utilityAt("audioLed", 1460, 16, 56, 40);
-    utilityAt("voiceCount", 1522, 14, 104, 44);
-    add("master.volume", K::Knob, 1640, 4, "MASTER");
-    utilityAt("panic", 1710, 20, 88, 34);
-    utilityAt("version", 1808, 20, 100, 34);
+    // ------------------------------------------------------------- header
+    sectionAt("header", "", 0, 0, kWidth, 96);
+    utilityAt("logo", 18, 8, 372, 80);
+    utilityAt("presetPrev", 404, 30, 30, 36);
+    utilityAt("presetDisplay", 438, 12, 400, 72);
+    utilityAt("presetNext", 842, 30, 30, 36);
+    utilityAt("presetBrowse", 884, 14, 82, 32);
+    utilityAt("presetSave", 972, 14, 72, 32);
+    utilityAt("presetSaveAs", 884, 52, 82, 32);
+    utilityAt("presetInit", 972, 52, 72, 32);
 
-    // =========================================================== OSCILLATORS
-    sectionAt("osc", "OSCILLATORS", 10, 80, 760, 328);
-    add("osc.engine", K::Segmented, 560, 83, "ENGINE", 200, 20);
-    struct OscIds { const char *on, *wave, *oct, *semi, *fine, *pw, *level, *sync, *fm, *ring; };
-    const OscIds oscs[3] = {
-        { "osc1.on", "osc1.wave", "osc1.octave", "osc1.semi", "osc1.fine", "osc1.pw", "osc1.level", nullptr, "osc1.fm", nullptr },
-        { "osc2.on", "osc2.wave", "osc2.octave", "osc2.semi", "osc2.fine", "osc2.pw", "osc2.level", "osc2.sync", "osc2.fm", "osc2.xmod" },
-        { "osc3.on", "osc3.wave", "osc3.octave", "osc3.semi", "osc3.fine", "osc3.pw", "osc3.level", "osc3.sync", "osc3.fm", "osc3.xmod" },
-    };
+    const std::pair<const char*, const char*> globals[] = { { "master.tune", "TUNE" }, { "master.transpose", "TRANSP" },
+                                                            { "master.octave", "OCTAVE" }, { "master.tempo", "TEMPO" } };
+    for (int i = 0; i < 4; ++i)
+    {
+        const int x = 1068 + i * 52;
+        add(globals[i].first, K::SmallKnob, x, 18, globals[i].second);
+        text(globals[i].second, x - 12, 52, 54, 14);
+    }
+    add("master.oversampling", K::Selector, 1280, 26, "QUALITY", 88);
+    add("midi.channel",        K::Selector, 1374, 26, "MIDI CH", 70);
+    utilityAt("midiLed", 1452, 26, 54, 40);
+    utilityAt("audioLed", 1508, 26, 54, 40);
+    utilityAt("voiceCount", 1570, 20, 100, 54);
+    add("master.volume", K::Knob, 1680, 16, "MASTER");
+    utilityAt("panic", 1744, 32, 84, 34);
+    utilityAt("version", 1836, 32, 74, 34);
+
+    // -------------------------------------------------------- oscillators
+    sectionAt("osc", "OSCILLATORS", 10, 104, 980, 320);
+    add("osc.engine", K::Segmented, 770, 107, "ENGINE", 210, 20);
     for (int i = 0; i < 3; ++i)
     {
-        const int y = 112 + i * 74;
-        text("OSC " + juce::String(i + 1), 16, y + 2, 48, 16, juce::Justification::centredLeft);
-        add(oscs[i].on,    K::Switch,   16, y + 20, "ON");
-        add(oscs[i].wave,  K::Selector, 70, y + 16, "WAVE", 100);
-        add(oscs[i].oct,   K::Selector, 176, y + 16, "RANGE", 58);
-        add(oscs[i].semi,  K::Knob,     242, y + 4, "SEMI");
-        add(oscs[i].fine,  K::Knob,     298, y + 4, "FINE");
-        add(oscs[i].pw,    K::Knob,     354, y + 4, "PW");
-        add(oscs[i].level, K::Knob,     410, y + 4, "LEVEL");
-        if (oscs[i].sync != nullptr)
-            add(oscs[i].sync, K::Switch, 468, y + 20, "SYNC");
-        add(oscs[i].fm,    K::Knob,     522, y + 4, i == 0 ? "FM 3>1" : "FM 1>" + juce::String(i + 1));
-        if (oscs[i].ring != nullptr)
-            add(oscs[i].ring, K::Knob,  578, y + 4, "RING");
+        const juce::String n(i + 1);
+        const int x = 20 + i * 232;
+        heading("OSC " + n, x, 134, 60);
+        compact("osc" + n + ".on", x + 184, 135, "ON");
+        if (i > 0)
+            compact("osc" + n + ".sync", x + 140, 135, "SYNC", 40);
+        add("osc" + n + ".wave", K::Selector, x, 154, "WAVE", 104);
+        add("osc" + n + ".octave", K::Selector, x + 110, 154, "RANGE", 62);
+        fader("osc" + n + ".semi",  x,       206, "SEMI");
+        fader("osc" + n + ".fine",  x + 36,  206, "FINE");
+        fader("osc" + n + ".pw",    x + 72,  206, "PW");
+        fader("osc" + n + ".level", x + 108, 206, "LEVEL");
+        fader("osc" + n + ".fm",    x + 144, 206, i == 0 ? "FM 3>1" : "FM 1>" + n);
+        if (i > 0)
+            fader("osc" + n + ".xmod", x + 180, 206, "RING");
     }
-    // Sub / noise / character row
-    add("osc.sub.level",   K::Knob,     24, 338, "SUB");
-    add("osc.sub.wave",    K::Selector, 82, 350, "SUB WAVE", 96);
-    add("osc.noise.level", K::Knob,     196, 338, "NOISE");
-    add("osc.noise.type",  K::Selector, 254, 350, "COLOUR", 76);
-    add("osc.drift",       K::Knob,     350, 338, "DRIFT");
-    add("mix.drive",       K::Knob,     408, 338, "DRIVE");
-    utilityAt("oscDivider", 16, 334, 620, 2);
+    heading("MIXER", 716, 134, 80);
+    add("osc.sub.wave",   K::Selector, 716, 154, "SUB WAVE", 72);
+    add("osc.noise.type", K::Selector, 794, 154, "NOISE", 64);
+    fader("osc.sub.level",   716, 206, "SUB");
+    fader("osc.noise.level", 752, 206, "NOISE");
+    fader("osc.drift",       788, 206, "DRIFT");
+    fader("mix.drive",       824, 206, "DRIVE");
 
-    sectionAt("wt", "WAVETABLE", 640, 112, 124, 290, true);
-    add("wt.table",  K::Selector, 647, 140, "TABLE", 110);
-    utilityAt("wtDisplay", 647, 188, 110, 64);
-    add("wt.pos",    K::Knob,     647, 262, "POSITION");
-    add("wt.spread", K::Knob,     705, 262, "SPREAD");
-    inSection("osc");
+    sectionAt("wt", "WAVETABLE", 870, 132, 114, 286, true);
+    add("wt.table", K::Selector, 876, 152, "TABLE", 102);
+    utilityAt("wtDisplay", 876, 198, 102, 44);
+    shortFader("wt.pos",    884, 250, "POS");
+    shortFader("wt.spread", 932, 250, "SPRD");
 
-    // ================================================================ FILTER
-    sectionAt("filter", "FILTER", 778, 80, 336, 328);
-    add("flt.model",  K::Selector, 788, 112, "MODEL", 96);
-    add("flt.type",   K::Selector, 890, 112, "TYPE", 72);
-    add("flt.slope",  K::Selector, 968, 112, "SLOPE", 76);
-    add("flt.envinv", K::Switch,   1056, 112, "INVERT");
-    add("flt.cutoff", K::LargeKnob, 792, 160, "CUTOFF");
-    add("flt.res",    K::LargeKnob, 880, 160, "RESONANCE");
-    add("flt.env",    K::Knob,      980, 166, "ENV AMT");
-    add("flt.hpf",    K::Knob,      1046, 166, "HPF");
-    add("flt.drive",  K::Knob,      792, 258, "DRIVE");
-    add("flt.key",    K::Knob,      852, 258, "KEY");
-    add("flt.vel",    K::Knob,      912, 258, "VELO");
-    add("flt.lfo",    K::Knob,      972, 258, "LFO 1");
-    utilityAt("filterDisplay", 1034, 258, 72, 62);
-    utilityAt("filterCurve", 792, 330, 314, 70);
+    // ------------------------------------------------------------- filter
+    sectionAt("filter", "FILTER", 998, 104, 332, 320);
+    add("flt.model",  K::Selector, 1006, 134, "MODEL", 92);
+    add("flt.type",   K::Selector, 1102, 134, "TYPE", 66);
+    add("flt.slope",  K::Selector, 1172, 134, "SLOPE", 74);
+    add("flt.envinv", K::Switch,   1252, 134, "INVERT");
+    utilityAt("filterCurve", 1006, 182, 316, 46);
+    const std::pair<const char*, const char*> filterFaders[] = {
+        { "flt.cutoff", "CUT" }, { "flt.res", "RESO" }, { "flt.env", "ENV" }, { "flt.key", "KEY" },
+        { "flt.vel", "VELO" }, { "flt.lfo", "LFO 1" }, { "flt.drive", "DRIVE" }, { "flt.hpf", "HPF" } };
+    for (int k = 0; k < 8; ++k)
+        fader(filterFaders[k].first, 1008 + k * 36, 236, filterFaders[k].second);
 
-    // ============================================================= ENVELOPES
-    sectionAt("env", "ENVELOPES", 1122, 80, 400, 328);
+    // ---------------------------------------------------------- envelopes
+    sectionAt("env", "ENVELOPES", 1338, 104, 572, 320);
     const char* envNames[3] = { "1  AMP", "2  FILTER", "3  MOD" };
-    const char* envIds[3][4] = { { "env1.a", "env1.d", "env1.s", "env1.r" },
-                                 { "env2.a", "env2.d", "env2.s", "env2.r" },
-                                 { "env3.a", "env3.d", "env3.s", "env3.r" } };
     const char* adsr[4] = { "A", "D", "S", "R" };
     for (int e = 0; e < 3; ++e)
     {
-        const int x = 1130 + e * 132;
-        text(envNames[e], x, 110, 124, 14, juce::Justification::centredLeft);
-        utilityAt("env" + juce::String(e + 1) + "Display", x, 126, 124, 50);
+        const juce::String n(e + 1);
+        const int x0 = 1346 + e * 188;
+        heading(envNames[e], x0, 134, 120);
+        utilityAt("env" + n + "Display", x0, 152, e == 2 ? 104 : 176, 48);
+        const char* suffix[4] = { "a", "d", "s", "r" };
         for (int s = 0; s < 4; ++s)
-            add(envIds[e][s], K::VSlider, x + 2 + s * 31, 182, adsr[s]);
+            fader("env" + n + "." + suffix[s], x0 + s * 36, 208, adsr[s]);
+        fader(e == 2 ? "env3.amt" : "env" + n + ".vel", x0 + 144, 208, e == 2 ? "AMT" : "VELO");
     }
-    add("env1.vel",  K::Knob,     1130 + 36, 338, "VELO");
-    add("env2.vel",  K::Knob,     1262 + 36, 338, "VELO");
-    add("env3.amt",  K::Knob,     1394,      338, "AMOUNT");
-    add("env3.dest", K::Selector, 1394 + 56, 350, "DEST", 68);
+    add("env3.dest", K::Selector, 1722 + 108, 152, "DEST", 72);
 
-    // ==================================================================== FM
-    sectionAt("fm", "FM OPERATORS", 1530, 80, 380, 328);
-    add("fm.algo",     K::Selector, 1538, 116, "ALGORITHM", 110);
-    add("fm.depth",    K::Knob,     1658, 108, "DEPTH");
-    add("fm.feedback", K::Knob,     1716, 108, "FDBK");
-    add("fm.level",    K::Knob,     1774, 108, "LEVEL");
-    add("fm.vel",      K::Knob,     1832, 108, "VELO");
-    utilityAt("fmAlgoDisplay", 1538, 178, 96, 222);
-    const char* opCols[7] = { "RATIO", "FINE", "LEVEL", "A", "D", "S", "R" };
-    const char* opSuffix[7] = { "ratio", "fine", "level", "a", "d", "s", "r" };
-    for (int c = 0; c < 7; ++c)
-        text(opCols[c], 1668 + c * 34, 178, 38, 14);
-    static juce::StringArray opIds; // keeps the c_str() pointers alive
-    if (opIds.isEmpty())
-        for (int op = 1; op <= 6; ++op)
-            for (int c = 0; c < 7; ++c)
-                opIds.add("fm.op" + juce::String(op) + "." + opSuffix[c]);
-    for (int op = 0; op < 6; ++op)
-    {
-        const int y = 194 + op * 34;
-        text("OP" + juce::String(op + 1), 1640, y + 8, 30, 14, juce::Justification::centredLeft);
-        for (int c = 0; c < 7; ++c)
-            add(opIds[op * 7 + c].toRawUTF8(), K::SmallKnob, 1672 + c * 34, y, opCols[c]);
-    }
-
-    // ================================================================== LFOs
-    sectionAt("lfo", "LFOs", 10, 416, 440, 290);
+    // --------------------------------------------------------------- LFOs
+    sectionAt("lfo", "LFOs", 10, 432, 510, 320);
+    utilityAt("openMatrix", 384, 435, 128, 20);
     for (int l = 0; l < 2; ++l)
     {
-        const int y = 444 + l * 130;
         const juce::String n(l + 1);
-        sectionAt("lfo" + n, "", 16, y, 428, 124, true);
-        text("LFO " + n, 22, y + 6, 40, 16, juce::Justification::centredLeft);
-        static juce::StringArray lfoIds;
-        if (lfoIds.size() < 20)
-            for (int k = 1; k <= 2; ++k)
-                for (auto s : { "wave", "mode", "dest", "sync", "uni", "rate", "div", "phase", "delay", "amt" })
-                    lfoIds.add("lfo" + juce::String(k) + "." + s);
-        auto id = [&](int k) { return lfoIds[l * 10 + k].toRawUTF8(); };
-        add(id(0), K::Selector, 64, y + 6, "WAVE", 96);
-        add(id(1), K::Selector, 166, y + 6, "TRIGGER", 72);
-        add(id(2), K::Selector, 244, y + 6, "DEST", 88);
-        add(id(3), K::Switch,   338, y + 6, "SYNC");
-        add(id(4), K::Switch,   390, y + 6, "UNIPOLAR");
-        add(id(5), K::Knob,     64,  y + 54, "RATE");
-        add(id(6), K::Knob,     134, y + 54, "DIVISION");
-        add(id(7), K::Knob,     204, y + 54, "PHASE");
-        add(id(8), K::Knob,     274, y + 54, "DELAY");
-        add(id(9), K::Knob,     344, y + 54, "AMOUNT");
-        utilityAt("lfo" + n + "Display", 22, y + 30, 36, 80);
+        const int x = 18 + l * 250;
+        sectionAt("lfo" + n, "", x, 460, 244, 286, true);
+        heading("LFO " + n, x + 6, 464, 50);
+        compact("lfo" + n + ".sync", x + 132, 465, "SYNC", 40);
+        compact("lfo" + n + ".uni", x + 176, 465, "UNIPOLAR", 62);
+        add("lfo" + n + ".wave", K::Selector, x + 6, 486, "WAVE", 90);
+        add("lfo" + n + ".mode", K::Selector, x + 100, 486, "TRIGGER", 66);
+        add("lfo" + n + ".dest", K::Selector, x + 170, 486, "DEST", 70);
+        fader("lfo" + n + ".rate",  x + 6,   540, "RATE");
+        fader("lfo" + n + ".div",   x + 42,  540, "DIV");
+        fader("lfo" + n + ".phase", x + 78,  540, "PHASE");
+        fader("lfo" + n + ".delay", x + 114, 540, "DELAY");
+        fader("lfo" + n + ".amt",   x + 150, 540, "AMT");
+        utilityAt("lfo" + n + "Display", x + 192, 540, 46, 120);
     }
     inSection("lfo");
 
-    // ================================================================= VOICE
-    sectionAt("voice", "VOICE & AMP", 458, 416, 372, 290);
-    add("voice.mode",      K::Selector, 468, 448, "MODE", 80);
-    add("voice.priority",  K::Selector, 554, 448, "PRIORITY", 70);
-    add("voice.alloc",     K::Selector, 630, 448, "ALLOCATE", 80);
-    add("voice.velcurve",  K::Selector, 716, 448, "VEL CURVE", 76);
-    add("voice.poly",      K::Knob,     468, 500, "VOICES");
-    add("voice.glide",     K::Knob,     526, 500, "GLIDE");
-    add("voice.glidemode", K::Selector, 584, 512, "GLIDE MODE", 76);
-    add("voice.bend",      K::Knob,     668, 500, "BEND");
-    add("amp.level",       K::Knob,     726, 500, "AMP");
-    add("voice.unison",    K::Switch,   468, 590, "UNISON");
-    add("voice.univoices", K::Knob,     522, 578, "STACK");
-    add("voice.detune",    K::Knob,     580, 578, "DETUNE");
-    add("voice.spread",    K::Knob,     638, 578, "SPREAD");
-    add("voice.vintage",   K::Knob,     696, 578, "VINTAGE");
-    add("amp.pan",         K::Knob,     754, 578, "PAN");
-    utilityAt("voiceLeds", 468, 652, 352, 46);
+    // -------------------------------------------------------------- voice
+    sectionAt("voice", "VOICE & AMP", 528, 432, 372, 320);
+    add("voice.mode",      K::Selector, 536, 464, "MODE", 80);
+    add("voice.priority",  K::Selector, 620, 464, "PRIORITY", 70);
+    add("voice.alloc",     K::Selector, 694, 464, "ALLOCATE", 82);
+    add("voice.velcurve",  K::Selector, 780, 464, "VEL CURVE", 76);
+    add("voice.glidemode", K::Selector, 536, 512, "GLIDE MODE", 80);
+    add("voice.unison",    K::Switch,   620, 512, "UNISON");
+    utilityAt("voiceLeds", 676, 512, 216, 40);
+    const std::pair<const char*, const char*> voiceFaders[] = {
+        { "voice.poly", "POLY" }, { "voice.glide", "GLIDE" }, { "voice.bend", "BEND" }, { "amp.level", "AMP" },
+        { "amp.pan", "PAN" }, { "voice.univoices", "STACK" }, { "voice.detune", "DTUNE" }, { "voice.spread", "WIDE" },
+        { "voice.vintage", "VINT" } };
+    for (int k = 0; k < 9; ++k)
+        fader(voiceFaders[k].first, 536 + k * 36, 562, voiceFaders[k].second);
 
-    // ============================================================ MOD MATRIX
-    sectionAt("mod", "MODULATION MATRIX", 838, 416, 440, 290);
-    text("SOURCE", 868, 442, 140, 14, juce::Justification::centredLeft);
-    text("DESTINATION", 1014, 442, 150, 14, juce::Justification::centredLeft);
-    text("AMOUNT", 1170, 442, 104, 14);
-    static juce::StringArray modIds;
-    if (modIds.isEmpty())
-        for (int m = 1; m <= 8; ++m)
-            for (auto s : { "src", "dst", "amt" })
-                modIds.add("mod" + juce::String(m) + "." + s);
-    for (int m = 0; m < 8; ++m)
-    {
-        const int y = 460 + m * 30;
-        text(juce::String(m + 1), 846, y + 4, 18, 16);
-        add(modIds[m * 3].toRawUTF8(),     K::Selector, 868, y, "", 140, 24);
-        add(modIds[m * 3 + 1].toRawUTF8(), K::Selector, 1014, y, "", 150, 24);
-        add(modIds[m * 3 + 2].toRawUTF8(), K::HSlider,  1170, y, "");
-    }
+    // ----------------------------------------------------------------- FM
+    sectionAt("fm", "FM ENGINE", 908, 432, 272, 320);
+    utilityAt("openFm", 1060, 435, 116, 20);
+    add("fm.algo", K::Selector, 916, 464, "ALGORITHM", 256);
+    utilityAt("fmAlgoDisplay", 916, 512, 108, 226);
+    fader("fm.depth",    1032, 548, "DEPTH");
+    fader("fm.feedback", 1068, 548, "FDBK");
+    fader("fm.level",    1104, 548, "LEVEL");
+    fader("fm.vel",      1140, 548, "VELO");
 
-    // =========================================================== ARPEGGIATOR
-    sectionAt("arp", "ARPEGGIATOR", 1286, 416, 236, 290);
-    add("arp.on",    K::Switch,   1296, 448, "ARP ON");
-    add("arp.hold",  K::Switch,   1350, 448, "HOLD");
-    add("arp.mode",  K::Selector, 1404, 448, "MODE", 108);
-    add("arp.div",   K::Knob,     1294, 500, "RATE");
-    add("arp.oct",   K::Knob,     1350, 500, "OCTAVES");
-    add("arp.gate",  K::Knob,     1406, 500, "GATE");
-    add("arp.swing", K::Knob,     1462, 500, "SWING");
-    utilityAt("arpDisplay", 1296, 580, 216, 116);
+    // -------------------------------------------------------- performance
+    sectionAt("perf", "ARP & SEQUENCER", 1188, 432, 342, 320);
+    utilityAt("openSeq", 1416, 435, 110, 20);
+    heading("ARPEGGIATOR", 1196, 460, 150);
+    heading("SEQUENCER", 1376, 460, 140);
+    add("arp.on",   K::Switch,   1196, 480, "ARP ON");
+    add("arp.hold", K::Switch,   1248, 480, "HOLD");
+    add("arp.mode", K::Selector, 1196, 524, "MODE", 142);
+    add("seq.mode", K::Selector, 1376, 480, "MODE", 146);
+    fader("arp.div",   1196, 570, "RATE");
+    fader("arp.oct",   1232, 570, "OCT");
+    fader("arp.gate",  1268, 570, "GATE");
+    fader("arp.swing", 1304, 570, "SWING");
+    fader("seq.div",   1376, 570, "RATE");
+    fader("seq.len",   1412, 570, "LEN");
+    fader("seq.gate",  1448, 570, "GATE");
 
-    // ================================================================ OUTPUT
-    sectionAt("output", "OUTPUT", 1530, 416, 380, 290);
-    add("out.macro",   K::LargeKnob, 1544, 448, "MACRO");
-    add("out.limiter", K::Switch,    1556, 556, "LIMITER");
-    utilityAt("outputInfo", 1630, 448, 196, 248);
-    utilityAt("meter", 1836, 448, 64, 248);
+    // ------------------------------------------------------------- output
+    sectionAt("output", "OUTPUT", 1538, 432, 372, 320);
+    add("out.limiter", K::Switch, 1546, 464, "LIMITER");
+    fader("out.macro",     1546, 562, "MACRO");
+    fader("out.width",     1582, 562, "WIDTH");
+    fader("out.character", 1618, 562, "CHAR");
+    utilityAt("outputInfo", 1662, 464, 172, 282);
+    utilityAt("meter", 1842, 464, 60, 282);
 
-    // ============================================================= SEQUENCER
-    sectionAt("seq", "STEP SEQUENCER", 10, 714, 820, 198);
-    add("seq.mode", K::Selector, 18, 746, "MODE", 78);
-    add("seq.div",  K::Knob,     30, 794, "RATE");
-    add("seq.len",  K::Knob,     104, 744, "LENGTH");
-    add("seq.gate", K::Knob,     104, 818, "GATE");
-    text("GATE", 160, 842, 36, 14, juce::Justification::centredLeft);
-    text("ACC", 160, 858, 36, 14, juce::Justification::centredLeft);
-    text("SLIDE", 160, 874, 36, 14, juce::Justification::centredLeft);
-    utilityAt("seqLeds", 196, 740, 624, 12);
-    static juce::StringArray seqIds;
-    if (seqIds.isEmpty())
-        for (int s = 1; s <= 16; ++s)
-            for (auto k : { "val", "gate", "acc", "slide" })
-                seqIds.add("seq.s" + juce::String(s) + "." + k);
-    for (int s = 0; s < 16; ++s)
-    {
-        const int x = 196 + s * 39;
-        add(seqIds[s * 4].toRawUTF8(),     K::StepSlider, x, 754, juce::String(s + 1));
-        add(seqIds[s * 4 + 1].toRawUTF8(), K::StepToggle, x, 842, "");
-        add(seqIds[s * 4 + 2].toRawUTF8(), K::StepToggle, x, 858, "");
-        add(seqIds[s * 4 + 3].toRawUTF8(), K::StepToggle, x, 874, "");
-    }
-
-    // =============================================================== EFFECTS
-    sectionAt("fx", "EFFECTS", 838, 714, 1072, 198);
+    // ------------------------------------------------------------ effects
+    sectionAt("fx", "EFFECTS", 10, 760, 1900, 204);
     struct Module { const char* id; const char* title; };
-    const Module modules[8] = { { "fxDrive", "DRIVE" }, { "fxChorus", "CHORUS" }, { "fxEns", "ENSEMBLE" }, { "fxPhaser", "PHASER" },
-                                { "fxFlanger", "FLANGER" }, { "fxDelay", "DELAY" }, { "fxReverb", "REVERB" }, { "fxStereo", "STEREO" } };
-    juce::Rectangle<int> mod[8];
-    for (int i = 0; i < 8; ++i)
+    const Module modules[7] = { { "fxDrive", "DRIVE" }, { "fxChorus", "CHORUS" }, { "fxEns", "ENSEMBLE" }, { "fxPhaser", "PHASER" },
+                                { "fxFlanger", "FLANGER" }, { "fxDelay", "DELAY" }, { "fxReverb", "REVERB" } };
+    int mx[7];
+    for (int i = 0; i < 7; ++i)
     {
-        mod[i] = { 846 + (i % 4) * 266, 742 + (i / 4) * 84, 264, 80 };
-        sectionAt(modules[i].id, modules[i].title, mod[i].getX(), mod[i].getY(), mod[i].getWidth(), mod[i].getHeight(), true);
+        mx[i] = 18 + i * 270;
+        sectionAt(modules[i].id, modules[i].title, mx[i], 788, 264, 170, true);
     }
-    auto knobAt = [&](int m, int k) { return juce::Point<int>(mod[m].getX() + 4 + k * 52, mod[m].getY() + 16); };
-    auto onAt = [&](int m, int slot) { return juce::Point<int>(mod[m].getRight() - 40 - slot * 44, mod[m].getY() + 1); };
+    auto fxFader = [&](int m, int k, const char* id, const char* label) { shortFader(id, mx[m] + 8 + k * 36, 810, label); };
+    auto fxOn = [&](int m, const char* id) { compact(id, mx[m] + 222, 789, "ON"); };
 
     inSection("fxDrive");
-    add("fx.drive.on",   K::Switch, onAt(0, 0).x, onAt(0, 0).y, "ON", 38, 14);
-    add("fx.drive.type", K::Selector, knobAt(0, 0).x, knobAt(0, 0).y + 12, "TYPE", 98);
-    add("fx.drive.amt",  K::Knob, knobAt(0, 2).x, knobAt(0, 2).y, "DRIVE");
-    add("fx.drive.tone", K::Knob, knobAt(0, 3).x, knobAt(0, 3).y, "TONE");
-    add("fx.drive.mix",  K::Knob, knobAt(0, 4).x, knobAt(0, 4).y, "MIX");
+    fxOn(0, "fx.drive.on");
+    add("fx.drive.type", K::Selector, mx[0] + 8, 812, "TYPE", 100);
+    shortFader("fx.drive.amt",  mx[0] + 120, 810, "DRIVE");
+    shortFader("fx.drive.tone", mx[0] + 156, 810, "TONE");
+    shortFader("fx.drive.mix",  mx[0] + 192, 810, "MIX");
 
     inSection("fxChorus");
-    add("fx.cho.on",    K::Switch, onAt(1, 0).x, onAt(1, 0).y, "ON", 38, 14);
-    add("fx.cho.rate",  K::Knob, knobAt(1, 0).x, knobAt(1, 0).y, "RATE");
-    add("fx.cho.depth", K::Knob, knobAt(1, 1).x, knobAt(1, 1).y, "DEPTH");
-    add("fx.cho.mix",   K::Knob, knobAt(1, 2).x, knobAt(1, 2).y, "MIX");
+    fxOn(1, "fx.cho.on");
+    fxFader(1, 0, "fx.cho.rate", "RATE");
+    fxFader(1, 1, "fx.cho.depth", "DEPTH");
+    fxFader(1, 2, "fx.cho.mix", "MIX");
 
     inSection("fxEns");
-    add("fx.ens.on",    K::Switch, onAt(2, 0).x, onAt(2, 0).y, "ON", 38, 14);
-    add("fx.ens.rate",  K::Knob, knobAt(2, 0).x, knobAt(2, 0).y, "RATE");
-    add("fx.ens.depth", K::Knob, knobAt(2, 1).x, knobAt(2, 1).y, "DEPTH");
-    add("fx.ens.mix",   K::Knob, knobAt(2, 2).x, knobAt(2, 2).y, "MIX");
+    fxOn(2, "fx.ens.on");
+    fxFader(2, 0, "fx.ens.rate", "RATE");
+    fxFader(2, 1, "fx.ens.depth", "DEPTH");
+    fxFader(2, 2, "fx.ens.mix", "MIX");
 
     inSection("fxPhaser");
-    add("fx.pha.on",    K::Switch, onAt(3, 0).x, onAt(3, 0).y, "ON", 38, 14);
-    add("fx.pha.rate",  K::Knob, knobAt(3, 0).x, knobAt(3, 0).y, "RATE");
-    add("fx.pha.depth", K::Knob, knobAt(3, 1).x, knobAt(3, 1).y, "DEPTH");
-    add("fx.pha.fb",    K::Knob, knobAt(3, 2).x, knobAt(3, 2).y, "FDBK");
-    add("fx.pha.mix",   K::Knob, knobAt(3, 3).x, knobAt(3, 3).y, "MIX");
+    fxOn(3, "fx.pha.on");
+    fxFader(3, 0, "fx.pha.rate", "RATE");
+    fxFader(3, 1, "fx.pha.depth", "DEPTH");
+    fxFader(3, 2, "fx.pha.fb", "FDBK");
+    fxFader(3, 3, "fx.pha.mix", "MIX");
 
     inSection("fxFlanger");
-    add("fx.fla.on",    K::Switch, onAt(4, 0).x, onAt(4, 0).y, "ON", 38, 14);
-    add("fx.fla.rate",  K::Knob, knobAt(4, 0).x, knobAt(4, 0).y, "RATE");
-    add("fx.fla.depth", K::Knob, knobAt(4, 1).x, knobAt(4, 1).y, "DEPTH");
-    add("fx.fla.fb",    K::Knob, knobAt(4, 2).x, knobAt(4, 2).y, "FDBK");
-    add("fx.fla.mix",   K::Knob, knobAt(4, 3).x, knobAt(4, 3).y, "MIX");
+    fxOn(4, "fx.fla.on");
+    fxFader(4, 0, "fx.fla.rate", "RATE");
+    fxFader(4, 1, "fx.fla.depth", "DEPTH");
+    fxFader(4, 2, "fx.fla.fb", "FDBK");
+    fxFader(4, 3, "fx.fla.mix", "MIX");
 
     inSection("fxDelay");
-    add("fx.dly.on",   K::Switch, onAt(5, 0).x, onAt(5, 0).y, "ON", 38, 14);
-    add("fx.dly.pp",   K::Switch, onAt(5, 1).x, onAt(5, 1).y, "P.PONG", 42, 14);
-    add("fx.dly.sync", K::Switch, onAt(5, 2).x, onAt(5, 2).y, "SYNC", 38, 14);
-    add("fx.dly.time", K::Knob, knobAt(5, 0).x, knobAt(5, 0).y, "TIME");
-    add("fx.dly.div",  K::Knob, knobAt(5, 1).x, knobAt(5, 1).y, "DIVISION");
-    add("fx.dly.fb",   K::Knob, knobAt(5, 2).x, knobAt(5, 2).y, "FDBK");
-    add("fx.dly.tone", K::Knob, knobAt(5, 3).x, knobAt(5, 3).y, "TONE");
-    add("fx.dly.mix",  K::Knob, knobAt(5, 4).x, knobAt(5, 4).y, "MIX");
+    fxOn(5, "fx.dly.on");
+    compact("fx.dly.pp", mx[5] + 176, 789, "P.PONG", 42);
+    compact("fx.dly.sync", mx[5] + 134, 789, "SYNC", 38);
+    fxFader(5, 0, "fx.dly.time", "TIME");
+    fxFader(5, 1, "fx.dly.div", "DIV");
+    fxFader(5, 2, "fx.dly.fb", "FDBK");
+    fxFader(5, 3, "fx.dly.tone", "TONE");
+    fxFader(5, 4, "fx.dly.mix", "MIX");
 
     inSection("fxReverb");
-    add("fx.rev.on",   K::Switch, onAt(6, 0).x, onAt(6, 0).y, "ON", 38, 14);
-    add("fx.rev.size", K::Knob, knobAt(6, 0).x, knobAt(6, 0).y, "SIZE");
-    add("fx.rev.damp", K::Knob, knobAt(6, 1).x, knobAt(6, 1).y, "DAMP");
-    add("fx.rev.pre",  K::Knob, knobAt(6, 2).x, knobAt(6, 2).y, "PRE-DLY");
-    add("fx.rev.mix",  K::Knob, knobAt(6, 3).x, knobAt(6, 3).y, "MIX");
+    fxOn(6, "fx.rev.on");
+    fxFader(6, 0, "fx.rev.size", "SIZE");
+    fxFader(6, 1, "fx.rev.damp", "DAMP");
+    fxFader(6, 2, "fx.rev.pre", "PRE");
+    fxFader(6, 3, "fx.rev.mix", "MIX");
 
-    inSection("fxStereo");
-    add("out.width",     K::Knob, knobAt(7, 0).x, knobAt(7, 0).y, "WIDTH");
-    add("out.character", K::Knob, knobAt(7, 1).x, knobAt(7, 1).y, "CHAR");
-    utilityAt("stereoScope", knobAt(7, 2).x + 4, mod[7].getY() + 18, 150, 58);
+    // ----------------------------------------------------------- keyboard
+    sectionAt("wheels", "", 10, 972, 150, 218);
+    utilityAt("pitchWheel", 26, 986, 48, 160);
+    utilityAt("modWheel", 88, 986, 48, 160);
+    utilityAt("kbdOctDown", 22, 1154, 56, 28);
+    utilityAt("kbdOctUp", 84, 1154, 56, 28);
+    sectionAt("keys", "", 168, 972, 1742, 218);
+    utilityAt("keyboard", 172, 976, 1734, 210);
 
-    // ============================================================== KEYBOARD
-    sectionAt("wheels", "", 10, 920, 150, 270);
-    utilityAt("pitchWheel", 26, 940, 48, 196);
-    utilityAt("modWheel", 88, 940, 48, 196);
-    utilityAt("kbdOctDown", 22, 1150, 56, 28);
-    utilityAt("kbdOctUp", 84, 1150, 56, 28);
-    sectionAt("keys", "", 168, 920, 1742, 270);
-    utilityAt("keyboard", 172, 924, 1734, 262);
+    // ======================================================================
+    //                              POPUP PAGES
+    // ======================================================================
+
+    // ------------------------------------------------- modulation matrix
+    pageList.push_back({ "matrix", "MODULATION MATRIX", { 420, 180, 1080, 520 } });
+    page("matrix");
+    sectionAt("matrixPage", "MODULATION MATRIX", 0, 0, 1080, 520);
+    utilityAt("matrixClose", 1040, 3, 34, 20);
+    text("SOURCE", 60, 40, 300, 16, juce::Justification::centredLeft, true);
+    text("DESTINATION", 380, 40, 320, 16, juce::Justification::centredLeft, true);
+    text("AMOUNT", 720, 40, 330, 16, juce::Justification::centred, true);
+    for (int m = 0; m < 8; ++m)
+    {
+        const juce::String n(m + 1);
+        const int y = 66 + m * 54;
+        text(n, 16, y + 6, 30, 20, juce::Justification::centred, true);
+        add("mod" + n + ".src", K::Selector, 60, y, "", 300, 32);
+        add("mod" + n + ".dst", K::Selector, 380, y, "", 320, 32);
+        add("mod" + n + ".amt", K::HSlider, 720, y, "", 330, 32);
+    }
+
+    // --------------------------------------------------------- FM operators
+    pageList.push_back({ "fm", "FM OPERATORS", { 60, 250, 1800, 470 } });
+    page("fm");
+    sectionAt("fmPage", "FM OPERATORS", 0, 0, 1800, 470);
+    utilityAt("fmClose", 1760, 3, 34, 20);
+    const char* opCols[7] = { "RATIO", "FINE", "LEVEL", "A", "D", "S", "R" };
+    const char* opSuffix[7] = { "ratio", "fine", "level", "a", "d", "s", "r" };
+    for (int op = 0; op < 6; ++op)
+    {
+        const juce::String n(op + 1);
+        const int bx = 20 + op * 296;
+        sectionAt("op" + n, "OPERATOR " + n, bx, 40, 288, 410, true);
+        for (int c = 0; c < 7; ++c)
+            fader("fm.op" + n + "." + opSuffix[c], bx + 10 + c * 38, 70, opCols[c]);
+        utilityAt("op" + n + "EnvDisplay", bx + 10, 264, 268, 170);
+    }
+
+    // ------------------------------------------------------- sequencer steps
+    pageList.push_back({ "seq", "STEP SEQUENCER", { 400, 300, 1120, 340 } });
+    page("seq");
+    sectionAt("seqPage", "STEP SEQUENCER", 0, 0, 1120, 340);
+    utilityAt("seqClose", 1080, 3, 34, 20);
+    utilityAt("seqLeds", 80, 40, 16 * 62, 12);
+    text("VALUE", 10, 120, 64, 16, juce::Justification::centredLeft, true);
+    text("GATE", 10, 232, 64, 16, juce::Justification::centredLeft, true);
+    text("ACCENT", 10, 254, 64, 16, juce::Justification::centredLeft, true);
+    text("SLIDE", 10, 276, 64, 16, juce::Justification::centredLeft, true);
+    text("Mod mode: step values drive the 'Seq Step' matrix source.  Note mode: hold a key; values transpose +/-12 semitones.",
+         80, 304, 1000, 18, juce::Justification::centredLeft);
+    for (int s = 0; s < 16; ++s)
+    {
+        const juce::String n(s + 1);
+        const int x = 80 + s * 62;
+        add("seq.s" + n + ".val", K::StepSlider, x, 58, n);
+        add("seq.s" + n + ".gate", K::StepToggle, x, 232, "");
+        add("seq.s" + n + ".acc", K::StepToggle, x, 254, "");
+        add("seq.s" + n + ".slide", K::StepToggle, x, 276, "");
+    }
 }
 
 } // namespace zsynth::ui

@@ -49,9 +49,15 @@ Loading a preset sets every parameter **except** the Global group:
 `master.tempo`, `master.oversampling`, `midi.channel`. Those belong to the
 user's setup. (The plug-in's full session state does include them.)
 
-## Factory bank (`Resources/Presets/FactoryBank.zsbank`)
+## Factory banks
 
-A plain-text file embedded into the binary at build time. Each preset starts
+| Bank | File | Folders |
+|---|---|---|
+| Z.SYNTH Originals | `Resources/Presets/FactoryBank.zsbank` | sound categories |
+| Classic Machines | `Resources/Presets/ClassicsBank.zsbank` | one per instrument |
+
+Each bank is a plain-text file embedded into the binary at build time; the
+`category` of a preset is its folder within the bank. Each preset starts
 from the **init patch** (all defaults) and lists only what differs:
 
 ```

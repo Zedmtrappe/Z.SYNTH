@@ -95,7 +95,8 @@ bool ParamControl::isBipolar() const
 bool ParamControl::isDragKind() const
 {
     return kind == ControlKind::Knob || kind == ControlKind::LargeKnob || kind == ControlKind::SmallKnob
-        || kind == ControlKind::VSlider || kind == ControlKind::HSlider;
+        || kind == ControlKind::VSlider || kind == ControlKind::HSlider
+        || kind == ControlKind::Fader || kind == ControlKind::ShortFader;
 }
 
 void ParamControl::setNormalisedAsGesture(float normalised)
@@ -177,7 +178,9 @@ void ParamControl::mouseDrag(const juce::MouseEvent& e)
 
     const float fine = e.mods.isShiftDown() ? 0.1f : 1.0f;
     const float delta = kind == ControlKind::HSlider ? (float) e.getDistanceFromDragStartX() : (float) -e.getDistanceFromDragStartY();
-    const float pixels = kind == ControlKind::VSlider ? 140.0f : kDragPixels;
+    const bool isFader = kind == ControlKind::VSlider || kind == ControlKind::Fader || kind == ControlKind::ShortFader;
+    // Faders track the mouse 1:1 along their slot; knobs use a fixed throw.
+    const float pixels = isFader ? juce::jmax(80.0f, (float) getHeight() - 36.0f) : kDragPixels;
     dragNorm = juce::jlimit(0.0f, 1.0f, dragStartNorm + delta / pixels * fine);
     attachment.setValueAsPartOfGesture(param.convertFrom0to1(dragNorm));
     if (onDragStateChanged)
@@ -306,6 +309,8 @@ void ParamControl::paint(juce::Graphics& g)
         case ControlKind::Selector:   paintSelector(g); break;
         case ControlKind::Switch:     paintSwitch(g); break;
         case ControlKind::VSlider:    paintVSlider(g); break;
+        case ControlKind::Fader:
+        case ControlKind::ShortFader: paintFader(g); break;
         case ControlKind::StepSlider: paintStepSlider(g); break;
         case ControlKind::StepToggle: paintStepToggle(g); break;
         case ControlKind::HSlider:    paintHSlider(g); break;
@@ -511,6 +516,73 @@ void ParamControl::paintVSlider(juce::Graphics& g)
     g.setFont(labelFont(10.0f));
     g.drawText(dragging || hovered ? getValueText() : label,
                juce::Rectangle<float>(-8.0f, bottom + 6.0f, r.getWidth() + 16.0f, 14.0f).toNearestInt(), juce::Justification::centred, false);
+}
+
+void ParamControl::paintFader(juce::Graphics& g)
+{
+    // Hardware-style fader: recessed slot with scale marks, a dark cap with a
+    // coloured stripe (section colour), and the label (or value) below.
+    const auto r = getLocalBounds().toFloat();
+    const float labelH = 16.0f;
+    const float capH = 18.0f;
+    const float top = 4.0f + capH * 0.5f;
+    const float bottom = r.getHeight() - labelH - 4.0f - capH * 0.5f;
+    const float cx = r.getCentreX();
+    const float norm = getNormalised();
+    const float y = bottom - norm * (bottom - top);
+
+    // Scale marks either side of the slot.
+    g.setColour(Colours::textDim.withAlpha(0.45f));
+    for (int i = 0; i <= 10; ++i)
+    {
+        const float ty = bottom - (float) i / 10.0f * (bottom - top);
+        const float len = (i % 5 == 0) ? 5.0f : 3.0f;
+        g.drawHorizontalLine((int) ty, cx - 9.0f - len, cx - 8.0f);
+        g.drawHorizontalLine((int) ty, cx + 8.0f, cx + 9.0f + len);
+    }
+    if (isBipolar())
+    {
+        g.setColour(Colours::text.withAlpha(0.6f));
+        const float mid = (top + bottom) * 0.5f;
+        g.drawHorizontalLine((int) mid, cx - 15.0f, cx + 15.0f);
+    }
+
+    // Slot.
+    const auto slot = juce::Rectangle<float>(cx - 2.5f, top - capH * 0.5f + 2.0f, 5.0f, bottom - top + capH - 4.0f);
+    g.setColour(juce::Colours::black);
+    g.fillRoundedRectangle(slot, 2.5f);
+    g.setColour(juce::Colours::white.withAlpha(0.06f));
+    g.drawVerticalLine((int) slot.getRight(), slot.getY() + 2.0f, slot.getBottom() - 2.0f);
+
+    // Value trail in the slot (from zero, or from centre when bipolar).
+    const float from = isBipolar() ? (top + bottom) * 0.5f : bottom;
+    g.setColour(accent.withAlpha(0.55f));
+    g.fillRect(juce::Rectangle<float>(cx - 1.0f, juce::jmin(from, y), 2.0f, std::abs(from - y)));
+
+    // Cap.
+    const float capW = juce::jmin(r.getWidth() - 4.0f, 28.0f);
+    const auto cap = juce::Rectangle<float>(capW, capH).withCentre({ cx, y });
+    g.setColour(juce::Colours::black.withAlpha(0.6f));
+    g.fillRoundedRectangle(cap.translated(0.0f, 2.5f), 2.5f);
+    juce::ColourGradient body(juce::Colour(0xff4a4d55).brighter(hovered || dragging ? 0.15f : 0.0f), cap.getX(), cap.getY(),
+                              juce::Colour(0xff1c1d21), cap.getX(), cap.getBottom(), false);
+    g.setGradientFill(body);
+    g.fillRoundedRectangle(cap, 2.5f);
+    g.setColour(accent);
+    g.fillRect(cap.getX() + 2.0f, cap.getCentreY() - 1.5f, cap.getWidth() - 4.0f, 3.0f);
+    g.setColour(juce::Colours::white.withAlpha(0.18f));
+    g.drawHorizontalLine((int) cap.getY() + 1, cap.getX() + 2.0f, cap.getRight() - 2.0f);
+    g.setColour(juce::Colours::black);
+    g.drawRoundedRectangle(cap, 2.5f, 1.0f);
+
+    // Label, or the live value while hovering / dragging.
+    // Labels stay inside the fader's own width so neighbours never collide;
+    // the full value is also shown in the floating value bubble while dragging.
+    const auto labelArea = juce::Rectangle<float>(0.0f, r.getHeight() - labelH, r.getWidth(), labelH).toNearestInt();
+    const bool showValue = dragging || hovered;
+    g.setColour(showValue ? Colours::lcdText : Colours::text);
+    g.setFont(labelFont(9.0f));
+    g.drawFittedText(showValue ? getValueText() : label, labelArea, juce::Justification::centred, 1, 0.5f);
 }
 
 void ParamControl::paintStepSlider(juce::Graphics& g)

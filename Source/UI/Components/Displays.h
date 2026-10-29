@@ -48,12 +48,13 @@ private:
 class EnvelopeDisplay : public CachedDisplay
 {
 public:
-    EnvelopeDisplay(ZSynthProcessor& p, int envIndex) : CachedDisplay(p), env(envIndex) {}
+    /** firstParam: the envelope's Attack parameter; D, S, R must follow it. */
+    EnvelopeDisplay(ZSynthProcessor& p, int firstParam) : CachedDisplay(p), base(firstParam) {}
     void paint(juce::Graphics&) override;
 protected:
     uint64_t stateHash() const override;
 private:
-    int env;
+    int base;
 };
 
 class WavetableDisplay : public CachedDisplay
@@ -153,9 +154,12 @@ public:
     void refresh() override;
     void paint(juce::Graphics&) override;
     int getStep() const { return step; }
+    /** Horizontal distance between step LEDs and the width of each LED. */
+    void setGeometry(float pitchPx, float ledWidthPx) { pitch = pitchPx; ledWidth = ledWidthPx; }
 private:
     int step = -1, length = 16;
     bool running = false;
+    float pitch = 39.0f, ledWidth = 22.0f;
 };
 
 class ArpDisplay : public Display

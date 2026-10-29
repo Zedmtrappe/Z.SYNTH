@@ -139,15 +139,18 @@ tolerances" scaled by the VINTAGE control, plus slow per-oscillator drift.
 ## The fixed panel
 
 `UI/Layout/PanelLayout.cpp` is the canonical specification: every section,
-control and utility element has one rectangle on a 1920 x 1200 canvas. The
+control and utility element has one rectangle on a 1920 x 1200 canvas, or on
+one of three fixed-layout popup *pages* (modulation matrix, FM operators,
+sequencer steps) that float over the canvas at fixed positions. The
 `MainPanel` creates every control from that table and never computes
 positions. `ZSynthEditor` applies a single uniform `AffineTransform::scale` to
 the panel and locks the window's aspect ratio (0.5x to 1.5x). Controls that do
 not apply to the current mode are dimmed with an explanatory tooltip by
 `ActivityRules`, never moved or hidden. Tests verify: every parameter appears
-exactly once, controls lie inside their sections and never overlap, and no
-component moves across presets, engine modes, window sizes or when the preset
-browser overlay opens.
+exactly once across the main panel and popups, controls lie inside their
+sections and never overlap on the same page, only the matrix / FM operator /
+sequencer-step parameters live in popups, and no component moves across
+presets, engine modes, window sizes or when the browser or a popup opens.
 
 ## Adding a parameter
 

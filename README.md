@@ -2,8 +2,9 @@
 
 A hybrid virtual synthesiser: three band-limited analogue-style oscillators,
 wavetables, a six-operator FM engine, four distinct filter models, a full
-modulation matrix, arpeggiator, step sequencer and seven effects — all on one
-fixed, hardware-style front panel.
+modulation matrix, arpeggiator, step sequencer and seven effects — on one fixed,
+hardware-style front panel of colour-coded faders, with popup editors for the
+advanced sections.
 
 ![Z.SYNTH front panel](docs/images/zsynth-panel.png)
 
@@ -12,7 +13,7 @@ fixed, hardware-style front panel.
 | Formats | Standalone app, VST3 (AU target configured for macOS, not built here) |
 | Engine | JUCE-free C++17 library, usable without any GUI |
 | Parameters | 294, all host-automatable, one authoritative table |
-| Factory library | 160 original presets in 15 categories, level-matched by measurement |
+| Factory library | 225 presets: *Z.SYNTH Originals* (160, 15 categories) and *Classic Machines* (65 sounds in 20 instrument folders), level-matched by measurement |
 | Tests | 36 DSP tests, 16 state/preset/layout/editor tests, a VST3 host test |
 | Tested on | Ubuntu 24.04, x86-64, GCC 13.3, CMake 3.28, JUCE 8.0.9 |
 
@@ -34,6 +35,9 @@ fixed, hardware-style front panel.
 * **Voices** — up to 32 voices, poly/mono/legato, note priority, three
   allocation modes, click-free voice stealing, unison up to 8, glide,
   vintage per-voice variation, sustain pedal.
+* **Panel** — one fixed layout of JD-style vertical faders with section-coloured
+  caps; the modulation matrix, FM operator detail and sequencer steps open as
+  popup editors. Presets are chosen from a Bank > Folder > Preset menu.
 * **Performance** — arpeggiator (6 modes, host sync, swing, hold), 16-step
   sequencer (modulation or acid-style note mode with accent and slide),
   MIDI learn, on-screen keyboard with pitch and modulation wheels.
@@ -126,7 +130,8 @@ Source/
   UI/           fixed panel: Layout (canonical spec, activity rules),
                 Components (controls, displays, keyboard, browser)
   App/          standalone application
-Resources/Presets/FactoryBank.zsbank   the factory library (plain text)
+Resources/Presets/FactoryBank.zsbank   Z.SYNTH Originals bank (plain text)
+Resources/Presets/ClassicsBank.zsbank  Classic Machines bank (plain text)
 Tests/          test harness, DSP tests, state tests, VST3 host test, benchmark
 docs/           architecture, manual, test plan, preset format
 ```
@@ -153,6 +158,10 @@ These are honest gaps in the current version, not hidden features:
 * No undo, no "preset modified" indicator, no user wavetable import.
 * The arpeggiator and the sequencer's Note mode are mutually exclusive
   (Note mode takes priority).
+* Classic Machines presets are original programming *in the style of* those
+  instruments using Z.SYNTH's engine; they are not emulations of the original
+  circuits or copies of their factory patches. Instrument names are trademarks
+  of their owners, used descriptively; Z.SYNTH is not affiliated with them.
 * The VST3 exposes JUCE's 2048 hidden MIDI-CC proxy parameters in addition to
   the 294 synth parameters (needed for controller input in VST3 hosts).
 

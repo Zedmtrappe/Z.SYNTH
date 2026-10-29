@@ -79,14 +79,32 @@ void PresetBrowser::rebuild()
 {
     auto& pm = processor.getPresets();
 
-    const auto selectedCategory = category.getText();
-    const auto cats = pm.getCategories();
+    // Folder filter: "All", then each bank's folders under a bank heading.
+    const int previousId = category.getSelectedId();
+    const auto previousFolder = previousId > 1 && previousId - 2 < (int) folders.size() ? folders[(size_t) (previousId - 2)]
+                                                                                        : std::pair<juce::String, juce::String> {};
+    folders.clear();
     category.clear(juce::dontSendNotification);
-    category.addItem("All categories", 1);
-    for (int i = 0; i < cats.size(); ++i)
-        category.addItem(cats[i], i + 2);
-    const int catIndex = cats.indexOf(selectedCategory);
-    category.setSelectedId(catIndex >= 0 ? catIndex + 2 : 1, juce::dontSendNotification);
+    category.addItem("All presets", 1);
+    int selectId = 1;
+    for (const auto& bank : pm.getBankNames())
+    {
+        const auto cats = pm.getCategories(bank);
+        if (cats.isEmpty())
+            continue;
+        category.addSectionHeading(bank);
+        for (const auto& c : cats)
+        {
+            folders.push_back({ bank, c });
+            const int id = (int) folders.size() + 1;
+            category.addItem(c, id);
+            if (folders.back() == previousFolder)
+                selectId = id;
+        }
+    }
+    category.setSelectedId(selectId, juce::dontSendNotification);
+    const bool filterFolder = selectId > 1;
+    const auto folder = filterFolder ? folders[(size_t) (selectId - 2)] : std::pair<juce::String, juce::String> {};
 
     const auto query = search.getText().trim().toLowerCase();
     const auto& entries = pm.getEntries();
@@ -94,11 +112,12 @@ void PresetBrowser::rebuild()
     for (int i = 0; i < (int) entries.size(); ++i)
     {
         const auto& e = entries[(size_t) i];
-        if (catIndex >= 0 && e.category != cats[catIndex])
+        if (filterFolder && (e.bank != folder.first || e.category != folder.second))
             continue;
         if (favouritesOnly.getToggleState() && ! e.favourite)
             continue;
-        if (query.isNotEmpty() && ! e.name.toLowerCase().contains(query) && ! e.category.toLowerCase().contains(query))
+        if (query.isNotEmpty() && ! e.name.toLowerCase().contains(query) && ! e.category.toLowerCase().contains(query)
+            && ! e.bank.toLowerCase().contains(query))
             continue;
         filtered.push_back(i);
     }
@@ -165,7 +184,8 @@ void PresetBrowser::paintListBoxItem(int row, juce::Graphics& g, int width, int 
     g.setFont(juce::Font(juce::FontOptions(13.0f)));
     g.drawText(e.category, width - 230, 0, 140, height, juce::Justification::centredLeft, true);
     g.setColour(e.factory ? Colours::textDim : Colours::green);
-    g.drawText(e.factory ? "FACTORY" : "USER", width - 84, 0, 76, height, juce::Justification::centredRight, true);
+    g.drawText(e.factory ? (e.bank == "Classic Machines" ? "CLASSICS" : "ORIGINALS") : "USER", width - 84, 0, 76, height,
+               juce::Justification::centredRight, true);
 }
 
 void PresetBrowser::paint(juce::Graphics& g)
@@ -189,7 +209,7 @@ void PresetBrowser::resized()
     auto top = r.removeFromTop(34);
     search.setBounds(top.removeFromLeft(r.getWidth() / 2));
     top.removeFromLeft(10);
-    category.setBounds(top.removeFromLeft(220));
+    category.setBounds(top.removeFromLeft(260));
     top.removeFromLeft(10);
     favouritesOnly.setBounds(top);
     r.removeFromTop(10);

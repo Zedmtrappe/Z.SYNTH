@@ -8,8 +8,9 @@
 3. Connected MIDI keyboards are opened automatically. You can also play the
    on-screen keyboard with the mouse, or with the computer keyboard after
    clicking on it (A, W, S, E, D... starting from C).
-4. Turn any knob and listen. Hover a control for its name, value and purpose.
-5. Browse sounds with **<** and **>** or **BROWSE**.
+4. Move any fader and listen. Hover a control for its name, value and purpose.
+5. Click the preset display for the **Bank > Folder > Preset** menu, step with
+   **<** and **>**, or use **BROWSE** to search.
 6. Save your own sound with **SAVE AS**. Your sound and settings are also
    restored automatically the next time you start Z.SYNTH.
 
@@ -17,7 +18,7 @@
 
 | Action | Result |
 |---|---|
-| Drag up/down | Change value (hold **Shift** for fine control) |
+| Drag up/down | Change value (faders follow the mouse; hold **Shift** for fine control) |
 | Mouse wheel | Step the value |
 | Double-click | Reset to default |
 | Right-click | MIDI Learn / clear mapping / reset |
@@ -31,11 +32,24 @@ adjusted; its tooltip says why it is inactive. The panel never rearranges.
 The window can be resized; the panel scales uniformly between half and 1.5x
 its 1920 x 1200 design size.
 
+Fader caps are colour-coded by section: blue oscillators, teal wavetable,
+amber filter, red envelopes, violet LFOs and matrix, green FM, yellow
+arpeggiator and sequencer, pink effects, white voice and output.
+
+**Popup editors** keep the panel uncluttered. They float over the panel and
+close with their **x** button or **Esc**:
+
+| Button | Where | Opens |
+|---|---|---|
+| MOD MATRIX | LFOs title bar | the 8-slot modulation matrix |
+| OPERATORS | FM Engine title bar | ratio, fine, level and ADSR of all six operators, with envelope graphs |
+| STEPS | Arp & Sequencer title bar | the 16 step values and their gate / accent / slide |
+
 ## Header
 
 | Control | |
 |---|---|
-| Preset display | Category, number and name. Click to open the browser. |
+| Preset display | Folder, number and name. Click for the Bank > Folder > Preset menu. |
 | < > | Previous / next preset |
 | BROWSE | Floating browser: search, category filter, favourites, rename, delete |
 | SAVE | Overwrite the current user preset (or ask for a name for factory presets) |
@@ -191,6 +205,14 @@ your controller. Right-click again to clear. CC 1, 11, 64 and 120+ are
 reserved. Mappings are saved with the session.
 
 ## Presets
+
+Presets are organised in banks and folders:
+
+* **Z.SYNTH Originals** — the original library, by category (Bass, Lead, Pad...).
+* **Classic Machines** — one folder per famous instrument (Moog Minimoog,
+  Sequential Prophet-5, Yamaha DX7, Roland Juno, TB-303, PPG Wave...), each with
+  signature sounds in its style, e.g. *DX7 - E.Piano*, *Prophet-5 - Sync Lead*.
+* **User** — your own sounds.
 
 Factory presets are read-only; save a copy with SAVE AS. In the browser:
 type to search, filter by category, star favourites, single-click to audition,

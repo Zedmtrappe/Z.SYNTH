@@ -528,11 +528,10 @@ ZS_TEST(layout_every_parameter_exactly_once)
 ZS_TEST(layout_controls_inside_sections_and_not_overlapping)
 {
     const auto& layout = ui::PanelLayout::get();
-    const juce::Rectangle<int> canvas(0, 0, ui::PanelLayout::kWidth, ui::PanelLayout::kHeight);
     const auto& controls = layout.controls();
     for (const auto& c : controls)
     {
-        ZS_CHECK(canvas.contains(c.bounds));
+        ZS_CHECK(layout.pageBounds(c.page).contains(c.bounds));
         const auto section = layout.section(c.section);
         if (! section.contains(c.bounds))
             std::printf("    %s outside section %s\n", c.paramId, c.section.toRawUTF8());
@@ -540,30 +539,49 @@ ZS_TEST(layout_controls_inside_sections_and_not_overlapping)
     }
     for (size_t a = 0; a < controls.size(); ++a)
         for (size_t b = a + 1; b < controls.size(); ++b)
-            if (controls[a].bounds.intersects(controls[b].bounds))
+            if (controls[a].page == controls[b].page && controls[a].bounds.intersects(controls[b].bounds))
             {
                 std::printf("    overlap: %s / %s\n", controls[a].paramId, controls[b].paramId);
                 ZS_CHECK(false);
             }
     for (const auto& u : layout.utilities())
     {
-        ZS_CHECK(canvas.contains(u.bounds));
+        if (! layout.pageBounds(u.page).contains(u.bounds))
+            std::printf("    utility %s outside page %s\n", u.id.toRawUTF8(), u.page.toRawUTF8());
+        ZS_CHECK(layout.pageBounds(u.page).contains(u.bounds));
         for (const auto& c : controls)
-            if (u.bounds.intersects(c.bounds))
+            if (c.page == u.page && u.bounds.intersects(c.bounds))
             {
                 std::printf("    overlap: utility %s / %s\n", u.id.toRawUTF8(), c.paramId);
                 ZS_CHECK(false);
             }
+        for (const auto& v : layout.utilities())
+            if (&v < &u && v.page == u.page && v.bounds.intersects(u.bounds))
+            {
+                std::printf("    overlap: utility %s / %s\n", u.id.toRawUTF8(), v.id.toRawUTF8());
+                ZS_CHECK(false);
+            }
     }
-    // Main sections never overlap each other.
     const auto& sections = layout.sections();
     for (size_t a = 0; a < sections.size(); ++a)
         for (size_t b = a + 1; b < sections.size(); ++b)
-            if (! sections[a].subPanel && ! sections[b].subPanel && sections[a].bounds.intersects(sections[b].bounds))
+            if (sections[a].page == sections[b].page && ! sections[a].subPanel && ! sections[b].subPanel
+                && sections[a].bounds.intersects(sections[b].bounds))
             {
                 std::printf("    section overlap: %s / %s\n", sections[a].id.toRawUTF8(), sections[b].id.toRawUTF8());
                 ZS_CHECK(false);
             }
+    // Popup pages float inside the main canvas.
+    for (const auto& pg : layout.popupPages())
+        ZS_CHECK(layout.pageBounds(ui::kMainPage).contains(pg.boundsOnCanvas));
+    // Most-used controls stay on the main panel: only the matrix, FM operator
+    // detail and sequencer steps live in popups.
+    for (const auto& c : controls)
+    {
+        const juce::String id(c.paramId);
+        const bool advanced = id.startsWith("mod") || id.startsWith("fm.op") || id.startsWith("seq.s");
+        ZS_CHECK(advanced == (c.page != ui::kMainPage));
+    }
 }
 
 ZS_TEST(activity_rules_examples)
@@ -599,12 +617,14 @@ ZS_TEST(editor_layout_is_fixed_across_presets_and_modes)
     auto& panel = zeditor->getPanel();
     ZS_CHECK((int) panel.getControls().size() == (int) ui::PanelLayout::get().controls().size());
 
+    // Bounds of every control and panel child, keyed by component identity
+    // (z-order changes when popups come to the front; positions must not).
     auto snapshot = [&] {
-        std::vector<juce::Rectangle<int>> b;
+        std::map<const juce::Component*, juce::Rectangle<int>> b;
         for (auto& c : panel.getControls())
-            b.push_back(c->getBounds());
+            b[c.get()] = c->getBounds();
         for (int i = 0; i < panel.getNumChildComponents(); ++i)
-            b.push_back(panel.getChildComponent(i)->getBounds());
+            b[panel.getChildComponent(i)] = panel.getChildComponent(i)->getBounds();
         return b;
     };
     const auto reference = snapshot();
@@ -630,11 +650,19 @@ ZS_TEST(editor_layout_is_fixed_across_presets_and_modes)
     ZS_CHECK_NEAR(panel.getTransform().mat00, 1.0, 1.0e-4);
     ZS_CHECK(snapshot() == reference);
 
-    // Opening the browser overlays the panel without moving anything.
+    // Opening the browser or a popup editor overlays the panel without moving anything.
     panel.showPresetBrowser(true);
     ZS_CHECK(panel.isPresetBrowserVisible());
     panel.showPresetBrowser(false);
     ZS_CHECK(snapshot() == reference);
+    for (const auto& pg : ui::PanelLayout::get().popupPages())
+    {
+        panel.showPage(pg.id);
+        ZS_CHECK(panel.getVisiblePage() == pg.id);
+        ZS_CHECK(snapshot() == reference);
+    }
+    panel.showPage({});
+    ZS_CHECK(panel.getVisiblePage().isEmpty());
 }
 
 // ============================================================== processor ====
