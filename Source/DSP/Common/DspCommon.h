@@ -95,16 +95,24 @@ public:
 #if ZS_HAS_SSE
         saved = _mm_getcsr();
         _mm_setcsr(saved | 0x8040); // FTZ | DAZ
+#elif defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
+        uint64_t fpcr;
+        asm volatile("mrs %0, fpcr" : "=r"(fpcr));
+        savedFpcr = fpcr;
+        asm volatile("msr fpcr, %0" : : "r"(fpcr | (1ull << 24))); // FZ: flush denormals to zero
 #endif
     }
     ~ScopedNoDenormals()
     {
 #if ZS_HAS_SSE
         _mm_setcsr(saved);
+#elif defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
+        asm volatile("msr fpcr, %0" : : "r"(savedFpcr));
 #endif
     }
 private:
-    unsigned int saved = 0;
+    [[maybe_unused]] unsigned int saved = 0;
+    [[maybe_unused]] uint64_t savedFpcr = 0;
 };
 
 // -----------------------------------------------------------------------------

@@ -1,0 +1,65 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  macos:
+    name: macOS (universal)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: brew install ninja || true
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Package
+        run: |
+          mkdir -p dist/Z.SYNTH-macOS
+          A=build/ZSynth_artefacts/Release
+          cp -R "$A/Standalone/Z.SYNTH.app" dist/Z.SYNTH-macOS/
+          cp packaging/macos/INSTALL.txt dist/Z.SYNTH-macOS/
+          # Ad-hoc signature (not notarised): required for Apple Silicon to run the app.
+          codesign --force --deep --sign - dist/Z.SYNTH-macOS/Z.SYNTH.app
+          (cd dist && ditto -c -k --keepParent Z.SYNTH-macOS Z.SYNTH-macOS.zip)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Z.SYNTH-macOS
+          path: dist/Z.SYNTH-macOS.zip
+
+  linux:
+    name: Linux
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libasound2-dev libjack-jackd2-dev libfreetype-dev \
+            libfontconfig1-dev libx11-dev libxext-dev libxinerama-dev libxrandr-dev \
+            libxcursor-dev libxcomposite-dev libgl1-mesa-dev xvfb
+
+      - name: Configure and build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+
+      - name: Test
+        run: xvfb-run -a ctest --test-dir build --output-on-failure

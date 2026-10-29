@@ -1,0 +1,18 @@
+Z.SYNTH for macOS - standalone app (Apple Silicon and Intel, macOS 11 or later)
+================================================================================
+
+This is a test build. It is not signed with an Apple Developer ID or
+notarised, so macOS blocks it until you allow it once.
+
+1. Unzip, then drag Z.SYNTH.app into Applications (optional).
+
+2. Allow it (once). EITHER right-click Z.SYNTH.app > Open > Open,
+   OR in Terminal run:
+       xattr -dr com.apple.quarantine /Applications/Z.SYNTH.app
+   (use the folder where you put the app)
+
+3. Open Z.SYNTH. Options (top-left) > Audio/MIDI Settings: choose your
+   output. Play the on-screen keyboard or a connected MIDI keyboard.
+
+Your own presets are stored in:
+    ~/Library/Application Support/Z.SYNTH/Presets
