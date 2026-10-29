@@ -8,7 +8,9 @@ on:
 jobs:
   macos:
     name: macOS (universal)
-    runs-on: macos-14
+    # Universal (arm64 + x86_64) build: the runner architecture does not matter.
+    # The Intel image avoids the long arm64 runner queues.
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
 
