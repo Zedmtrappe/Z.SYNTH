@@ -213,7 +213,7 @@ void ZSynthProcessor::setStateInformation(const void* data, int sizeInBytes)
         const auto result = presetFromXml(*presetXml, p);
         if (result.ok)
         {
-            applyPreset(p, apvts);
+            applyPreset(p, apvts, ApplyScope::Everything);
             presets->setCurrentNameFromState(p.name, p.category);
         }
     }

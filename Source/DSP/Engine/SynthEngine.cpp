@@ -180,18 +180,24 @@ void SynthEngine::processChunk(float* left, float* right, int n, const MidiEvent
     while (ev < numEvents)
         handleMidi(events[ev++]);
 
+    // Voice-bus gain: places a single full-level voice around -12 dBFS before
+    // the master stage, leaving headroom for chords and unison stacks.
+    constexpr float kVoiceBusGain = 2.0f;
     if (os == 2)
     {
         for (int i = 0; i < n; ++i)
         {
-            left[i] = decimL.process(busL[(size_t) (2 * i)], busL[(size_t) (2 * i + 1)]);
-            right[i] = decimR.process(busR[(size_t) (2 * i)], busR[(size_t) (2 * i + 1)]);
+            left[i] = kVoiceBusGain * decimL.process(busL[(size_t) (2 * i)], busL[(size_t) (2 * i + 1)]);
+            right[i] = kVoiceBusGain * decimR.process(busR[(size_t) (2 * i)], busR[(size_t) (2 * i + 1)]);
         }
     }
     else
     {
-        std::copy(busL.begin(), busL.begin() + n, left);
-        std::copy(busR.begin(), busR.begin() + n, right);
+        for (int i = 0; i < n; ++i)
+        {
+            left[i] = kVoiceBusGain * busL[(size_t) i];
+            right[i] = kVoiceBusGain * busR[(size_t) i];
+        }
     }
 
     runEffects(left, right, n);

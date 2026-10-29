@@ -124,6 +124,8 @@ float parseValue(int index, const juce::String& text)
 
     if (index == P::MidiChannel && t.equalsIgnoreCase("omni"))
         return 0.0f;
+    if (t.containsIgnoreCase("inf"))
+        return t.startsWithChar('-') ? d.min : d.max;
 
     float v = t.retainCharacters("0123456789.-+").getFloatValue();
     const auto lower = t.toLowerCase();

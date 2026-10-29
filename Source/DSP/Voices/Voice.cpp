@@ -371,8 +371,11 @@ void Voice::render(float* left, float* right, int n, const VoiceShared& s)
     const bool wt[3] = { s.osc[0].wave == OscWave::Wavetable, s.osc[1].wave == OscWave::Wavetable, s.osc[2].wave == OscWave::Wavetable };
     const FilterType type = s.filterType;
     const FilterSlope slope = s.filterSlope;
+    // Mixer overdrive. The makeup is chosen so a typical full-level mix (0.5
+    // after the mixer scaling) leaves the stage at the same level at any drive:
+    // drive adds density and harmonics, not loudness.
     const float driveGain = 1.0f + s.mixDrive * s.mixDrive * 9.0f;
-    const float driveMakeup = (1.0f + s.mixDrive) / driveGain;
+    const float driveMakeup = fastTanh(0.5f) / fastTanh(0.5f * driveGain);
 
     for (int i = 0; i < n; ++i)
     {

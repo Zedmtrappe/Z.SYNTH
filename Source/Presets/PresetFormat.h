@@ -41,8 +41,17 @@ juce::Result savePresetFile(const juce::File& file, const PresetData& preset);
 
 /** Reads the current parameter values (real units) out of the APVTS. */
 PresetData capturePreset(juce::AudioProcessorValueTreeState& state);
-/** Sets every parameter (notifying the host). Call on the message thread. */
-void applyPreset(const PresetData& preset, juce::AudioProcessorValueTreeState& state);
+/** What a preset recall touches. Presets recall the *sound*; the "Global"
+    group (master volume/tune, transpose, octave, tempo, quality, MIDI channel)
+    belongs to the user's setup and is only restored with the full plug-in
+    state (host session / standalone restart). */
+enum class ApplyScope { SoundOnly, Everything };
+
+/** Sets parameters (notifying the host). Call on the message thread. */
+void applyPreset(const PresetData& preset, juce::AudioProcessorValueTreeState& state, ApplyScope scope = ApplyScope::SoundOnly);
+
+/** True for parameters that presets do not recall (see ApplyScope). */
+bool isGlobalSetupParam(int index);
 
 /** Parses the human-editable factory bank text (see docs/PRESET_FORMAT.md). */
 std::vector<PresetData> parsePresetBank(const juce::String& text, juce::StringArray& errors);

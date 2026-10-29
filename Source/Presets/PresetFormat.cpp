@@ -122,10 +122,17 @@ PresetData capturePreset(juce::AudioProcessorValueTreeState& state)
     return p;
 }
 
-void applyPreset(const PresetData& preset, juce::AudioProcessorValueTreeState& state)
+bool isGlobalSetupParam(int index)
+{
+    return juce::String(paramDef(index).group) == "Global";
+}
+
+void applyPreset(const PresetData& preset, juce::AudioProcessorValueTreeState& state, ApplyScope scope)
 {
     for (int i = 0; i < kNumParams; ++i)
     {
+        if (scope == ApplyScope::SoundOnly && isGlobalSetupParam(i))
+            continue;
         if (auto* param = state.getParameter(paramDef(i).id))
         {
             const float normalised = param->convertTo0to1(preset.values[(size_t) i]);
