@@ -1,0 +1,12 @@
+# Z.SYNTH factory bank (temporary bootstrap; replaced by the full library)
+[Classic Saw Bass]
+category = Bass
+osc1.wave = Saw
+osc2.on = on
+osc2.fine = 6
+osc2.octave = 16'
+flt.cutoff = 600
+flt.res = 0.35
+flt.env = 0.45
+env2.d = 0.35
+env2.s = 0.1

@@ -64,6 +64,15 @@ public:
     uint32_t getBadSampleEvents() const { return badBlocks.load(std::memory_order_relaxed); }
 
     double getSampleRate() const { return baseRate; }
+    /** Bit i set while voice i is sounding. */
+    uint32_t getVoiceMask() const    { return voiceMask.load(std::memory_order_relaxed); }
+    float getModWheel() const        { return modWheelOut.load(std::memory_order_relaxed); }
+    float getPitchBend() const       { return pitchBendOut.load(std::memory_order_relaxed); }
+    double getTempo() const          { return tempoOut.load(std::memory_order_relaxed); }
+    bool isHostTempo() const         { return hostTempoOut.load(std::memory_order_relaxed); }
+    /** 0 = notes go straight to the voices, 1 = arpeggiator, 2 = sequencer. */
+    int getNoteRoute() const         { return routeOut.load(std::memory_order_relaxed); }
+    float getLimiterGain() const     { return limiterGainOut.load(std::memory_order_relaxed); }
 
 private:
     void configureOversampling(int factor);
@@ -135,6 +144,11 @@ private:
     std::atomic<int> seqStepAtomic { 0 };
     std::atomic<uint32_t> midiCounter { 0 };
     std::atomic<uint32_t> badBlocks { 0 };
+    std::atomic<uint32_t> voiceMask { 0 };
+    std::atomic<float> modWheelOut { 0.0f }, pitchBendOut { 0.0f }, limiterGainOut { 1.0f };
+    std::atomic<double> tempoOut { 120.0 };
+    std::atomic<bool> hostTempoOut { false };
+    std::atomic<int> routeOut { 0 };
 };
 
 } // namespace zsynth::dsp
