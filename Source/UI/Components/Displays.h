@@ -125,6 +125,17 @@ private:
     int holdTimer[2] {};
 };
 
+/** The valve stage: glowing valve(s) whose heaters follow drive and signal,
+    with the valve type and operating point. */
+class ValveDisplay : public CachedDisplay
+{
+public:
+    using CachedDisplay::CachedDisplay;
+    void paint(juce::Graphics&) override;
+protected:
+    uint64_t stateHash() const override;
+};
+
 class OutputInfo : public Display
 {
 public:
@@ -132,7 +143,8 @@ public:
     void refresh() override;
     void paint(juce::Graphics&) override;
 private:
-    juce::String lines[7];
+    juce::String lines[4];
+    bool warn[4] {};
     float cpu = 0.0f;
 };
 

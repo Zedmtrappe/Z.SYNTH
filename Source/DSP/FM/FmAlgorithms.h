@@ -53,11 +53,19 @@ inline const FmAlgorithm& fmAlgorithm(int index)
         { { 0, 0, 0, 0, 0, 0 }, 0x3F },
         // 12 Cascade Fan: 6>5>4, 4>(1,2,3)
         { { opBit(4), opBit(4), opBit(4), opBit(5), opBit(6), 0 }, (uint8_t) (opBit(1) | opBit(2) | opBit(3)) },
+        // 13 Pair+Triple: 2>1, 6>(3,4,5)  (DX7 algorithm 22: brass, strings)
+        { { opBit(2), 0, opBit(6), opBit(6), opBit(6), 0 }, (uint8_t) (opBit(1) | opBit(3) | opBit(4) | opBit(5)) },
+        // 14 Tree: (2,3,5)>1, 4>3, 6>5  (DX7 algorithm 16: basses, plucks)
+        { { (uint8_t) (opBit(2) | opBit(3) | opBit(5)), 0, opBit(4), 0, opBit(6), 0 }, opBit(1) },
+        // 15 Pair+Branch: 2>1, (4,5)>3, 6>5  (DX7 algorithm 7)
+        { { opBit(2), 0, (uint8_t) (opBit(4) | opBit(5)), 0, opBit(6), 0 }, (uint8_t) (opBit(1) | opBit(3)) },
+        // 16 Stack+Fan: 3>2>1, 6>(4,5)  (DX7 algorithm 19: organs, bass)
+        { { opBit(2), opBit(3), 0, opBit(6), opBit(6), 0 }, (uint8_t) (opBit(1) | opBit(4) | opBit(5)) },
     };
     constexpr int count = (int) (sizeof(algorithms) / sizeof(algorithms[0]));
     return algorithms[index < 0 ? 0 : (index >= count ? count - 1 : index)];
 }
 
-constexpr int kFmAlgorithmCount = 12;
+constexpr int kFmAlgorithmCount = 16;
 
 } // namespace zsynth::dsp

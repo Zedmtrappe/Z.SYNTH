@@ -1,4 +1,4 @@
-# Z.SYNTH architecture
+# ZYNTH architecture
 
 ## Layers
 

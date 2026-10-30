@@ -231,6 +231,7 @@ PanelLayout::PanelLayout()
     utilityAt("openFm", 1060, 435, 116, 20);
     add("fm.algo", K::Selector, 916, 464, "ALGORITHM", 256);
     utilityAt("fmAlgoDisplay", 916, 512, 108, 226);
+    add("fm.dx", K::Switch, 1032, 506, "DX MODE", 136, 38);
     fader("fm.depth",    1032, 548, "DEPTH");
     fader("fm.feedback", 1068, 548, "FDBK");
     fader("fm.level",    1104, 548, "LEVEL");
@@ -255,12 +256,19 @@ PanelLayout::PanelLayout()
 
     // ------------------------------------------------------------- output
     sectionAt("output", "OUTPUT", 1538, 432, 372, 320);
-    add("out.limiter", K::Switch, 1546, 464, "LIMITER");
+    compact("out.limiter", 1546, 462, "LIMITER", 106);
+    utilityAt("outputInfo", 1546, 482, 106, 74);
     fader("out.macro",     1546, 562, "MACRO");
     fader("out.width",     1582, 562, "WIDTH");
     fader("out.character", 1618, 562, "CHAR");
-    utilityAt("outputInfo", 1662, 464, 172, 282);
     utilityAt("meter", 1842, 464, 60, 282);
+
+    // The valve stage: a window onto the valve plus DRIVE; the rest is on the "valve" page.
+    sectionAt("valve", "VALVE", 1658, 456, 178, 290, true);
+    compact("out.valve.on", 1792, 457, "ON");
+    utilityAt("valveDisplay", 1664, 480, 166, 168);
+    add("out.valve.drive", K::LargeKnob, 1666, 652, "DRIVE");
+    utilityAt("openValve", 1746, 684, 80, 26);
 
     // ------------------------------------------------------------ effects
     sectionAt("fx", "EFFECTS", 10, 760, 1900, 204);
@@ -364,6 +372,8 @@ PanelLayout::PanelLayout()
     utilityAt("fmClose", 1760, 3, 34, 20);
     const char* opCols[7] = { "RATIO", "FINE", "LEVEL", "A", "D", "S", "R" };
     const char* opSuffix[7] = { "ratio", "fine", "level", "a", "d", "s", "r" };
+    const char* scaleCols[3] = { "VEL", "K.RATE", "K.LVL" };
+    const char* scaleSuffix[3] = { "vel", "krs", "kls" };
     for (int op = 0; op < 6; ++op)
     {
         const juce::String n(op + 1);
@@ -371,8 +381,29 @@ PanelLayout::PanelLayout()
         sectionAt("op" + n, "OPERATOR " + n, bx, 40, 288, 410, true);
         for (int c = 0; c < 7; ++c)
             fader("fm.op" + n + "." + opSuffix[c], bx + 10 + c * 38, 70, opCols[c]);
-        utilityAt("op" + n + "EnvDisplay", bx + 10, 264, 268, 170);
+        utilityAt("op" + n + "EnvDisplay", bx + 10, 264, 160, 170);
+        for (int c = 0; c < 3; ++c)
+            shortFader("fm.op" + n + "." + scaleSuffix[c], bx + 178 + c * 36, 280, scaleCols[c]);
     }
+
+    // ------------------------------------------------------- valve advanced
+    pageList.push_back({ "valve", "VALVE STAGE", { 1080, 300, 560, 330 } });
+    page("valve");
+    sectionAt("valvePage", "VALVE STAGE  -  ADVANCED", 0, 0, 560, 330);
+    utilityAt("valveClose", 520, 3, 34, 20);
+    add("out.valve.type", K::Selector, 20, 48, "VALVE TYPE", 220);
+    const std::pair<const char*, const char*> valveFaders[4] = { { "out.valve.bias", "BIAS" }, { "out.valve.sag", "SAG" },
+        { "out.valve.warmth", "WARMTH" }, { "out.valve.mix", "MIX" } };
+    for (int k = 0; k < 4; ++k)
+        fader(valveFaders[k].first, 24 + k * 54, 122, valveFaders[k].second);
+    heading("VALVE TYPES", 270, 48, 270);
+    text("12AX7  High-gain preamp triode: even harmonics, sings when pushed.", 270, 70, 276, 34, juce::Justification::topLeft);
+    text("12AU7  Low-gain triode: gentle, clean warmth with lots of headroom.", 270, 108, 276, 34, juce::Justification::topLeft);
+    text("EL84   Push-pull pair: odd harmonics, compresses and breaks up early.", 270, 146, 276, 34, juce::Justification::topLeft);
+    text("6L6    Big power pair: smooth, solid low end, the most headroom.", 270, 184, 276, 34, juce::Justification::topLeft);
+    heading("CONTROLS", 270, 226, 270);
+    text("BIAS cold = cleaner/symmetric, hot = richer/grittier.  SAG = supply droop that blooms on loud notes.  WARMTH = output transformer (softer top, fuller bass).",
+         270, 246, 276, 70, juce::Justification::topLeft);
 
     // ------------------------------------------------------- sequencer steps
     pageList.push_back({ "seq", "STEP SEQUENCER", { 400, 300, 1120, 340 } });

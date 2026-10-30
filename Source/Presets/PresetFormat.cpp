@@ -37,7 +37,7 @@ PresetLoadResult presetFromXml(const juce::XmlElement& xml, PresetData& out)
     PresetLoadResult result;
     if (! xml.hasTagName("ZSynthPreset"))
     {
-        result.error = "Not a Z.SYNTH preset (root element is <" + xml.getTagName() + ">)";
+        result.error = "Not a ZYNTH preset (root element is <" + xml.getTagName() + ">)";
         return result;
     }
 
@@ -48,7 +48,7 @@ PresetLoadResult presetFromXml(const juce::XmlElement& xml, PresetData& out)
         return result;
     }
     if (version > kPresetFormatVersion)
-        result.warnings.add("Preset was saved by a newer Z.SYNTH (format " + juce::String(version) + "); unknown settings were ignored");
+        result.warnings.add("Preset was saved by a newer ZYNTH (format " + juce::String(version) + "); unknown settings were ignored");
 
     PresetData p;
     p.name = xml.getStringAttribute("name", "Untitled").substring(0, 64);
@@ -162,7 +162,7 @@ std::vector<PresetData> parsePresetBank(const juce::String& text, juce::StringAr
             current = &bank.back();
             current->name = line.substring(1, line.length() - 1).trim();
             current->category = "Uncategorised";
-            current->author = "Z.SYNTH Factory";
+            current->author = "ZYNTH Factory";
             continue;
         }
 

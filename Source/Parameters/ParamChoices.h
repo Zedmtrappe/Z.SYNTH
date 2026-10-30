@@ -68,8 +68,8 @@ enum class GlideMode : int { Always, LegatoOnly, Count };
 #define ZS_CH_VEL_CURVE "Soft|Linear|Hard|Fixed"
 enum class VelocityCurve : int { Soft, Linear, Hard, Fixed, Count };
 
-#define ZS_CH_FM_ALGO "1 Stack|2 Twin Stacks|3 Three Pairs|4 Pair+Stack|5 Y Branch|6 Fan Out|7 Triple Mod|8 Deep+Pair|9 Stack+Carriers|10 Dual Mod|11 Organ|12 Cascade Fan"
-constexpr int kNumFmAlgorithms = 12;
+#define ZS_CH_FM_ALGO "1 Stack|2 Twin Stacks|3 Three Pairs|4 Pair+Stack|5 Y Branch|6 Fan Out|7 Triple Mod|8 Deep+Pair|9 Stack+Carriers|10 Dual Mod|11 Organ|12 Cascade Fan|13 Pair+Triple|14 Tree|15 Pair+Branch|16 Stack+Fan"
+constexpr int kNumFmAlgorithms = 16;
 
 #define ZS_CH_MOD_SRC "Off|LFO 1|LFO 2|Env 1|Env 2|Env 3|Velocity|Key|Mod Wheel|Pitch Bend|Aftertouch|Poly AT|Expression|Random|S&H|Seq Step|Macro"
 enum class ModSource : int
@@ -92,6 +92,9 @@ enum class ArpMode : int { Up, Down, UpDown, Random, AsPlayed, Chord, Count };
 
 #define ZS_CH_SEQ_MODE "Off|Mod|Note"
 enum class SeqMode : int { Off, Mod, Note, Count };
+
+#define ZS_CH_VALVE_TYPE "12AX7 Preamp|12AU7 Clean|EL84 Push-Pull|6L6 Power"
+enum class ValveType : int { Preamp12AX7, Clean12AU7, PushPullEL84, Power6L6, Count };
 
 #define ZS_CH_DRIVE_TYPE "Overdrive|Distortion|Fold"
 enum class DriveType : int { Overdrive, Distortion, Fold, Count };

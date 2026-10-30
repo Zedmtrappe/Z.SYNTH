@@ -1,6 +1,6 @@
 #pragma once
 
-// The fixed Z.SYNTH front panel (1920 x 1200 logical canvas) and its popup
+// The fixed ZYNTH front panel (1920 x 1200 logical canvas) and its popup
 // editor pages. Every child is positioned from PanelLayout; nothing here
 // computes positions of its own.
 

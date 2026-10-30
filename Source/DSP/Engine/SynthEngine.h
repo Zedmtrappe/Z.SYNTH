@@ -1,7 +1,7 @@
 #pragma once
 
 // =============================================================================
-//  SynthEngine — the complete Z.SYNTH sound engine, independent of JUCE, the
+//  SynthEngine — the complete ZYNTH sound engine, independent of JUCE, the
 //  GUI and any plug-in format.
 //
 //  The host layer calls process() with a snapshot of parameter values (real
@@ -133,9 +133,10 @@ private:
     Ensemble ensemble;
     StereoDelay delay;
     Reverb reverb;
+    ValveStage valve;
     OutputStage output;
     // Each effect fades in/out over 20 ms when switched, so toggling never clicks.
-    float fades[7] {};
+    float fades[8] {};
     std::vector<float> fxTempL, fxTempR;
 
     std::atomic<bool> panicRequested { false };

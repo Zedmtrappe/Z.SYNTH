@@ -19,6 +19,7 @@ namespace
         if (section.startsWith("fm") || section.startsWith("op"))   return juce::Colour(0xff7fd36b); // green
         if (section == "perf" || section.startsWith("seq"))         return juce::Colour(0xffe9d35a); // yellow
         if (section.startsWith("fx"))                               return juce::Colour(0xfff08fb0); // pink
+        if (section == "valve")                                     return juce::Colour(0xffff8c3a); // valve orange
         if (section == "output")                                    return juce::Colour(0xffffffff);
         return Colours::accent;
     }
@@ -247,6 +248,8 @@ void MainPanel::buildUtilities()
         showPage(getVisiblePage() == "fm" ? juce::String() : juce::String("fm")); });
     button("openSeq", juce::String::fromUTF8("STEPS \xe2\x96\xb8"), "Edit the 16 sequencer steps", [this] {
         showPage(getVisiblePage() == "seq" ? juce::String() : juce::String("seq")); });
+    button("openValve", juce::String::fromUTF8("ADVANCED â¸"), "Valve type, bias, sag, warmth and mix", [this] {
+        showPage(getVisiblePage() == "valve" ? juce::String() : juce::String("valve")); });
 
     auto& version = addUtility<juce::Label>("version", "version", "v" + juce::String(JucePlugin_VersionString));
     version.setColour(juce::Label::textColourId, Colours::textDim);
@@ -266,6 +269,7 @@ void MainPanel::buildUtilities()
     displays.push_back(&addUtility<LfoShapeDisplay>("lfo2Display", processor, 1));
     displays.push_back(&addUtility<VoiceLeds>("voiceLeds", processor));
     displays.push_back(&addUtility<OutputInfo>("outputInfo", processor));
+    displays.push_back(&addUtility<ValveDisplay>("valveDisplay", processor));
     displays.push_back(&addUtility<OutputMeter>("meter", processor));
     for (int op = 0; op < kNumOperators; ++op)
         displays.push_back(&addUtility<EnvelopeDisplay>("op" + juce::String(op + 1) + "EnvDisplay", processor,

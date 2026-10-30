@@ -1,4 +1,4 @@
-# Z.SYNTH test plan
+# ZYNTH test plan
 
 All automated tests are deterministic (fixed seeds, synthetic input) and run
 with `ctest --test-dir build --output-on-failure`.
@@ -70,7 +70,7 @@ Library measurements after the mastering pass: median loudness −18.0 dB,
 
 ## 3. VST3 host test (`ZSynthVst3HostTest`)
 
-Loads the built `Z.SYNTH.vst3` through JUCE's VST3 hosting code: discovery
+Loads the built `ZYNTH.vst3` through JUCE's VST3 hosting code: discovery
 metadata (name, instrument category), instantiation, parameter exposure,
 rendering from MIDI, automation + state recall, editor creation.
 

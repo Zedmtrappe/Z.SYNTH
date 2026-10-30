@@ -58,6 +58,7 @@ void SynthEngine::prepare(double sampleRate, int maxBlockSize)
     ensemble.prepare(fs);
     delay.prepare(fs);
     reverb.prepare(fs);
+    valve.prepare(fs);
     output.prepare(fs);
     for (auto& f : fades)
         f = 0.0f;
@@ -100,7 +101,7 @@ void SynthEngine::process(float* left, float* right, int numSamples,
         arp.reset();
         seq.reset();
         drive.reset(); phaser.reset(); flanger.reset(); chorus.reset();
-        ensemble.reset(); delay.reset(); reverb.reset();
+        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset();
         for (auto& ch : playedNote)
             for (auto& n : ch)
                 n = -1;
@@ -211,7 +212,7 @@ void SynthEngine::processChunk(float* left, float* right, int n, const MidiEvent
         badBlocks.fetch_add(1, std::memory_order_relaxed);
         voices.killAll();
         drive.reset(); phaser.reset(); flanger.reset(); chorus.reset();
-        ensemble.reset(); delay.reset(); reverb.reset();
+        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset();
     }
 
     activeVoices.store(voices.activeVoiceCount(), std::memory_order_relaxed);
@@ -449,6 +450,7 @@ void SynthEngine::computeShared(int internalSamples)
     s.fm.depth = p(P::FmDepth);
     s.fm.feedback = p(P::FmFeedback);
     s.fm.velocitySens = p(P::FmVel);
+    s.fm.dx = pb(P::FmDx);
     if (s.fmActive)
     {
         for (int op = 0; op < kNumOperators; ++op)
@@ -457,6 +459,10 @@ void SynthEngine::computeShared(int internalSamples)
             s.fm.ratio[op] = snapRatio(p(P::Op1Ratio + b)) * (1.0f + p(P::Op1Fine + b));
             s.fm.level[op] = p(P::Op1Level + b);
             s.fm.env[op].set(p(P::Op1A + b), p(P::Op1D + b), p(P::Op1S + b), p(P::Op1R + b), internalRate);
+            s.fm.dxEnv[op].set(p(P::Op1A + b), p(P::Op1D + b), p(P::Op1R + b), internalRate);
+            s.fm.velSens[op] = p(P::Op1Vel + b);
+            s.fm.rateScale[op] = p(P::Op1Krs + b);
+            s.fm.levelScale[op] = p(P::Op1Kls + b);
         }
     }
 
@@ -662,6 +668,12 @@ void SynthEngine::runEffects(float* left, float* right, int n)
         reverb.process(l, r, n, p(P::ReverbSize), p(P::ReverbDamp), p(P::ReverbPredelay) * 0.001f,
                        clampf(p(P::ReverbMix) + fx[3], 0.0f, 1.0f));
     }, [&] { reverb.reset(); });
+
+    // The valve stage sits after the effects, at the head of the output section.
+    runFaded(7, pb(P::ValveOn), [&](float* l, float* r) {
+        valve.process(l, r, n, (ValveType) pi(P::ValveType), p(P::ValveDrive), p(P::ValveBias), p(P::ValveSag),
+                      p(P::ValveWarmth), p(P::ValveMix));
+    }, [&] { valve.reset(); });
 }
 
 } // namespace zsynth::dsp

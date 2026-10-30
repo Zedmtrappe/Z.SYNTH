@@ -496,13 +496,13 @@ void OutputInfo::refresh()
     cpu = processor.getCpuLoad();
     const float peak = juce::jmax(e.getPeak(0), e.getPeak(1));
     const float gr = 20.0f * std::log10(juce::jmax(1.0e-4f, e.getLimiterGain()));
-    lines[0] = "RATE    " + juce::String(e.getSampleRate() / 1000.0, 1) + " kHz";
-    lines[1] = "QUALITY " + juce::String(e.getOversampling()) + "x voices";
-    lines[2] = "CPU     " + juce::String(juce::roundToInt(cpu * 100.0f)) + " %";
-    lines[3] = "VOICES  " + juce::String(e.getActiveVoices()) + " / " + juce::String(processor.getValue(P::Polyphony), 0);
-    lines[4] = "PEAK    " + (peak > 1.0e-5f ? juce::String(20.0f * std::log10(peak), 1) + " dB" : juce::String("-inf"));
-    lines[5] = "LIMIT   " + (processor.getValue(P::Limiter) >= 0.5f ? juce::String(gr, 1) + " dB" : juce::String("off"));
-    lines[6] = e.getBadSampleEvents() > 0 ? "GUARD   " + juce::String((int) e.getBadSampleEvents()) + " resets" : juce::String("GUARD   ok");
+    lines[0] = "CPU   " + juce::String(juce::roundToInt(cpu * 100.0f)) + "%";
+    lines[1] = "VOICE " + juce::String(e.getActiveVoices()) + "/" + juce::String(processor.getValue(P::Polyphony), 0);
+    lines[2] = "PEAK  " + (peak > 1.0e-5f ? juce::String(20.0f * std::log10(peak), 1) : juce::String("-inf"));
+    lines[3] = e.getBadSampleEvents() > 0 ? "GUARD " + juce::String((int) e.getBadSampleEvents())
+             : "LIMIT " + (processor.getValue(P::Limiter) >= 0.5f ? juce::String(gr, 1) : juce::String("off"));
+    warn[0] = cpu > 0.8f;
+    warn[3] = e.getBadSampleEvents() > 0;
     repaint();
 }
 
@@ -510,11 +510,154 @@ void OutputInfo::paint(juce::Graphics& g)
 {
     const auto r = getLocalBounds().toFloat();
     fillPanelInset(g, r);
-    auto inner = r.reduced(10.0f, 10.0f).toNearestInt();
-    const int lineH = inner.getHeight() / 7;
-    for (int i = 0; i < 7; ++i)
-        drawLcdText(g, lines[i], inner.removeFromTop(lineH), 13.0f,
-                    (i == 2 && cpu > 0.8f) || (i == 6 && lines[6].contains("reset")) ? Colours::red : Colours::lcdText);
+    auto inner = r.reduced(6.0f, 4.0f).toNearestInt();
+    const int lineH = inner.getHeight() / 4;
+    for (int i = 0; i < 4; ++i)
+        drawLcdText(g, lines[i], inner.removeFromTop(lineH), 11.0f, warn[i] ? Colours::red : Colours::lcdText);
+}
+
+// ================================================================== valve ====
+uint64_t ValveDisplay::stateHash() const
+{
+    uint64_t h = 1469598103934665603ull;
+    for (int i : { (int) P::ValveOn, (int) P::ValveType, (int) P::ValveDrive })
+        h = mix(h, v(i));
+    const auto& e = processor.getEngine();
+    // Heater flicker follows the signal (quantised so idle panels do not repaint).
+    h = mix(h, (float) juce::roundToInt(juce::jmax(e.getPeak(0), e.getPeak(1)) * 12.0f));
+    return h;
+}
+
+void ValveDisplay::paint(juce::Graphics& g)
+{
+    // A small glass window into the synth: a 9-pin preamp valve on its socket.
+    // The heaters glow brighter with DRIVE and flicker slightly with the signal.
+    const auto r = getLocalBounds().toFloat();
+    const bool on = v(P::ValveOn) >= 0.5f;
+    const int type = juce::jlimit(0, 3, iv(P::ValveType));
+    const auto& e = processor.getEngine();
+    const float signal = juce::jmin(1.0f, juce::jmax(e.getPeak(0), e.getPeak(1)) * 1.5f);
+    const float glow = on ? juce::jlimit(0.0f, 1.0f, 0.12f + 0.78f * v(P::ValveDrive) + 0.1f * signal) : 0.0f;
+    const auto heat = juce::Colour(0xffff6a12);
+    const auto hot = juce::Colour(0xffffc070);
+
+    // ---- bezel: brushed metal frame with four screws
+    juce::ColourGradient metal(juce::Colour(0xff6b6e74), r.getX(), r.getY(), juce::Colour(0xff26282c), r.getRight(), r.getBottom(), false);
+    g.setGradientFill(metal);
+    g.fillRoundedRectangle(r, 10.0f);
+    g.setColour(juce::Colours::black.withAlpha(0.6f));
+    g.drawRoundedRectangle(r.reduced(0.5f), 10.0f, 1.0f);
+    for (auto p : { r.getTopLeft() + juce::Point<float>(8, 8), r.getTopRight() + juce::Point<float>(-8, 8),
+                    r.getBottomLeft() + juce::Point<float>(8, -8), r.getBottomRight() + juce::Point<float>(-8, -8) })
+    {
+        g.setColour(juce::Colour(0xff1a1b1e));
+        g.fillEllipse(juce::Rectangle<float>(6.0f, 6.0f).withCentre(p));
+        g.setColour(juce::Colour(0xff8d9096));
+        g.drawLine(p.x - 2.0f, p.y + 2.0f, p.x + 2.0f, p.y - 2.0f, 1.0f);
+    }
+
+    // ---- the cavity behind the glass
+    const auto win = r.reduced(14.0f, 12.0f);
+    juce::Path winPath;
+    winPath.addRoundedRectangle(win, 8.0f);
+    g.saveState();
+    g.reduceClipRegion(winPath);
+    g.setColour(juce::Colour(0xff0b0b0d));
+    g.fillRect(win);
+    // Warm light thrown onto the chassis by the heaters.
+    juce::ColourGradient spill(heat.withAlpha(0.42f * glow), win.getCentreX(), win.getBottom() - win.getHeight() * 0.38f,
+                               heat.withAlpha(0.0f), win.getCentreX() + win.getWidth() * 0.62f, win.getBottom(), true);
+    g.setGradientFill(spill);
+    g.fillRect(win);
+
+    // Chassis floor and socket.
+    const float floorY = win.getBottom() - 16.0f;
+    g.setColour(juce::Colour(0xff1d1e21));
+    g.fillRect(win.getX(), floorY, win.getWidth(), win.getBottom() - floorY);
+    const float vx = win.getCentreX();
+    const float vw = 40.0f;
+    g.setColour(juce::Colour(0xff2b2a27));
+    g.fillRoundedRectangle(vx - vw * 0.62f, floorY - 5.0f, vw * 1.24f, 9.0f, 3.0f);
+
+    // ---- the valve
+    const float top = win.getY() + 10.0f;
+    const float bottom = floorY - 4.0f;
+    juce::Rectangle<float> tube(vx - vw * 0.5f, top, vw, bottom - top);
+    // Pins into the socket.
+    g.setColour(juce::Colour(0xffa7a9ad));
+    for (int k = 0; k < 5; ++k)
+        g.fillRect(vx - 12.0f + (float) k * 6.0f, bottom - 1.0f, 1.2f, 5.0f);
+
+    // Internal structure: mica spacers, two triode plate assemblies, heater glow.
+    const auto plates = juce::Rectangle<float>(tube.getX() + 6.0f, tube.getY() + tube.getHeight() * 0.36f, tube.getWidth() - 12.0f,
+                                               tube.getHeight() * 0.42f);
+    // Heater bloom behind and between the plates.
+    juce::ColourGradient bloom(hot.withAlpha(0.95f * glow), plates.getCentreX(), plates.getCentreY() + 4.0f,
+                               heat.withAlpha(0.0f), plates.getCentreX() + plates.getWidth() * 0.95f, plates.getCentreY(), true);
+    g.setGradientFill(bloom);
+    g.fillEllipse(plates.expanded(14.0f, 10.0f));
+    for (int half = 0; half < 2; ++half)
+    {
+        const float w = plates.getWidth() * 0.5f - 2.0f;
+        const auto pl = juce::Rectangle<float>(plates.getX() + (float) half * (w + 4.0f), plates.getY(), w, plates.getHeight());
+        juce::ColourGradient plateGrad(juce::Colour(0xff4d4f54), pl.getX(), 0.0f, juce::Colour(0xff222326), pl.getRight(), 0.0f, false);
+        g.setGradientFill(plateGrad);
+        g.fillRect(pl);
+        g.setColour(juce::Colours::black.withAlpha(0.5f));
+        for (int k = 1; k < 4; ++k)
+            g.drawVerticalLine(juce::roundToInt(pl.getX() + pl.getWidth() * (float) k / 4.0f), pl.getY(), pl.getBottom());
+        // Glowing heater visible through the slot in each plate.
+        const auto slot = juce::Rectangle<float>(2.4f, pl.getHeight() * 0.62f).withCentre(pl.getCentre());
+        g.setColour(juce::Colour(0xff3a1a08).interpolatedWith(hot, glow));
+        g.fillRoundedRectangle(slot, 1.2f);
+        g.setColour(hot.withAlpha(0.6f * glow));
+        g.fillRoundedRectangle(slot.expanded(1.8f * glow, 1.0f), 2.0f);
+    }
+    g.setColour(juce::Colour(0xffd8d2c4).withAlpha(0.55f));
+    g.fillRect(tube.getX() + 3.0f, plates.getY() - 6.0f, tube.getWidth() - 6.0f, 3.0f);
+    g.fillRect(tube.getX() + 3.0f, plates.getBottom() + 3.0f, tube.getWidth() - 6.0f, 3.0f);
+    g.setColour(juce::Colour(0xff8e9096));
+    for (int k = 0; k < 3; ++k)
+        g.fillRect(tube.getX() + 8.0f + (float) k * 11.0f, plates.getBottom() + 6.0f, 1.0f, bottom - plates.getBottom() - 8.0f);
+
+    // Getter flash: the silvered dome at the top.
+    const auto getter = juce::Rectangle<float>(tube.getX() + 1.5f, tube.getY() + 4.0f, tube.getWidth() - 3.0f, tube.getHeight() * 0.22f);
+    juce::ColourGradient silver(juce::Colour(0xffc9ccd2), getter.getX(), getter.getY(), juce::Colour(0xff3c3e44), getter.getRight(), getter.getBottom(), false);
+    silver.addColour(0.45, juce::Colour(0xff7a7d84));
+    g.setGradientFill(silver);
+    g.fillRoundedRectangle(getter, 8.0f);
+
+    // Glass envelope, seal tip and reflections.
+    juce::Path glass;
+    glass.addRoundedRectangle(tube.getX(), tube.getY(), tube.getWidth(), tube.getHeight(), tube.getWidth() * 0.45f,
+                              tube.getWidth() * 0.45f, true, true, false, false);
+    g.setColour(juce::Colours::white.withAlpha(0.05f));
+    g.fillPath(glass);
+    g.setColour(juce::Colours::white.withAlpha(0.35f));
+    g.strokePath(glass, juce::PathStrokeType(1.0f));
+    g.fillRoundedRectangle(vx - 3.0f, tube.getY() - 4.0f, 6.0f, 6.0f, 2.0f);
+    g.setColour(juce::Colours::white.withAlpha(0.22f));
+    g.fillRoundedRectangle(tube.getX() + 5.0f, tube.getY() + 10.0f, 3.0f, tube.getHeight() * 0.7f, 1.5f);
+    g.setColour(heat.withAlpha(0.35f * glow));
+    g.strokePath(glass, juce::PathStrokeType(1.6f));
+
+    // Type printed on the glass.
+    static const char* names[4] = { "12AX7", "12AU7", "EL84", "6L6" };
+    g.setColour(juce::Colours::white.withAlpha(0.55f));
+    g.setFont(juce::Font(juce::FontOptions(9.0f, juce::Font::bold)));
+    g.drawText(names[type], tube.withTrimmedTop(tube.getHeight() * 0.25f).withHeight(11.0f).toNearestInt(), juce::Justification::centred, false);
+
+    // Window glass: a faint diagonal reflection across the whole port.
+    juce::ColourGradient sheen(juce::Colours::white.withAlpha(0.10f), win.getX(), win.getY(), juce::Colours::white.withAlpha(0.0f),
+                               win.getX() + win.getWidth() * 0.55f, win.getY() + win.getHeight() * 0.45f, false);
+    g.setGradientFill(sheen);
+    g.fillRect(win);
+    g.restoreState();
+
+    g.setColour(juce::Colours::black.withAlpha(0.8f));
+    g.drawRoundedRectangle(win, 8.0f, 2.0f);
+    g.setColour(juce::Colours::white.withAlpha(0.12f));
+    g.drawRoundedRectangle(win.expanded(1.5f), 9.0f, 1.0f);
 }
 
 // ============================================================ voice LEDs ====
@@ -744,18 +887,14 @@ void Logo::paint(juce::Graphics& g)
     g.setGradientFill(grad);
     g.fillPath(z);
 
-    // The dot of "Z.SYNTH".
-    const float dot = h * 0.16f;
-    g.setColour(Colours::accent);
-    g.fillEllipse(x + h * 0.9f, y + h - dot, dot, dot);
-
-    // SYNTH, set tall and wide.
-    const float textX = x + h * 0.9f + dot + h * 0.08f;
+    // "YNTH" follows the Z mark, set tall and wide, so the mark reads as the
+    // first letter of ZYNTH.
+    const float textX = x + h * 0.9f;
     auto font = juce::Font(juce::FontOptions(h * 1.12f, juce::Font::bold)).withExtraKerningFactor(0.1f);
     g.setFont(font);
     juce::ColourGradient tg(juce::Colours::white, 0.0f, y, Colours::white.darker(0.25f), 0.0f, y + h, false);
     g.setGradientFill(tg);
-    g.drawText("SYNTH", juce::Rectangle<float>(textX, y - h * 0.12f, r.getRight() - textX, h * 1.24f).toNearestInt(),
+    g.drawText("YNTH", juce::Rectangle<float>(textX, y - h * 0.12f, r.getRight() - textX, h * 1.24f).toNearestInt(),
                juce::Justification::centredLeft, false);
 
     // Subtitle with an accent rule.

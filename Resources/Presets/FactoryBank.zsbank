@@ -1,5 +1,5 @@
 # =============================================================================
-#  Z.SYNTH factory bank — original sounds, format version 1.
+#  ZYNTH factory bank — original sounds, format version 1.
 #
 #  Each preset starts from the INIT patch; only the lines given change it.
 #  Keys are parameter ids (see docs/PRESET_FORMAT.md), values are real units,

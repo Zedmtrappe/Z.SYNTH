@@ -1,4 +1,4 @@
-# Z.SYNTH preset format
+# ZYNTH preset format
 
 ## User presets (`.zspreset`)
 
@@ -6,9 +6,9 @@ Stored one per file in the user preset folder:
 
 | Platform | Folder |
 |---|---|
-| Linux | `~/.config/Z.SYNTH/Presets` |
-| macOS | `~/Library/Application Support/Z.SYNTH/Presets` |
-| Windows | `%APPDATA%\Z.SYNTH\Presets` |
+| Linux | `~/.config/ZYNTH/Presets` |
+| macOS | `~/Library/Application Support/ZYNTH/Presets` |
+| Windows | `%APPDATA%\ZYNTH\Presets` |
 
 Favourites are listed in `favourites.txt` in the parent folder.
 
@@ -53,7 +53,7 @@ user's setup. (The plug-in's full session state does include them.)
 
 | Bank | File | Folders |
 |---|---|---|
-| Z.SYNTH Originals | `Resources/Presets/FactoryBank.zsbank` | sound categories |
+| ZYNTH Originals | `Resources/Presets/FactoryBank.zsbank` | sound categories |
 | Classic Machines | `Resources/Presets/ClassicsBank.zsbank` | one per instrument |
 
 Each bank is a plain-text file embedded into the binary at build time; the

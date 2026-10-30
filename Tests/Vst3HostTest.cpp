@@ -1,7 +1,7 @@
-// Loads the built Z.SYNTH.vst3 through JUCE's VST3 *hosting* code (the same
+// Loads the built ZYNTH.vst3 through JUCE's VST3 *hosting* code (the same
 // path a DAW takes) and checks: discovery metadata, parameter count, audio
 // rendering from MIDI, state save/restore through the VST3 interface, and that
-// the editor can be created. Usage: ZSynthVst3HostTest <path/to/Z.SYNTH.vst3>
+// the editor can be created. Usage: ZSynthVst3HostTest <path/to/ZYNTH.vst3>
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -23,7 +23,7 @@ int main(int argc, char** argv)
 {
     if (argc < 2)
     {
-        std::printf("usage: %s <path/to/Z.SYNTH.vst3>\n", argv[0]);
+        std::printf("usage: %s <path/to/ZYNTH.vst3>\n", argv[0]);
         return 2;
     }
     juce::ScopedJuceInitialiser_GUI gui;
@@ -38,7 +38,7 @@ int main(int argc, char** argv)
     const auto& desc = *found[0];
     std::printf("      name='%s' manufacturer='%s' category='%s' version='%s'\n", desc.name.toRawUTF8(),
                 desc.manufacturerName.toRawUTF8(), desc.category.toRawUTF8(), desc.version.toRawUTF8());
-    check(desc.name == "Z.SYNTH", "plug-in name");
+    check(desc.name == "ZYNTH", "plug-in name");
     check(desc.isInstrument, "registered as an instrument");
 
     juce::String error;

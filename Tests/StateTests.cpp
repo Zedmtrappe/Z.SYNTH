@@ -24,7 +24,7 @@ namespace
 {
     std::vector<PresetManager::Bank> banks()
     {
-        return { { "Z.SYNTH Originals", juce::String::fromUTF8(BinaryData::FactoryBank_zsbank, BinaryData::FactoryBank_zsbankSize) },
+        return { { "ZYNTH Originals", juce::String::fromUTF8(BinaryData::FactoryBank_zsbank, BinaryData::FactoryBank_zsbankSize) },
                  { "Classic Machines", juce::String::fromUTF8(BinaryData::ClassicsBank_zsbank, BinaryData::ClassicsBank_zsbankSize) } };
     }
 
@@ -374,7 +374,7 @@ ZS_TEST(preset_manager_user_workflow)
     ZS_CHECK(factoryCount >= 200);
     ZS_CHECK(pm.getBankNames().size() == 3);
     ZS_CHECK(pm.getCategories("Classic Machines").contains("Yamaha DX7"));
-    ZS_CHECK(pm.getEntries()[0].bank == "Z.SYNTH Originals");
+    ZS_CHECK(pm.getEntries()[0].bank == "ZYNTH Originals");
 
     // Globals are not part of a preset recall.
     f.processor.getState().getParameter("master.volume")->setValueNotifyingHost(0.25f);
@@ -579,7 +579,8 @@ ZS_TEST(layout_controls_inside_sections_and_not_overlapping)
     for (const auto& c : controls)
     {
         const juce::String id(c.paramId);
-        const bool advanced = id.startsWith("mod") || id.startsWith("fm.op") || id.startsWith("seq.s");
+        const bool advanced = id.startsWith("mod") || id.startsWith("fm.op") || id.startsWith("seq.s")
+                            || (id.startsWith("out.valve.") && id != "out.valve.drive" && id != "out.valve.on");
         ZS_CHECK(advanced == (c.page != ui::kMainPage));
     }
 }

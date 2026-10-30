@@ -1,18 +1,32 @@
-Z.SYNTH for macOS - standalone app (Apple Silicon and Intel, macOS 11 or later)
+ZYNTH for macOS - standalone app, VST3 and Audio Unit
+(Apple Silicon and Intel, macOS 11 or later)
 ================================================================================
 
 This is a test build. It is not signed with an Apple Developer ID or
 notarised, so macOS blocks it until you allow it once.
 
-1. Unzip, then drag Z.SYNTH.app into Applications (optional).
+PLUG-INS (VST3 + AU)
+  1. Right-click "Install Plug-Ins.command" > Open > Open.
+     It copies ZYNTH.vst3 and ZYNTH.component into
+         ~/Library/Audio/Plug-Ins/VST3
+         ~/Library/Audio/Plug-Ins/Components
+     and clears the download quarantine.
+  2. Restart your DAW and rescan plug-ins.
+       Logic / GarageBand: Instrument slot > AU Instruments > ZYNTH > ZYNTH
+       Ableton Live:       Plug-Ins > VST3 (or AU) > ZYNTH
+       (Ableton: Settings > Plug-Ins > enable "Use VST3 / Audio Units", Rescan)
 
-2. Allow it (once). EITHER right-click Z.SYNTH.app > Open > Open,
-   OR in Terminal run:
-       xattr -dr com.apple.quarantine /Applications/Z.SYNTH.app
-   (use the folder where you put the app)
+  Manual alternative: copy the two files from the Plug-Ins folder to the
+  folders above, then in Terminal run:
+      xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/ZYNTH.vst3
+      xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/Components/ZYNTH.component
 
-3. Open Z.SYNTH. Options (top-left) > Audio/MIDI Settings: choose your
-   output. Play the on-screen keyboard or a connected MIDI keyboard.
+STANDALONE APP
+  1. Drag ZYNTH.app into Applications (optional).
+  2. Allow it once: right-click ZYNTH.app > Open > Open,
+     OR in Terminal:  xattr -dr com.apple.quarantine /Applications/ZYNTH.app
+  3. Options (top-left) > Audio/MIDI Settings: choose your output and MIDI input.
 
-Your own presets are stored in:
-    ~/Library/Application Support/Z.SYNTH/Presets
+Your own presets are shared by the app and the plug-ins and are stored in:
+    ~/Library/Application Support/ZYNTH/Presets
+(Presets saved by the earlier "Z.SYNTH" builds are copied there automatically.)

@@ -87,6 +87,130 @@ private:
 };
 
 // -----------------------------------------------------------------------------
+/** Valve output stage: a triode (or push-pull power pair) transfer curve run at
+    2x with half-band resampling, power-supply sag, and an output-transformer
+    tone stage (top-end roll-off plus low-end weight).
+
+    Triode curve: soft tanh limiting on the positive (grid-conduction) side and
+    an earlier, harder limit on the negative (cut-off) side. The asymmetry is
+    what produces the even harmonics of single-ended stages; a push-pull pair
+    subtracts two mirrored halves, cancelling even harmonics unless the bias
+    unbalances them. Level is compensated at about -12 dBFS so DRIVE changes
+    colour more than loudness. */
+class ValveStage
+{
+public:
+    struct Model
+    {
+        float minGainDb, maxGainDb; // input gain across the DRIVE range
+        float asym;                 // cut-off side hardness at mid bias
+        bool pushPull;
+        float sagDepth;             // how much the supply sags on loud signals
+        float transformerHz;        // top-end roll-off at full WARMTH
+        float lowBoostDb;           // low-end weight at full WARMTH
+    };
+
+    static const Model& model(ValveType t)
+    {
+        static const Model models[(int) ValveType::Count] = {
+            { 0.0f, 30.0f, 0.6f, false, 0.5f, 9000.0f, 2.5f },  // 12AX7 preamp triode
+            { 0.0f, 18.0f, 0.3f, false, 0.3f, 14000.0f, 2.0f }, // 12AU7 low-mu triode
+            { 3.0f, 26.0f, 0.5f, true,  0.9f, 7500.0f, 3.0f },  // EL84 push-pull pentodes
+            { 0.0f, 20.0f, 0.4f, true,  0.6f, 6500.0f, 4.0f },  // 6L6 power pair
+        };
+        return models[std::clamp((int) t, 0, (int) ValveType::Count - 1)];
+    }
+
+    void prepare(float sampleRate)
+    {
+        fs = sampleRate;
+        aDc = 1.0f - std::exp(-kTwoPi * 10.0f / fs);
+        aLow = 1.0f - std::exp(-kTwoPi * 150.0f / fs);
+        sagAttack = 1.0f - std::exp(-1.0f / (0.005f * fs));
+        sagRelease = 1.0f - std::exp(-1.0f / (0.15f * fs));
+        reset();
+    }
+
+    void reset()
+    {
+        for (int c = 0; c < 2; ++c)
+        {
+            up[c].reset();
+            down[c].reset();
+            dc[c] = tone[c] = low[c] = 0.0f;
+        }
+        sagEnv = 0.0f;
+        lastGain = -1.0f;
+    }
+
+    static float triode(float x, float asym)
+    {
+        return x >= 0.0f ? fastTanh(x) : fastTanh(x * (1.0f + asym)) / (1.0f + asym);
+    }
+
+    void process(float* L, float* R, int n, ValveType type, float drive, float bias, float sag, float warmth, float mix)
+    {
+        const Model& m = model(type);
+        const float gain = dbToGain(m.minGainDb + clampf(drive, 0.0f, 1.0f) * (m.maxGainDb - m.minGainDb));
+        if (lastGain < 0.0f)
+            lastGain = gain;
+        const float gainStep = (gain - lastGain) / (float) std::max(1, n);
+
+        const float b = clampf(bias, 0.0f, 1.0f) - 0.5f;
+        const float asymA = m.pushPull ? m.asym * (1.0f + 1.6f * b) : m.asym * (1.0f + 3.2f * b);
+        const float asymB = m.pushPull ? m.asym * (1.0f - 1.6f * b) : asymA;
+        const float sagAmt = clampf(sag, 0.0f, 1.0f) * m.sagDepth * 3.0f;
+
+        const float w = clampf(warmth, 0.0f, 1.0f);
+        const float lpHz = std::min(20000.0f * std::pow(m.transformerHz / 20000.0f, w), 0.45f * fs);
+        const float aTone = 1.0f - std::exp(-kTwoPi * lpHz / fs);
+        const float lowBoost = dbToGain(w * m.lowBoostDb) - 1.0f;
+
+        auto shape = [&](float x) {
+            return m.pushPull ? 0.5f * (triode(x, asymA) - triode(-x, asymB)) : triode(x, asymA);
+        };
+
+        float g = lastGain;
+        float env = sagEnv;
+        for (int i = 0; i < n; ++i)
+        {
+            g += gainStep;
+            // Sag: the effective drive drops as the supply is loaded, then recovers.
+            const float gEff = g / (1.0f + sagAmt * env);
+            const float makeup = 0.25f / std::max(1.0e-4f, fastTanh(0.25f * gEff));
+            float* ch[2] = { L + i, R + i };
+            float peak = 0.0f;
+            for (int c = 0; c < 2; ++c)
+            {
+                const float x = *ch[c];
+                float a0, a1;
+                up[c].process(x * gEff, a0, a1);
+                float y = down[c].process(shape(a0), shape(a1)) * makeup;
+                dc[c] += aDc * (y - dc[c]);
+                y -= dc[c];
+                tone[c] += aTone * (y - tone[c]);
+                low[c] += aLow * (tone[c] - low[c]);
+                y = tone[c] + low[c] * lowBoost;
+                peak = std::max(peak, std::abs(y));
+                *ch[c] = x + (y - x) * mix;
+            }
+            env += (peak > env ? sagAttack : sagRelease) * (peak - env);
+        }
+        lastGain = gain;
+        sagEnv = env;
+    }
+
+private:
+    float fs = 48000.0f;
+    float aDc = 0.0f, aLow = 0.0f, sagAttack = 0.0f, sagRelease = 0.0f;
+    HalfBandInterpolator up[2];
+    HalfBandDecimator down[2];
+    float dc[2] {}, tone[2] {}, low[2] {};
+    float sagEnv = 0.0f;
+    float lastGain = -1.0f;
+};
+
+// -----------------------------------------------------------------------------
 /** DC blocking, stereo width, "character" saturation, master gain, safety
     limiter, NaN protection and peak metering. */
 class OutputStage

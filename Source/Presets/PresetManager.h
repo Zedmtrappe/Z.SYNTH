@@ -18,7 +18,7 @@ public:
     struct Entry
     {
         juce::String name, category, author;
-        juce::String bank;          // e.g. "Z.SYNTH Originals", "Classic Machines", "User"
+        juce::String bank;          // e.g. "ZYNTH Originals", "Classic Machines", "User"
         bool factory = true;
         int factoryIndex = -1;
         juce::File file;
@@ -42,6 +42,10 @@ public:
     /** Categories (folders) of one bank, in first-appearance order. */
     juce::StringArray getCategories(const juce::String& bank) const;
 
+    /** The per-user ZYNTH folder (settings, favourites, Presets/). */
+    static juce::File appDataFolder(const juce::String& name);
+    /** Copies the pre-rename "Z.SYNTH" folder to "ZYNTH" if only the old one exists. */
+    static void migrateLegacyAppFolder();
     static juce::File defaultUserDirectory();
     juce::File getUserDirectory() const { return userDir; }
 

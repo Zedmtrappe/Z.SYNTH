@@ -15,7 +15,7 @@ depends only on the C++17 standard library.
 
 * **JUCE**: you must either release your product under the AGPLv3 (source
   available to every user) or hold a commercial JUCE licence appropriate to
-  your revenue. This decision has not been made for Z.SYNTH; it must be made
+  your revenue. This decision has not been made for ZYNTH; it must be made
   before any binary is distributed.
 * **VST3**: read the licence file shipped inside the JUCE checkout at the path
   above and the Steinberg usage guidelines next to it before distributing VST3

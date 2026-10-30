@@ -1,6 +1,6 @@
 #pragma once
 
-// Z.SYNTH visual identity: graphite panel, warm amber accent, LCD displays.
+// ZYNTH visual identity: graphite panel, warm amber accent, LCD displays.
 
 #include <juce_gui_basics/juce_gui_basics.h>
 

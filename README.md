@@ -1,4 +1,4 @@
-# Z.SYNTH
+# ZYNTH
 
 A hybrid virtual synthesiser: three band-limited analogue-style oscillators,
 wavetables, a six-operator FM engine, four distinct filter models, a full
@@ -6,14 +6,14 @@ modulation matrix, arpeggiator, step sequencer and seven effects — on one fixe
 hardware-style front panel of colour-coded faders, with popup editors for the
 advanced sections.
 
-![Z.SYNTH front panel](docs/images/zsynth-panel.png)
+![ZYNTH front panel](docs/images/zsynth-panel.png)
 
 | | |
 |---|---|
-| Formats | Standalone app, VST3 (AU target configured for macOS, not built here) |
+| Formats | Standalone app, VST3 and Audio Unit (macOS universal builds from CI, AU checked with auval) |
 | Engine | JUCE-free C++17 library, usable without any GUI |
-| Parameters | 294, all host-automatable, one authoritative table |
-| Factory library | 225 presets: *Z.SYNTH Originals* (160, 15 categories) and *Classic Machines* (65 sounds in 20 instrument folders), level-matched by measurement |
+| Parameters | 314, all host-automatable, one authoritative table |
+| Factory library | 227 presets: *ZYNTH Originals* (160, 15 categories) and *Classic Machines* (67 sounds in 20 instrument folders), level-matched by measurement |
 | Tests | 36 DSP tests, 16 state/preset/layout/editor tests, a VST3 host test |
 | Tested on | Ubuntu 24.04, x86-64, GCC 13.3, CMake 3.28, JUCE 8.0.9 |
 
@@ -24,8 +24,11 @@ advanced sections.
   modulation, sub-oscillator, white/pink noise, drift, mixer overdrive.
 * **Wavetables** — 8 original procedurally generated tables, 32 frames each,
   11 band-limited mipmaps per frame, smooth position scanning and spread.
-* **FM** — 6 operators, 12 algorithms, per-operator ratio/fine/level/ADSR,
-  operator-6 feedback, velocity-to-index. Runs alone or layered with the
+* **FM** — 6 operators, 16 algorithms, per-operator ratio/fine/level/ADSR,
+  velocity sensitivity and keyboard rate/level scaling, operator-6 feedback,
+  velocity-to-index. **DX mode** switches to DX7-style maths (logarithmic
+  0.75 dB level steps, envelopes that move in decibels, DX index and feedback
+  ranges). Runs alone or layered with the
   analogue section (ENGINE: Analog / Hybrid / FM).
 * **Filters** — Ladder (transistor ladder with per-stage nonlinearity), OTA
   cascade, SEM-style state variable and K35 Sallen-Key; LP/BP/HP/notch,
@@ -41,6 +44,10 @@ advanced sections.
 * **Performance** — arpeggiator (6 modes, host sync, swing, hold), 16-step
   sequencer (modulation or acid-style note mode with accent and slide),
   MIDI learn, on-screen keyboard with pitch and modulation wheels.
+* **Valve stage** — an oversampled valve output stage seen through a glass
+  window on the panel (the valve glows brighter as DRIVE goes up): 12AX7,
+  12AU7, EL84 push-pull and 6L6 models with bias, supply sag, output-transformer
+  warmth and mix.
 * **Effects** — drive (2x oversampled overdrive/distortion/wavefolder),
   phaser, flanger, chorus, string ensemble, ping-pong delay, FDN reverb,
   stereo width and output character, safety limiter.
@@ -67,8 +74,8 @@ ctest --test-dir build --output-on-failure
 
 Artefacts:
 
-* `build/ZSynth_artefacts/Release/Standalone/Z.SYNTH`
-* `build/ZSynth_artefacts/Release/VST3/Z.SYNTH.vst3` (copy to `~/.vst3/`)
+* `build/ZSynth_artefacts/Release/Standalone/ZYNTH`
+* `build/ZSynth_artefacts/Release/VST3/ZYNTH.vst3` (copy to `~/.vst3/`)
 
 To build against a local JUCE checkout instead of downloading:
 `-DZSYNTH_JUCE_DIR=/path/to/JUCE` (tested with the `8.0.9` tag).
@@ -130,7 +137,7 @@ Source/
   UI/           fixed panel: Layout (canonical spec, activity rules),
                 Components (controls, displays, keyboard, browser)
   App/          standalone application
-Resources/Presets/FactoryBank.zsbank   Z.SYNTH Originals bank (plain text)
+Resources/Presets/FactoryBank.zsbank   ZYNTH Originals bank (plain text)
 Resources/Presets/ClassicsBank.zsbank  Classic Machines bank (plain text)
 Tests/          test harness, DSP tests, state tests, VST3 host test, benchmark
 docs/           architecture, manual, test plan, preset format
@@ -140,8 +147,10 @@ docs/           architecture, manual, test plan, preset format
 
 These are honest gaps in the current version, not hidden features:
 
-* Built and tested only on Linux x86-64. macOS/AU and Windows have not been
-  compiled; no installers, code signing or notarisation.
+* Built and tested on Linux x86-64 and, through CI, macOS (universal app,
+  VST3 and AU; the AU passes `auval`). Windows has not been compiled. Mac
+  builds are ad-hoc signed only (not notarised), so macOS asks you to allow
+  them once.
 * The VST3 was validated with the included JUCE-based host test (load,
   metadata, MIDI rendering, automation, state, editor), not with pluginval or
   in commercial DAWs.
@@ -150,8 +159,9 @@ These are honest gaps in the current version, not hidden features:
   environment has no audio output. Run the manual listening plan in
   `docs/DSP_TEST_PLAN.md` before release.
 * No MPE. Polyphonic aftertouch is supported as a per-voice modulation source.
-* FM: 12 algorithms, ratio-based operators only (no fixed-frequency mode, no
-  keyboard level/rate scaling).
+* FM: 16 algorithms (the DX7 has 32), ratio-based operators only (no
+  fixed-frequency mode), keyboard level scaling above C4 only. DX mode follows
+  the DX7's maths but is not a bit-exact emulation (no DAC/EG step quantisation).
 * The filter models are inspired by classic circuits; none is a validated
   circuit model.
 * MIDI CC 11 (expression) is a modulation source, not hard-wired to volume.
@@ -159,15 +169,15 @@ These are honest gaps in the current version, not hidden features:
 * The arpeggiator and the sequencer's Note mode are mutually exclusive
   (Note mode takes priority).
 * Classic Machines presets are original programming *in the style of* those
-  instruments using Z.SYNTH's engine; they are not emulations of the original
+  instruments using ZYNTH's engine; they are not emulations of the original
   circuits or copies of their factory patches. Instrument names are trademarks
-  of their owners, used descriptively; Z.SYNTH is not affiliated with them.
+  of their owners, used descriptively; ZYNTH is not affiliated with them.
 * The VST3 exposes JUCE's 2048 hidden MIDI-CC proxy parameters in addition to
-  the 294 synth parameters (needed for controller input in VST3 hosts).
+  the 314 synth parameters (needed for controller input in VST3 hosts).
 
 ## Licence
 
-Z.SYNTH's own source code is provided without a licence choice made yet. It
+ZYNTH's own source code is provided without a licence choice made yet. It
 depends on JUCE, which is dual-licensed (AGPLv3 or the commercial JUCE licence):
 see [LICENSES_AND_DEPENDENCIES.md](LICENSES_AND_DEPENDENCIES.md) before
 distributing binaries.

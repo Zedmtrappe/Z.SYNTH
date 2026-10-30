@@ -1,7 +1,7 @@
 #pragma once
 
 // =============================================================================
-//  Z.SYNTH — the single authoritative parameter table.
+//  ZYNTH — the single authoritative parameter table.
 //
 //  Every synthesis parameter is declared exactly once, below. From this table:
 //    * the DSP engine gets a dense enum (ParamIndex) to index a float snapshot,
@@ -139,6 +139,7 @@ X(FmDepth,       "fm.depth",       "FM Depth",      "FM", Float, 0.f, 1.f, 0.5f,
 X(FmFeedback,    "fm.feedback",    "FM Feedback",   "FM", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "Operator 6 self-feedback.") \
 X(FmLevel,       "fm.level",       "FM Level",      "FM", Float, 0.f, 1.f, 0.8f, LIN, "", nullptr, "FM engine output level into the mixer.") \
 X(FmVel,         "fm.vel",         "FM Velocity",   "FM", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Velocity sensitivity of the modulation index (brighter when played harder).") \
+X(FmDx,          "fm.dx",          "FM DX Mode",    "FM", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "DX-style operator maths: logarithmic levels (0.75 dB steps), envelopes that move in decibels, DX index and feedback scaling.") \
 ZS_OP_PARAMS(X, 1, 1.f, 1.0f) \
 ZS_OP_PARAMS(X, 2, 1.f, 0.5f) \
 ZS_OP_PARAMS(X, 3, 1.f, 1.0f) \
@@ -203,7 +204,14 @@ X(ReverbMix,     "fx.rev.mix",     "Reverb Mix",    "Effects", Float, 0.f, 1.f, 
 X(Width,         "out.width",      "Stereo Width",  "Output", Float, 0.f, 2.f, 1.f, LIN, "", nullptr, "Mid/side stereo width (0 = mono, 1 = unchanged, 2 = wide).") \
 X(Character,     "out.character",  "Character",     "Output", Float, 0.f, 1.f, 0.1f, LIN, "", nullptr, "Analogue-style output stage saturation and warmth.") \
 X(Macro,         "out.macro",      "Macro",         "Output", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "Performance macro: a modulation-matrix source.") \
-X(Limiter,       "out.limiter",    "Limiter",       "Output", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "Output safety limiter (keeps peaks below 0 dBFS).")
+X(Limiter,       "out.limiter",    "Limiter",       "Output", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "Output safety limiter (keeps peaks below 0 dBFS).") \
+X(ValveOn,       "out.valve.on",   "Valve On",      "Output", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "Valve output stage (oversampled triode / power-valve saturation).") \
+X(ValveType,     "out.valve.type", "Valve Type",    "Output", Choice, 0, 0, 0.f, LIN, "", ZS_CH_VALVE_TYPE, "12AX7: high-gain preamp triode (even harmonics). 12AU7: low-gain, clean warmth. EL84: push-pull power pair (odd harmonics, early compression). 6L6: big, smooth power valve with more headroom.") \
+X(ValveDrive,    "out.valve.drive","Valve Drive",   "Output", Float, 0.f, 1.f, 0.3f, LIN, "", nullptr, "How hard the valve is driven (level-compensated).") \
+X(ValveBias,     "out.valve.bias", "Valve Bias",    "Output", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Operating point: cold (low) is cleaner and more symmetric, hot (high) adds even harmonics and grit.") \
+X(ValveSag,      "out.valve.sag",  "Valve Sag",     "Output", Float, 0.f, 1.f, 0.3f, LIN, "", nullptr, "Power-supply sag: the valve compresses and blooms on loud notes.") \
+X(ValveWarmth,   "out.valve.warmth","Valve Warmth", "Output", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Output transformer: rounds off the top end and adds low-end weight.") \
+X(ValveMix,      "out.valve.mix",  "Valve Mix",     "Output", Float, 0.f, 1.f, 1.f, LIN, "", nullptr, "Dry/valve blend.")
 
 #define ZS_LFO_PARAMS(X, n, unused) \
 X(Lfo##n##Wave,  "lfo" #n ".wave",  "LFO " #n " Wave",  "LFO", Choice, 0, 0, 0.f, LIN, "", ZS_CH_LFO_WAVE, "LFO waveform.") \
@@ -224,7 +232,10 @@ X(Op##n##Level,  "fm.op" #n ".level","Op " #n " Level", "FM", Float, 0.f, 1.f, l
 X(Op##n##A,      "fm.op" #n ".a",    "Op " #n " Attack","FM", Float, 0.0005f, 20.f, 0.001f, LOG, "s", nullptr, "Operator envelope attack.") \
 X(Op##n##D,      "fm.op" #n ".d",    "Op " #n " Decay", "FM", Float, 0.001f, 20.f, 1.5f, LOG, "s", nullptr, "Operator envelope decay.") \
 X(Op##n##S,      "fm.op" #n ".s",    "Op " #n " Sustain","FM", Float, 0.f, 1.f, 0.6f, LIN, "", nullptr, "Operator envelope sustain.") \
-X(Op##n##R,      "fm.op" #n ".r",    "Op " #n " Release","FM", Float, 0.001f, 20.f, 0.4f, LOG, "s", nullptr, "Operator envelope release.")
+X(Op##n##R,      "fm.op" #n ".r",    "Op " #n " Release","FM", Float, 0.001f, 20.f, 0.4f, LOG, "s", nullptr, "Operator envelope release.") \
+X(Op##n##Vel,    "fm.op" #n ".vel",  "Op " #n " Velocity","FM", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "Operator velocity sensitivity: soft notes lower this operator's level (up to -30 dB).") \
+X(Op##n##Krs,    "fm.op" #n ".krs",  "Op " #n " Rate Scale","FM", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "Keyboard rate scaling: the operator envelope runs faster above C4 and slower below (x2 per octave at full).") \
+X(Op##n##Kls,    "fm.op" #n ".kls",  "Op " #n " Level Scale","FM", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "Keyboard level scaling: lowers the operator by up to 9 dB per octave above C4.")
 
 #define ZS_MOD_PARAMS(X, n) \
 X(Mod##n##Src,   "mod" #n ".src",   "Mod " #n " Source","Mod Matrix", Choice, 0, 0, 0.f, LIN, "", ZS_CH_MOD_SRC, "Modulation source.") \

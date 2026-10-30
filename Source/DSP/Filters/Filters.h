@@ -1,6 +1,6 @@
 #pragma once
 
-// Z.SYNTH filter models. All are zero-delay-feedback (topology-preserving
+// ZYNTH filter models. All are zero-delay-feedback (topology-preserving
 // transform) designs, take the prewarped coefficient g = tan(pi * fc / fs) per
 // sample (so cutoff can be modulated at audio rate), and contain explicit
 // nonlinearities where those shape the character. They are *inspired by*

@@ -1,8 +1,8 @@
-# Z.SYNTH user manual
+# ZYNTH user manual
 
 ## Getting started
 
-1. Launch **Z.SYNTH**. It opens on the first factory preset, ready to play.
+1. Launch **ZYNTH**. It opens on the first factory preset, ready to play.
 2. Choose your audio output in **Options > Audio/MIDI Settings** (top-left of
    the window). On Linux pick ALSA or JACK.
 3. Connected MIDI keyboards are opened automatically. You can also play the
@@ -12,7 +12,7 @@
 5. Click the preset display for the **Bank > Folder > Preset** menu, step with
    **<** and **>**, or use **BROWSE** to search.
 6. Save your own sound with **SAVE AS**. Your sound and settings are also
-   restored automatically the next time you start Z.SYNTH.
+   restored automatically the next time you start ZYNTH.
 
 ### Working with controls
 
@@ -42,8 +42,9 @@ close with their **x** button or **Esc**:
 | Button | Where | Opens |
 |---|---|---|
 | MOD MATRIX | LFOs title bar | the 8-slot modulation matrix |
-| OPERATORS | FM Engine title bar | ratio, fine, level and ADSR of all six operators, with envelope graphs |
+| OPERATORS | FM Engine title bar | ratio, fine, level, ADSR, velocity and key scaling of all six operators, with envelope graphs |
 | STEPS | Arp & Sequencer title bar | the 16 step values and their gate / accent / slide |
+| ADVANCED | Valve window (Output) | valve type, bias, sag, warmth and mix |
 
 ## Header
 
@@ -139,9 +140,19 @@ Active when ENGINE is FM or HYBRID. **ALGORITHM** chooses how the six
 operators connect (the diagram shows modulators above carriers; the loop on
 OP6 is its feedback). **DEPTH** scales all modulation, **FDBK** is operator-6
 feedback, **LEVEL** is the FM output into the mixer, **VELO** makes playing
-harder brighter. Per operator: **RATIO** (0.5, 1, 2 ... 16), **FINE**
+harder brighter. **DX MODE** switches the operators to DX7-style maths: the
+level faders become logarithmic (99 steps of 0.75 dB, like the DX7's output
+levels), operator envelopes move in decibels at a constant rate and stop
+exactly on their targets, and the modulation-index and feedback ranges follow
+the DX7. The *Classic Machines > Yamaha DX7* presets use it.
+
+Per operator (**OPERATORS ▸**): **RATIO** (0.5, 1, 2 ... 16), **FINE**
 (multiplies the ratio by 1 + fine, for inharmonic tones), **LEVEL** (output
-for carriers, modulation index for modulators) and an ADSR.
+for carriers, modulation index for modulators), an ADSR, **VEL** (velocity
+sensitivity: soft notes lower this operator by up to 30 dB — on a modulator
+that makes soft notes mellower), **K.RATE** (keyboard rate scaling: the
+envelope runs up to twice as fast per octave above C4, slower below) and
+**K.LVL** (keyboard level scaling: up to -9 dB per octave above C4).
 
 ## Modulation matrix
 
@@ -189,9 +200,22 @@ Each module has an **ON** switch and fades in/out smoothly.
 ## Output
 
 **MACRO** is a performance control available as a matrix source (one knob can
-move several things). **LIMITER** keeps peaks below 0 dBFS. The display shows
-sample rate, quality, CPU load, voices, peak level, limiter gain reduction and
-the output guard (counts automatic recoveries from invalid audio). The meter
+move several things). **LIMITER** keeps peaks below 0 dBFS. The small display
+shows CPU load, voices, peak level and limiter gain reduction (or, in red, the
+output guard's count of automatic recoveries from invalid audio).
+
+**VALVE** — a valve stage after the effects, seen through a window in the
+panel. **ON** switches it in, **DRIVE** sets how hard the valve is pushed
+(level-compensated, so it changes colour more than loudness) and the heaters
+glow brighter as you turn it up. **ADVANCED ▸** opens the rest:
+
+| Control | What it does |
+|---|---|
+| VALVE TYPE | 12AX7 (high-gain preamp triode, even harmonics), 12AU7 (low-gain, clean warmth), EL84 (push-pull pair: odd harmonics, early compression), 6L6 (big power pair, most headroom) |
+| BIAS | Cold = cleaner and more symmetric; hot = richer, more even harmonics and grit. On push-pull types it unbalances the pair |
+| SAG | Power-supply droop: the valve compresses and blooms on loud notes |
+| WARMTH | Output transformer: rounds off the top end and adds low-end weight |
+| MIX | Dry/valve blend | The meter
 shows both channels with peak hold.
 
 ## MIDI
@@ -208,7 +232,7 @@ reserved. Mappings are saved with the session.
 
 Presets are organised in banks and folders:
 
-* **Z.SYNTH Originals** — the original library, by category (Bass, Lead, Pad...).
+* **ZYNTH Originals** — the original library, by category (Bass, Lead, Pad...).
 * **Classic Machines** — one folder per famous instrument (Moog Minimoog,
   Sequential Prophet-5, Yamaha DX7, Roland Juno, TB-303, PPG Wave...), each with
   signature sounds in its style, e.g. *DX7 - E.Piano*, *Prophet-5 - Sync Lead*.

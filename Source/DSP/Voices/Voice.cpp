@@ -302,7 +302,7 @@ void Voice::updateControl(int n, const VoiceShared& s)
     noiseLevel = clampf(s.noiseLevel + m[ModDest::NoiseLevel], 0.0f, 1.0f);
 
     if (s.fmActive)
-        fm.prepareBlock(s.fm, m[ModDest::FmDepth], m[ModDest::FmFeedback]);
+        fm.prepareBlock(s.fm, m[ModDest::FmDepth], m[ModDest::FmFeedback], notePitch);
     fmGain = s.fmLevel;
 
     // ---- filter

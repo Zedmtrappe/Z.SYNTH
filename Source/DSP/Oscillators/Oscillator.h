@@ -1,6 +1,6 @@
 #pragma once
 
-// Band-limited oscillator for all Z.SYNTH oscillator waveforms.
+// Band-limited oscillator for all ZYNTH oscillator waveforms.
 //
 // Anti-aliasing: every discontinuity is corrected with a 2-point polynomial
 // BLEP (value steps) and/or BLAMP (slope changes), placed at its exact

@@ -229,7 +229,7 @@ void PresetBrowser::resized()
 void PresetBrowser::showError(const juce::String& message)
 {
     juce::AlertWindow::showAsync(juce::MessageBoxOptions().withIconType(juce::MessageBoxIconType::WarningIcon)
-                                     .withTitle("Z.SYNTH").withMessage(message).withButton("OK").withAssociatedComponent(this),
+                                     .withTitle("ZYNTH").withMessage(message).withButton("OK").withAssociatedComponent(this),
                                  nullptr);
 }
 

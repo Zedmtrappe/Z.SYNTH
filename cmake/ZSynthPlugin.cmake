@@ -22,10 +22,10 @@ juce_add_binary_data(ZSynthData SOURCES
 set_target_properties(ZSynthData PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 juce_add_plugin(ZSynth
-    COMPANY_NAME "Z.SYNTH"
-    COMPANY_WEBSITE "https://example.invalid/zsynth"
-    BUNDLE_ID "com.zsynth.zsynth"
-    PRODUCT_NAME "Z.SYNTH"
+    COMPANY_NAME "ZYNTH"
+    COMPANY_WEBSITE "https://example.invalid/zynth"
+    BUNDLE_ID "com.zynth.zynth"
+    PRODUCT_NAME "ZYNTH"
     VERSION ${PROJECT_VERSION}
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE

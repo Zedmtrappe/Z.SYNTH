@@ -30,4 +30,4 @@ target_compile_definitions(ZSynthVst3HostTest PRIVATE
 target_link_libraries(ZSynthVst3HostTest PRIVATE
     juce::juce_audio_processors juce::juce_gui_basics juce::juce_recommended_config_flags)
 add_dependencies(ZSynthVst3HostTest ZSynth_VST3)
-add_test(NAME vst3_host COMMAND ZSynthVst3HostTest $<TARGET_FILE_DIR:ZSynth_VST3>/../../../Z.SYNTH.vst3)
+add_test(NAME vst3_host COMMAND ZSynthVst3HostTest $<TARGET_FILE_DIR:ZSynth_VST3>/../../../ZYNTH.vst3)

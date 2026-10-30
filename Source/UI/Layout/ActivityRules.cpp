@@ -17,8 +17,11 @@ Activity activityFor(int i, const float* v, bool hostTempo)
     const auto engine = (EngineMode) choice(v, P::Engine);
 
     // ---- engine mode
-    if (inRange(i, P::FmAlgo, P::Op6R) && engine == EngineMode::Analog)
+    if (inRange(i, P::FmAlgo, P::Op6Kls) && engine == EngineMode::Analog)
         return inactive("The FM engine is off. Set ENGINE to HYBRID or FM.");
+
+    if (inRange(i, P::ValveType, P::ValveMix) && ! on(v, P::ValveOn))
+        return inactive("The valve stage is off. Switch VALVE on.");
 
     const bool analogOff = engine == EngineMode::FM;
     if ((inRange(i, P::Osc1On, P::Osc3Xmod) || i == P::SubLevel || i == P::SubWave || inRange(i, P::WtTable, P::WtSpread)) && analogOff)

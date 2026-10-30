@@ -5,7 +5,9 @@
 
 #include "DSP/Common/HalfBand.h"
 #include "DSP/Envelopes/Envelope.h"
+#include "DSP/Effects/DriveAndOutput.h"
 #include "DSP/FM/FmAlgorithms.h"
+#include "DSP/FM/FmVoice.h"
 #include "DSP/Filters/Filters.h"
 #include "DSP/Oscillators/Oscillator.h"
 #include "DSP/Wavetable/WavetableBank.h"
@@ -748,6 +750,99 @@ ZS_TEST(fm_engine_produces_sidebands)
 }
 
 // ====================================================== arp and sequencer ====
+
+ZS_TEST(fm_dx_mode_levels_and_envelopes)
+{
+    // DX level taper: 0.75 dB per step of 99; clean taper is level squared.
+    ZS_CHECK_NEAR(20.0 * std::log10(FmVoice::levelToGain(91.0f / 99.0f, true)), -6.0, 0.05);
+    ZS_CHECK_NEAR(FmVoice::levelToGain(0.5f, false), 0.25, 1e-6);
+    ZS_CHECK(FmVoice::levelToGain(0.0f, true) == 0.0f);
+
+    // A DX decay falls at a constant rate in dB and stops exactly on sustain.
+    const float fs = 48000.0f;
+    EnvelopeCoeffs c;
+    c.set(0.001f, 1.0f, 0.1f, 0.5f, fs);
+    DxEnvRates d;
+    d.set(0.001f, 1.0f, 0.5f, fs);
+    OpEnvelope env;
+    env.noteOn();
+    const float a = std::exp(d.attackLog), dm = std::exp(d.decayLog), rm = std::exp(d.releaseLog);
+    std::vector<float> lv;
+    for (int i = 0; i < (int) fs; ++i)
+        lv.push_back(env.process(c, true, a, dm, rm));
+    const auto dbAt = [&](double t) { return 20.0 * std::log10(lv[(size_t) (t * fs)]); };
+    // 60 dB per second -> -6 dB at ~0.1 s, -12 dB at ~0.2 s: a straight line in dB.
+    ZS_CHECK_NEAR(dbAt(0.2) - dbAt(0.1), -6.0, 0.3);
+    ZS_CHECK_NEAR(dbAt(0.3) - dbAt(0.2), -6.0, 0.3);
+    ZS_CHECK_NEAR(lv.back(), 0.1, 1e-6); // reached sustain (-20 dB) after ~0.33 s and holds
+}
+
+ZS_TEST(fm_operator_velocity_and_key_scaling)
+{
+    // Renders operator 1 alone (organ algorithm) and measures its level.
+    auto level = [](float velSens, float velocity, float kls, float pitch) {
+        FmShared s;
+        s.algorithm = 10; // six carriers
+        for (int i = 0; i < 6; ++i)
+            s.level[i] = i == 0 ? 1.0f : 0.0f;
+        s.velSens[0] = velSens;
+        s.levelScale[0] = kls;
+        for (auto& e : s.env)
+            e.set(0.0005f, 10.0f, 1.0f, 1.0f, 48000.0f);
+        FmVoice v;
+        v.setFastRelease(48000.0f);
+        v.noteOn(velocity, true);
+        v.prepareBlock(s, 0.0f, 0.0f, pitch);
+        double sum = 0.0;
+        for (int i = 0; i < 4800; ++i)
+        {
+            const float x = v.process(440.0f / 48000.0f);
+            if (i >= 2400)
+                sum += (double) x * x;
+        }
+        return 10.0 * std::log10(sum / 2400.0);
+    };
+    const double ref = level(0.0f, 0.2f, 0.0f, 60.0f);
+    ZS_CHECK_NEAR(level(1.0f, 0.5f, 0.0f, 60.0f) - ref, -15.0, 0.5);  // 30 dB range, half velocity
+    ZS_CHECK_NEAR(level(1.0f, 1.0f, 0.0f, 60.0f) - ref, 0.0, 0.2);    // full velocity = full level
+    ZS_CHECK_NEAR(level(0.0f, 1.0f, 1.0f, 84.0f) - ref, -18.0, 0.5);  // two octaves up, 9 dB/oct
+    ZS_CHECK_NEAR(level(0.0f, 1.0f, 1.0f, 48.0f) - ref, 0.0, 0.2);    // no scaling below C4
+}
+
+ZS_TEST(valve_stage_warms_without_level_jumps)
+{
+    const float fs = 48000.0f;
+    for (int t = 0; t < (int) ValveType::Count; ++t)
+    {
+        ValveStage valve;
+        valve.prepare(fs);
+        const int n = 48000;
+        std::vector<float> l((size_t) n), r((size_t) n);
+        for (int i = 0; i < n; ++i)
+            l[(size_t) i] = r[(size_t) i] = 0.25f * std::sin(kTwoPi * 220.0f * (float) i / fs); // -12 dBFS peak
+        const auto inRms = rmsOf(l, 0);
+        for (int i = 0; i < n; i += 256)
+            valve.process(l.data() + i, r.data() + i, std::min(256, n - i), (ValveType) t, 0.7f, 0.7f, 0.5f, 0.5f, 1.0f);
+        for (float x : l)
+            ZS_CHECK(std::isfinite(x) && std::abs(x) < 1.0f);
+        // Level-compensated: within a few dB of the input.
+        ZS_CHECK_NEAR(20.0 * std::log10(rmsOf(l, 4800) / inRms), 0.0, 4.0);
+        // And it adds harmonics (single-ended types: 2nd; all types: 3rd or 2nd above -60 dB).
+        auto amp = [&](double f) {
+            double c = 0.0, sn = 0.0;
+            for (int i = 9600; i < 9600 + 48000 / 2; ++i)
+            {
+                c += l[(size_t) i] * std::cos(2.0 * 3.14159265358979 * f * i / fs);
+                sn += l[(size_t) i] * std::sin(2.0 * 3.14159265358979 * f * i / fs);
+            }
+            return std::sqrt(c * c + sn * sn);
+        };
+        const double h1 = amp(220.0), h2 = amp(440.0), h3 = amp(660.0);
+        ZS_CHECK_GT(20.0 * std::log10(std::max(h2, h3) / h1), -60.0);
+        if (t <= (int) ValveType::Clean12AU7)
+            ZS_CHECK_GT(20.0 * std::log10(h2 / h1), -60.0);
+    }
+}
 
 ZS_TEST(arpeggiator_timing)
 {

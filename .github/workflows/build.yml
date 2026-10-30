@@ -32,18 +32,34 @@ jobs:
 
       - name: Package
         run: |
-          mkdir -p dist/Z.SYNTH-macOS
+          D=dist/ZYNTH-macOS
+          mkdir -p "$D/Plug-Ins"
           A=build/ZSynth_artefacts/Release
-          cp -R "$A/Standalone/Z.SYNTH.app" dist/Z.SYNTH-macOS/
-          cp packaging/macos/INSTALL.txt dist/Z.SYNTH-macOS/
-          # Ad-hoc signature (not notarised): required for Apple Silicon to run the app.
-          codesign --force --deep --sign - dist/Z.SYNTH-macOS/Z.SYNTH.app
-          (cd dist && ditto -c -k --keepParent Z.SYNTH-macOS Z.SYNTH-macOS.zip)
+          cp -R "$A/Standalone/ZYNTH.app" "$D/"
+          cp -R "$A/VST3/ZYNTH.vst3" "$D/Plug-Ins/"
+          cp -R "$A/AU/ZYNTH.component" "$D/Plug-Ins/"
+          cp packaging/macos/INSTALL.txt "$D/"
+          cp packaging/macos/Install\ Plug-Ins.command "$D/"
+          chmod +x "$D/Install Plug-Ins.command"
+          # Ad-hoc signatures (not notarised): required for Apple Silicon to load them.
+          codesign --force --deep --sign - "$D/ZYNTH.app"
+          codesign --force --deep --sign - "$D/Plug-Ins/ZYNTH.vst3"
+          codesign --force --deep --sign - "$D/Plug-Ins/ZYNTH.component"
+          (cd dist && ditto -c -k --keepParent ZYNTH-macOS ZYNTH-macOS.zip)
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Z.SYNTH-macOS
-          path: dist/Z.SYNTH-macOS.zip
+          name: ZYNTH-macOS
+          path: dist/ZYNTH-macOS.zip
+
+      - name: Validate the Audio Unit (auval)
+        run: |
+          mkdir -p ~/Library/Audio/Plug-Ins/Components
+          cp -R dist/ZYNTH-macOS/Plug-Ins/ZYNTH.component ~/Library/Audio/Plug-Ins/Components/
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          sleep 2
+          auval -a | grep -i zynth || true
+          auval -strict -v aumu Zsy1 Zsyn
 
   linux:
     name: Linux

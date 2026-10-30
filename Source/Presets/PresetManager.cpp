@@ -25,15 +25,30 @@ PresetManager::PresetManager(juce::AudioProcessorValueTreeState& s, const std::v
     refresh();
 }
 
-juce::File PresetManager::defaultUserDirectory()
+juce::File PresetManager::appDataFolder(const juce::String& name)
 {
 #if JUCE_MAC
     return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-        .getChildFile("Application Support").getChildFile("Z.SYNTH").getChildFile("Presets");
+        .getChildFile("Application Support").getChildFile(name);
 #else
-    return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-        .getChildFile("Z.SYNTH").getChildFile("Presets");
+    return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getChildFile(name);
 #endif
+}
+
+void PresetManager::migrateLegacyAppFolder()
+{
+    // The instrument was called "Z.SYNTH" before it became ZYNTH: carry user
+    // presets, favourites and standalone settings over on first launch.
+    const auto current = appDataFolder("ZYNTH");
+    const auto legacy = appDataFolder("Z.SYNTH");
+    if (! current.exists() && legacy.isDirectory())
+        legacy.copyDirectoryTo(current);
+}
+
+juce::File PresetManager::defaultUserDirectory()
+{
+    migrateLegacyAppFolder();
+    return appDataFolder("ZYNTH").getChildFile("Presets");
 }
 
 juce::String PresetManager::sanitiseName(const juce::String& name)

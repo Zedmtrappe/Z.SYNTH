@@ -1,7 +1,7 @@
 #pragma once
 
 // =============================================================================
-//  The canonical Z.SYNTH front-panel specification.
+//  The canonical ZYNTH front-panel specification.
 //
 //  Every section, control and utility element has exactly one rectangle on a
 //  fixed layout. The main panel is a 1920 x 1200 logical canvas; advanced

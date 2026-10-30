@@ -6,7 +6,7 @@ namespace
 {
     bool isFmRatio(int index)
     {
-        return index >= P::Op1Ratio && index <= P::Op6R && (index - P::Op1Ratio) % kOpParamStride == 0;
+        return index >= P::Op1Ratio && index <= P::Op6Kls && (index - P::Op1Ratio) % kOpParamStride == 0;
     }
 
     juce::StringArray choicesOf(int index)
@@ -102,7 +102,7 @@ juce::String formatValue(int index, float v)
         return juce::String(v * 100.0f, 0) + "%";
     if (isBipolarUnitless(d))
         return (v > 0.0f ? "+" : "") + juce::String(v * 100.0f, 0) + "%";
-    if (index >= P::Op1Fine && index <= P::Op6R && (index - P::Op1Fine) % kOpParamStride == 0)
+    if (index >= P::Op1Fine && index <= P::Op6Kls && (index - P::Op1Fine) % kOpParamStride == 0)
         return "+" + juce::String(v, 2);
     return juce::String(v * 100.0f, 0) + "%";
 }

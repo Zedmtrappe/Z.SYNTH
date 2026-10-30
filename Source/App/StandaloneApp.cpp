@@ -1,8 +1,8 @@
-// Z.SYNTH standalone application.
+// ZYNTH standalone application.
 //
 // Based on JUCE's default standalone wrapper, with three deliberate changes:
-//   * settings live in a dedicated folder (Linux: ~/.config/Z.SYNTH/zsynth.settings,
-//     macOS: ~/Library/Application Support/Z.SYNTH, Windows: %APPDATA%\Z.SYNTH),
+//   * settings live in a dedicated folder (Linux: ~/.config/ZYNTH/zsynth.settings,
+//     macOS: ~/Library/Application Support/ZYNTH, Windows: %APPDATA%\ZYNTH),
 //   * all MIDI inputs are opened automatically, so a connected keyboard plays
 //     immediately (they can still be deselected in Options > Audio/MIDI Settings),
 //   * the full plug-in state (sound, global settings, MIDI-learn map) is saved
@@ -14,6 +14,7 @@
 #if JucePlugin_Build_Standalone && JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP
 
 #include <juce_audio_plugin_client/Standalone/juce_StandaloneFilterWindow.h>
+#include "../Presets/PresetManager.h"
 
 namespace zsynth
 {
@@ -23,19 +24,20 @@ class StandaloneApp final : public juce::JUCEApplication
 public:
     StandaloneApp()
     {
+        zsynth::PresetManager::migrateLegacyAppFolder();
         juce::PropertiesFile::Options options;
         options.applicationName = "zsynth";
         options.filenameSuffix = ".settings";
         options.osxLibrarySubFolder = "Application Support";
        #if JUCE_LINUX || JUCE_BSD
-        options.folderName = "~/.config/Z.SYNTH";
+        options.folderName = "~/.config/ZYNTH";
        #else
-        options.folderName = "Z.SYNTH";
+        options.folderName = "ZYNTH";
        #endif
         appProperties.setStorageParameters(options);
     }
 
-    const juce::String getApplicationName() override { return "Z.SYNTH"; }
+    const juce::String getApplicationName() override { return "ZYNTH"; }
     const juce::String getApplicationVersion() override { return JucePlugin_VersionString; }
     bool moreThanOneInstanceAllowed() override { return true; }
     void anotherInstanceStarted(const juce::String&) override {}

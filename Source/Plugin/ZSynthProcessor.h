@@ -32,7 +32,7 @@ public:
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
 
-    const juce::String getName() const override { return "Z.SYNTH"; }
+    const juce::String getName() const override { return "ZYNTH"; }
     bool acceptsMidi() const override { return true; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
@@ -47,7 +47,7 @@ public:
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
 
-    // ---- Z.SYNTH API used by the editor
+    // ---- ZYNTH API used by the editor
     juce::AudioProcessorValueTreeState& getState() { return apvts; }
     juce::MidiKeyboardState& getKeyboardState() { return keyboardState; }
     PresetManager& getPresets() { return *presets; }
