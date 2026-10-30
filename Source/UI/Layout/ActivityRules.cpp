@@ -150,8 +150,8 @@ Activity activityFor(int i, const float* v, bool hostTempo)
                              { P::EnsOn, P::EnsRate, P::EnsMix, "Ensemble" },
                              { P::PhaserOn, P::PhaserRate, P::PhaserMix, "Phaser" },
                              { P::FlangerOn, P::FlangerRate, P::FlangerMix, "Flanger" },
-                             { P::DelayOn, P::DelaySync, P::DelayMix, "Delay" },
-                             { P::ReverbOn, P::ReverbSize, P::ReverbMix, "Reverb" } };
+                             { P::DelayOn, P::DelaySync, P::DelayDuck, "Delay" },
+                             { P::ReverbOn, P::ReverbSize, P::ReverbWidth, "Reverb" } };
     for (const auto& f : fx)
         if (inRange(i, f.first, f.last) && ! on(v, f.on))
             return inactive(juce::String(f.name) + " is switched off.");
@@ -159,6 +159,8 @@ Activity activityFor(int i, const float* v, bool hostTempo)
         return inactive("Delay is tempo-synced: use DIVISION.");
     if (i == P::DelayDiv && ! on(v, P::DelaySync))
         return inactive("Delay sync is off: use TIME.");
+    if (inRange(i, P::DelayWow, P::DelayAge) && (DelayType) choice(v, P::DelayType) == DelayType::Digital)
+        return inactive("The Digital delay is clean: wow, flutter and age shape the tape, analog, diffuse and lo-fi types.");
 
     return {};
 }

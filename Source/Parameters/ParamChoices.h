@@ -93,6 +93,12 @@ enum class ArpMode : int { Up, Down, UpDown, Random, AsPlayed, Chord, Count };
 #define ZS_CH_SEQ_MODE "Off|Mod|Note"
 enum class SeqMode : int { Off, Mod, Note, Count };
 
+#define ZS_CH_DELAY_TYPE "Digital|Tape RE-201|Tape EP-3|Analog DM-2|Diffuse|Lo-Fi"
+enum class DelayType : int { Digital, TapeRE201, TapeEP3, AnalogDM2, Diffuse, LoFi, Count };
+
+#define ZS_CH_REVERB_TYPE "Hall|Room|EMT 140 Plate|Echo Chamber|Spring|Lexicon 224|Lexicon 480L|Bricasti M7|Shimmer"
+enum class ReverbType : int { Hall, Room, Plate, Chamber, Spring, Lex224, Lex480, BricastiM7, Shimmer, Count };
+
 #define ZS_CH_VALVE_TYPE "12AX7 Preamp|12AU7 Clean|EL84 Push-Pull|6L6 Power"
 enum class ValveType : int { Preamp12AX7, Clean12AU7, PushPullEL84, Power6L6, Count };
 

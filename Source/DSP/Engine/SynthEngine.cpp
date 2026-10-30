@@ -660,13 +660,35 @@ void SynthEngine::runEffects(float* left, float* right, int n)
 
     runFaded(5, pb(P::DelayOn), [&](float* l, float* r) {
         const float seconds = pb(P::DelaySync) ? (float) (divisionBeats(pi(P::DelayDiv)) * 60.0 / bpm) : p(P::DelayTime) * 0.001f;
-        delay.process(l, r, n, std::min(seconds, 2.0f), clampf(p(P::DelayFb) + fx[4], 0.0f, 0.95f), p(P::DelayTone),
-                      pb(P::DelayPingPong), clampf(p(P::DelayMix) + fx[2], 0.0f, 1.0f));
+        DelaySettings ds;
+        ds.seconds = std::min(seconds, 2.0f);
+        ds.feedback = clampf(p(P::DelayFb) + fx[4], 0.0f, 0.95f);
+        ds.tone = p(P::DelayTone);
+        ds.pingPong = pb(P::DelayPingPong);
+        ds.mix = clampf(p(P::DelayMix) + fx[2], 0.0f, 1.0f);
+        ds.type = (DelayType) pi(P::DelayType);
+        ds.wow = p(P::DelayWow);
+        ds.flutter = p(P::DelayFlutter);
+        ds.age = p(P::DelayAge);
+        ds.spread = p(P::DelaySpread);
+        ds.duck = p(P::DelayDuck);
+        delay.process(l, r, n, ds);
     }, [&] { delay.reset(); });
 
     runFaded(6, pb(P::ReverbOn), [&](float* l, float* r) {
-        reverb.process(l, r, n, p(P::ReverbSize), p(P::ReverbDamp), p(P::ReverbPredelay) * 0.001f,
-                       clampf(p(P::ReverbMix) + fx[3], 0.0f, 1.0f));
+        ReverbSettings rs;
+        rs.type = (ReverbType) pi(P::ReverbType);
+        rs.size = p(P::ReverbSize);
+        rs.damping = p(P::ReverbDamp);
+        rs.predelaySec = p(P::ReverbPredelay) * 0.001f;
+        rs.mix = clampf(p(P::ReverbMix) + fx[3], 0.0f, 1.0f);
+        rs.decay = p(P::ReverbDecay);
+        rs.lowCutHz = p(P::ReverbLowCut);
+        rs.diffusion = p(P::ReverbDiff);
+        rs.modulation = p(P::ReverbMod);
+        rs.early = p(P::ReverbEarly);
+        rs.width = p(P::ReverbWidth);
+        reverb.process(l, r, n, rs);
     }, [&] { reverb.reset(); });
 
     // The valve stage sits after the effects, at the head of the output section.

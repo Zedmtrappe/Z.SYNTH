@@ -19,7 +19,8 @@ namespace
         if (section.startsWith("fm") || section.startsWith("op"))   return juce::Colour(0xff7fd36b); // green
         if (section == "perf" || section.startsWith("seq"))         return juce::Colour(0xffe9d35a); // yellow
         if (section.startsWith("fx"))                               return juce::Colour(0xfff08fb0); // pink
-        if (section == "valve")                                     return juce::Colour(0xffff8c3a); // valve orange
+        if (section.startsWith("delay") || section.startsWith("reverb")) return juce::Colour(0xfff08fb0); // pink (effects)
+        if (section.startsWith("valve"))                                     return juce::Colour(0xffff8c3a); // valve orange
         if (section == "output")                                    return juce::Colour(0xffffffff);
         return Colours::accent;
     }
@@ -105,7 +106,7 @@ void paintLayoutPage(juce::Graphics& g, const juce::String& page)
             continue;
         g.setColour(l.heading ? Colours::accent.withAlpha(0.95f) : Colours::text);
         g.setFont(labelFont(l.heading ? 11.0f : 10.0f));
-        g.drawFittedText(l.text, l.bounds, l.justification, 1, 0.7f);
+        g.drawFittedText(l.text, l.bounds, l.justification, juce::jmax(1, l.bounds.getHeight() / 13), 0.7f);
     }
 }
 
@@ -248,7 +249,15 @@ void MainPanel::buildUtilities()
         showPage(getVisiblePage() == "fm" ? juce::String() : juce::String("fm")); });
     button("openSeq", juce::String::fromUTF8("STEPS \xe2\x96\xb8"), "Edit the 16 sequencer steps", [this] {
         showPage(getVisiblePage() == "seq" ? juce::String() : juce::String("seq")); });
-    button("openValve", juce::String::fromUTF8("ADVANCED â¸"), "Valve type, bias, sag, warmth and mix", [this] {
+    button("openDelay", juce::String::fromUTF8("ADV \xe2\x96\xb8"), "Delay presets, wow, flutter, age, spread and ducking", [this] {
+        showPage(getVisiblePage() == "delay" ? juce::String() : juce::String("delay")); });
+    button("openReverb", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Reverb presets, decay, low cut, diffusion, modulation, early/late and width", [this] {
+        showPage(getVisiblePage() == "reverb" ? juce::String() : juce::String("reverb")); });
+    button("delayPresets", juce::String::fromUTF8("DELAY PRESETS \xe2\x96\xbe"), "Load a delay starting point (sets only the delay)", [this] {
+        showFxPresetMenu(delayPresets(), "delayPresets", P::DelayOn); });
+    button("reverbPresets", juce::String::fromUTF8("REVERB PRESETS \xe2\x96\xbe"), "Load a reverb starting point (sets only the reverb)", [this] {
+        showFxPresetMenu(reverbPresets(), "reverbPresets", P::ReverbOn); });
+    button("openValve", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Valve type, bias, sag, warmth and mix", [this] {
         showPage(getVisiblePage() == "valve" ? juce::String() : juce::String("valve")); });
 
     auto& version = addUtility<juce::Label>("version", "version", "v" + juce::String(JucePlugin_VersionString));
@@ -319,6 +328,50 @@ bool MainPanel::keyPressed(const juce::KeyPress& k)
 }
 
 // ----------------------------------------------------------------- presets
+void MainPanel::showFxPresetMenu(const std::vector<FxPreset>& list, const juce::String& anchor, int onParam)
+{
+    juce::PopupMenu menu;
+    juce::StringArray groups;
+    for (const auto& p : list)
+        groups.addIfNotAlreadyThere(p.group);
+    for (const auto& g : groups)
+    {
+        juce::PopupMenu sub;
+        for (int i = 0; i < (int) list.size(); ++i)
+            if (g == list[(size_t) i].group)
+                sub.addItem(i + 1, list[(size_t) i].name);
+        menu.addSubMenu(g, sub);
+    }
+
+    juce::Component::SafePointer<MainPanel> safe(this);
+    const auto* listPtr = &list;
+    // The anchor button sits on a popup page: offset it by the page's position on the canvas.
+    juce::Rectangle<int> target;
+    for (const auto& u : PanelLayout::get().utilities())
+        if (u.id == anchor)
+        {
+            target = u.bounds;
+            for (const auto& pg : PanelLayout::get().popupPages())
+                if (pg.id == u.page)
+                    target += pg.boundsOnCanvas.getPosition();
+        }
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetScreenArea(localAreaToGlobal(target)).withMinimumWidth(target.getWidth()),
+                       [safe, listPtr, onParam](int result) {
+                           if (safe == nullptr || result <= 0)
+                               return;
+                           auto values = parseFxPreset((*listPtr)[(size_t) (result - 1)]);
+                           values.emplace_back(onParam, 1.0f);
+                           auto& state = safe->processor.getState();
+                           for (const auto& [index, value] : values)
+                               if (auto* param = state.getParameter(paramDef(index).id))
+                               {
+                                   param->beginChangeGesture();
+                                   param->setValueNotifyingHost(param->convertTo0to1(value));
+                                   param->endChangeGesture();
+                               }
+                       });
+}
+
 void MainPanel::showPresetMenu()
 {
     auto& pm = processor.getPresets();

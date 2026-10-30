@@ -195,11 +195,24 @@ X(DelayFb,       "fx.dly.fb",      "Delay Feedback","Effects", Float, 0.f, 0.95f
 X(DelayTone,     "fx.dly.tone",    "Delay Tone",    "Effects", Float, 0.f, 1.f, 0.6f, LIN, "", nullptr, "Darkens (left) or thins (right) the repeats.") \
 X(DelayPingPong, "fx.dly.pp",      "Ping-Pong",     "Effects", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "Alternates repeats between left and right.") \
 X(DelayMix,      "fx.dly.mix",     "Delay Mix",     "Effects", Float, 0.f, 1.f, 0.25f, LIN, "", nullptr, "Delay wet/dry balance.") \
+X(DelayType,     "fx.dly.type",    "Delay Type",    "Effects", Choice, 0, 0, 0.f, LIN, "", ZS_CH_DELAY_TYPE, "Delay character: clean digital, RE-201 / EP-3 tape echo, DM-2 bucket-brigade, diffused or lo-fi.") \
+X(DelayWow,      "fx.dly.wow",     "Delay Wow",     "Effects", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Slow pitch drift of the repeats (0.5 = the type's natural amount).") \
+X(DelayFlutter,  "fx.dly.flutter", "Delay Flutter", "Effects", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Fast pitch wobble of the repeats (0.5 = the type's natural amount).") \
+X(DelayAge,      "fx.dly.age",     "Delay Age",     "Effects", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Wear: saturation, top-end loss and noise of the repeats (0.5 = the type's natural amount).") \
+X(DelaySpread,   "fx.dly.spread",  "Delay Spread",  "Effects", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "Lengthens the right-hand delay for a wider stereo image.") \
+X(DelayDuck,     "fx.dly.duck",    "Delay Ducking", "Effects", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "Turns the echoes down while you play and lets them bloom in the gaps.") \
 X(ReverbOn,      "fx.rev.on",      "Reverb On",     "Effects", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "Enables the stereo reverb.") \
 X(ReverbSize,    "fx.rev.size",    "Reverb Size",   "Effects", Float, 0.f, 1.f, 0.6f, LIN, "", nullptr, "Reverb size and decay time.") \
 X(ReverbDamp,    "fx.rev.damp",    "Reverb Damping","Effects", Float, 0.f, 1.f, 0.4f, LIN, "", nullptr, "High-frequency damping of the reverb tail.") \
 X(ReverbPredelay,"fx.rev.pre",     "Pre-Delay",     "Effects", Float, 0.f, 200.f, 20.f, LIN, "ms", nullptr, "Delay before the reverb onset.") \
 X(ReverbMix,     "fx.rev.mix",     "Reverb Mix",    "Effects", Float, 0.f, 1.f, 0.25f, LIN, "", nullptr, "Reverb wet/dry balance.") \
+X(ReverbType,    "fx.rev.type",    "Reverb Type",   "Effects", Choice, 0, 0, 0.f, LIN, "", ZS_CH_REVERB_TYPE, "Reverb algorithm and character.") \
+X(ReverbDecay,   "fx.rev.decay",   "Reverb Decay",  "Effects", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Decay time trim (0.5 = as set by SIZE; x0.35 .. x2.8).") \
+X(ReverbLowCut,  "fx.rev.lowcut",  "Reverb Low Cut","Effects", Float, 20.f, 1000.f, 20.f, LOG, "Hz", nullptr, "High-pass on the reverb (keeps the low end clear).") \
+X(ReverbDiff,    "fx.rev.diff",    "Reverb Diffusion","Effects", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Echo density: low is grainier, high is smoother.") \
+X(ReverbMod,     "fx.rev.mod",     "Reverb Modulation","Effects", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Chorusing of the tail (0.5 = the type's natural amount).") \
+X(ReverbEarly,   "fx.rev.early",   "Reverb Early/Late","Effects", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Balance of early reflections (left) and tail (right).") \
+X(ReverbWidth,   "fx.rev.width",   "Reverb Width",  "Effects", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Stereo width of the reverb (0.5 = natural, 1 = extra wide).") \
 /* ----------------------------------------------------------------- Output */ \
 X(Width,         "out.width",      "Stereo Width",  "Output", Float, 0.f, 2.f, 1.f, LIN, "", nullptr, "Mid/side stereo width (0 = mono, 1 = unchanged, 2 = wide).") \
 X(Character,     "out.character",  "Character",     "Output", Float, 0.f, 1.f, 0.1f, LIN, "", nullptr, "Analogue-style output stage saturation and warmth.") \

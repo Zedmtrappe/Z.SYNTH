@@ -2,6 +2,7 @@
 // editor construction and the factory library. Also hosts the preset audition
 // tool:  ZSynthStateTests --preset-report [wavOutputDir]
 
+#include "Presets/FxPresets.h"
 #include "TestFramework.h"
 #include "TestHelpers.h"
 
@@ -580,9 +581,38 @@ ZS_TEST(layout_controls_inside_sections_and_not_overlapping)
     {
         const juce::String id(c.paramId);
         const bool advanced = id.startsWith("mod") || id.startsWith("fm.op") || id.startsWith("seq.s")
-                            || (id.startsWith("out.valve.") && id != "out.valve.drive" && id != "out.valve.on");
+                            || (id.startsWith("out.valve.") && id != "out.valve.drive" && id != "out.valve.on")
+                            || id == "fx.dly.wow" || id == "fx.dly.flutter" || id == "fx.dly.age" || id == "fx.dly.spread"
+                            || id == "fx.dly.duck" || id == "fx.rev.decay" || id == "fx.rev.lowcut" || id == "fx.rev.diff"
+                            || id == "fx.rev.mod" || id == "fx.rev.early" || id == "fx.rev.width";
         ZS_CHECK(advanced == (c.page != ui::kMainPage));
     }
+}
+
+ZS_TEST(fx_presets_parse_and_cover_every_type)
+{
+    juce::StringArray errors;
+    juce::StringArray delayGroups, reverbGroups;
+    for (const auto& p : delayPresets())
+    {
+        ZS_CHECK(! parseFxPreset(p, &errors).empty());
+        delayGroups.addIfNotAlreadyThere(p.group);
+    }
+    for (const auto& p : reverbPresets())
+    {
+        ZS_CHECK(! parseFxPreset(p, &errors).empty());
+        reverbGroups.addIfNotAlreadyThere(p.group);
+    }
+    for (const auto& e : errors)
+        std::printf("    bad fx preset entry: %s\n", e.toRawUTF8());
+    ZS_CHECK(errors.isEmpty());
+    // Every type has presets, and each group name is a real type.
+    ZS_CHECK(delayGroups.size() == (int) DelayType::Count);
+    ZS_CHECK(reverbGroups.size() == (int) ReverbType::Count);
+    for (const auto& g : delayGroups)
+        ZS_CHECK(juce::StringArray::fromTokens(ZS_CH_DELAY_TYPE, "|", "").contains(g));
+    for (const auto& g : reverbGroups)
+        ZS_CHECK(juce::StringArray::fromTokens(ZS_CH_REVERB_TYPE, "|", "").contains(g));
 }
 
 ZS_TEST(activity_rules_examples)

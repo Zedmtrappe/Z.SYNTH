@@ -326,6 +326,8 @@ PanelLayout::PanelLayout()
     fxFader(5, 2, "fx.dly.fb", "FDBK");
     fxFader(5, 3, "fx.dly.tone", "TONE");
     fxFader(5, 4, "fx.dly.mix", "MIX");
+    add("fx.dly.type", K::Selector, mx[5] + 192, 812, "TYPE", 66);
+    utilityAt("openDelay", mx[5] + 192, 862, 66, 24);
 
     inSection("fxReverb");
     fxOn(6, "fx.rev.on");
@@ -333,6 +335,8 @@ PanelLayout::PanelLayout()
     fxFader(6, 1, "fx.rev.damp", "DAMP");
     fxFader(6, 2, "fx.rev.pre", "PRE");
     fxFader(6, 3, "fx.rev.mix", "MIX");
+    add("fx.rev.type", K::Selector, mx[6] + 158, 812, "TYPE", 100);
+    utilityAt("openReverb", mx[6] + 158, 862, 100, 24);
 
     // ----------------------------------------------------------- keyboard
     sectionAt("wheels", "", 10, 972, 150, 218);
@@ -404,6 +408,55 @@ PanelLayout::PanelLayout()
     heading("CONTROLS", 270, 226, 270);
     text("BIAS cold = cleaner/symmetric, hot = richer/grittier.  SAG = supply droop that blooms on loud notes.  WARMTH = output transformer (softer top, fuller bass).",
          270, 246, 276, 70, juce::Justification::topLeft);
+
+    // ------------------------------------------------------- delay advanced
+    pageList.push_back({ "delay", "DELAY", { 820, 340, 660, 330 } });
+    page("delay");
+    sectionAt("delayPage", "DELAY  -  ADVANCED", 0, 0, 660, 330);
+    utilityAt("delayClose", 620, 3, 34, 20);
+    utilityAt("delayPresets", 20, 44, 250, 26);
+    const std::pair<const char*, const char*> delayFaders[5] = { { "fx.dly.wow", "WOW" }, { "fx.dly.flutter", "FLUTTER" },
+        { "fx.dly.age", "AGE" }, { "fx.dly.spread", "SPREAD" }, { "fx.dly.duck", "DUCK" } };
+    for (int k = 0; k < 5; ++k)
+        fader(delayFaders[k].first, 24 + k * 50, 100, delayFaders[k].second);
+    heading("DELAY TYPES (TYPE on the panel)", 300, 44, 340);
+    const char* delayTypes[6] = {
+        "DIGITAL   Clean repeats; TONE shapes the feedback.",
+        "RE-201    Space Echo tape: saturation, wow & flutter, hiss.",
+        "EP-3      Echoplex tape: warmer, darker, more wow and drive.",
+        "DM-2      Bucket-brigade: dark, soft, chorusing clock wobble.",
+        "DIFFUSE   Each repeat smears into the next.",
+        "LO-FI     Sample-rate and bit crush, telephone band." };
+    for (int k = 0; k < 6; ++k)
+        text(delayTypes[k], 300, 68 + k * 26, 350, 22, juce::Justification::centredLeft);
+    text("WOW / FLUTTER / AGE: 0.5 = the type as voiced.  SPREAD widens the stereo image.  DUCK lowers the echoes while you play.",
+         300, 232, 350, 60, juce::Justification::topLeft);
+
+    // ------------------------------------------------------ reverb advanced
+    pageList.push_back({ "reverb", "REVERB", { 780, 300, 760, 370 } });
+    page("reverb");
+    sectionAt("reverbPage", "REVERB  -  ADVANCED", 0, 0, 760, 370);
+    utilityAt("reverbClose", 720, 3, 34, 20);
+    utilityAt("reverbPresets", 20, 44, 300, 26);
+    const std::pair<const char*, const char*> reverbFaders[6] = { { "fx.rev.decay", "DECAY" }, { "fx.rev.lowcut", "LO CUT" },
+        { "fx.rev.diff", "DIFF" }, { "fx.rev.mod", "MOD" }, { "fx.rev.early", "E / L" }, { "fx.rev.width", "WIDTH" } };
+    for (int k = 0; k < 6; ++k)
+        fader(reverbFaders[k].first, 24 + k * 50, 100, reverbFaders[k].second);
+    heading("REVERB TYPES (TYPE on the panel)", 340, 44, 400);
+    const char* reverbTypes[9] = {
+        "HALL          The original ZYNTH hall.",
+        "ROOM          Small space, strong early reflections.",
+        "EMT 140       Dense, bright plate; instant build-up.",
+        "CHAMBER       Darker echo chamber with clear reflections.",
+        "SPRING        Dispersive spring tank: the classic boing.",
+        "LEXICON 224   Grainy, chorused 80s digital hall.",
+        "LEXICON 480L  Larger, smoother, richly modulated.",
+        "BRICASTI M7   Dense, natural, realistic reflections.",
+        "SHIMMER       Hall with an octave-up feedback loop." };
+    for (int k = 0; k < 9; ++k)
+        text(reverbTypes[k], 340, 68 + k * 26, 410, 22, juce::Justification::centredLeft);
+    text("DECAY trims SIZE's decay time.  DIFF = echo density.  MOD = tail chorusing.  E / L = early reflections vs tail.",
+         340, 308, 410, 48, juce::Justification::topLeft);
 
     // ------------------------------------------------------- sequencer steps
     pageList.push_back({ "seq", "STEP SEQUENCER", { 400, 300, 1120, 340 } });

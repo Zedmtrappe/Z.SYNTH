@@ -10,6 +10,7 @@
 #include "Components/ParamControl.h"
 #include "Components/PresetBrowser.h"
 #include "Layout/PanelLayout.h"
+#include "../Presets/FxPresets.h"
 
 namespace zsynth::ui
 {
@@ -58,6 +59,7 @@ private:
     void updateActivity();
     void savePreset();
     void showPresetMenu();
+    void showFxPresetMenu(const std::vector<FxPreset>& list, const juce::String& anchor, int onParam);
     juce::Component& parentForPage(const juce::String& page);
 
     template <typename T, typename... Args>

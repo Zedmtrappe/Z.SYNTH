@@ -45,6 +45,8 @@ close with their **x** button or **Esc**:
 | OPERATORS | FM Engine title bar | ratio, fine, level, ADSR, velocity and key scaling of all six operators, with envelope graphs |
 | STEPS | Arp & Sequencer title bar | the 16 step values and their gate / accent / slide |
 | ADVANCED | Valve window (Output) | valve type, bias, sag, warmth and mix |
+| ADV | Delay module | delay presets, wow, flutter, age, spread, ducking |
+| ADVANCED | Reverb module | reverb presets, decay, low cut, diffusion, modulation, early/late, width |
 
 ## Header
 
@@ -193,9 +195,47 @@ Each module has an **ON** switch and fades in/out smoothly.
 | ENSEMBLE | RATE, DEPTH, MIX (three-phase string ensemble) |
 | PHASER | RATE, DEPTH, FDBK, MIX |
 | FLANGER | RATE, DEPTH, FDBK (negative = hollow), MIX |
-| DELAY | SYNC, P.PONG, TIME or DIVISION, FDBK, TONE, MIX |
-| REVERB | SIZE, DAMP, PRE-DLY, MIX |
+| DELAY | SYNC, P.PONG, TIME or DIVISION, FDBK, TONE, MIX, TYPE; **ADV ▸** for the rest |
+| REVERB | SIZE, DAMP, PRE-DLY, MIX, TYPE; **ADVANCED ▸** for the rest |
 | STEREO | WIDTH (0 = mono, 100 % = unchanged, 200 % = wide), CHAR (output warmth) |
+
+### Delay types and advanced controls
+
+| Type | Character |
+|---|---|
+| Digital | Clean repeats; TONE shapes the feedback only (the original ZYNTH delay) |
+| Tape RE-201 | Roland Space Echo style: tape saturation, head-gap top-end loss, wow and flutter, a little hiss |
+| Tape EP-3 | Echoplex style: warmer and darker than the RE-201, with more wow and drive |
+| Analog DM-2 | Boss DM-2 style bucket-brigade: dark two-pole roll-off, soft saturation, chorus-like clock wobble, clock hiss |
+| Diffuse | Each repeat passes through all-pass diffusers and smears into the next |
+| Lo-Fi | Sample-rate and bit reduction with a telephone band |
+
+In the advanced popup: **DELAY PRESETS ▾** loads a starting point for each type
+(it sets only the delay and switches it on). **WOW**, **FLUTTER** and **AGE**
+scale the type's natural amount of drift, wobble and wear (0.5 = as voiced;
+they do nothing on Digital). **SPREAD** lengthens the right-hand delay for
+width. **DUCK** turns the echoes down while you play and lets them bloom in
+the gaps.
+
+### Reverb types and advanced controls
+
+| Type | Character |
+|---|---|
+| Hall | The original ZYNTH hall |
+| Room | Small space with strong early reflections |
+| EMT 140 Plate | Dense, bright plate with an instant build-up |
+| Echo Chamber | Darker chamber with clear early reflections |
+| Spring | Dispersive spring tank (the "boing" of guitar amps and dub) |
+| Lexicon 224 | 80s digital hall: 12 kHz bandwidth, heavy chorusing, grainy tail |
+| Lexicon 480L | Larger and smoother than the 224, richly modulated |
+| Bricasti M7 | Dense and natural, realistic early reflections |
+| Shimmer | Hall with an octave-up pitch shifter in the feedback loop |
+
+These are ZYNTH's own algorithms voiced after those units, not emulations of
+them. In the advanced popup: **REVERB PRESETS ▾** (two or three per type),
+**DECAY** (trims SIZE's decay time x0.35 to x2.8), **LO CUT**, **DIFF** (echo
+density: low = grainier), **MOD** (tail chorusing), **E / L** (early
+reflections vs tail) and **WIDTH**.
 
 ## Output
 

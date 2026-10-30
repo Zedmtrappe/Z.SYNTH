@@ -6,6 +6,7 @@
 #include "DSP/Common/HalfBand.h"
 #include "DSP/Envelopes/Envelope.h"
 #include "DSP/Effects/DriveAndOutput.h"
+#include "DSP/Effects/TimeEffects.h"
 #include "DSP/FM/FmAlgorithms.h"
 #include "DSP/FM/FmVoice.h"
 #include "DSP/Filters/Filters.h"
@@ -641,6 +642,79 @@ ZS_TEST(engine_effects_stability_max_feedback)
     ZS_CHECK(allFinite(x) && allFinite(right));
     ZS_CHECK_LT(peakOf(x), 4.0);
     std::printf("    peak with all FX at max feedback: %.2f\n", peakOf(x));
+}
+
+ZS_TEST(delay_types_stable_and_decaying)
+{
+    // Every delay character at maximum feedback and wear: bounded, finite, and
+    // (below runaway) the repeats die away once the input stops.
+    const float fs = 48000.0f;
+    for (int t = 0; t < (int) DelayType::Count; ++t)
+        for (float fb : { 0.95f, 0.6f })
+        {
+            StereoDelay d;
+            d.prepare(fs);
+            DelaySettings s;
+            s.type = (DelayType) t;
+            s.seconds = 0.12f;
+            s.feedback = fb;
+            s.mix = 1.0f;
+            s.wow = s.flutter = s.age = 1.0f;
+            s.spread = 1.0f;
+            const int n = (int) (fs * 6.0f);
+            std::vector<float> l((size_t) n, 0.0f), r((size_t) n, 0.0f);
+            for (int i = 0; i < 4800; ++i)
+                l[(size_t) i] = r[(size_t) i] = 0.5f * std::sin(kTwoPi * 330.0f * (float) i / fs);
+            for (int i = 0; i < n; i += 128)
+                d.process(l.data() + i, r.data() + i, 128, s);
+            ZS_CHECK(allFinite(l) && allFinite(r));
+            ZS_CHECK_LT(peakOf(l), 2.0);
+            if (fb < 0.7f)
+                ZS_CHECK_LT(rmsOf(l, (size_t) n - 24000), 0.01); // repeats have died away
+        }
+}
+
+ZS_TEST(reverb_types_stable_and_decaying)
+{
+    const float fs = 48000.0f;
+    for (int t = 0; t < (int) ReverbType::Count; ++t)
+    {
+        // Worst case: longest decay, no damping, maximum modulation and diffusion.
+        Reverb rv;
+        rv.prepare(fs);
+        ReverbSettings s;
+        s.type = (ReverbType) t;
+        s.size = 1.0f;
+        s.decay = 1.0f;
+        s.damping = 0.0f;
+        s.diffusion = 1.0f;
+        s.modulation = 1.0f;
+        s.mix = 1.0f;
+        s.width = 1.0f;
+        const int n = (int) (fs * 8.0f);
+        std::vector<float> l((size_t) n, 0.0f), r((size_t) n, 0.0f);
+        for (int i = 0; i < 2400; ++i)
+            l[(size_t) i] = r[(size_t) i] = (i % 97 < 48 ? 0.5f : -0.5f);
+        for (int i = 0; i < n; i += 128)
+            rv.process(l.data() + i, r.data() + i, 128, s);
+        ZS_CHECK(allFinite(l) && allFinite(r));
+        ZS_CHECK_LT(peakOf(l), 2.0);
+
+        // Normal settings: the tail decays well below the onset within 8 s.
+        Reverb rv2;
+        rv2.prepare(fs);
+        ReverbSettings s2;
+        s2.type = (ReverbType) t;
+        s2.mix = 1.0f;
+        std::vector<float> a((size_t) n, 0.0f), b((size_t) n, 0.0f);
+        for (int i = 0; i < 2400; ++i)
+            a[(size_t) i] = b[(size_t) i] = (i % 97 < 48 ? 0.5f : -0.5f);
+        for (int i = 0; i < n; i += 128)
+            rv2.process(a.data() + i, b.data() + i, 128, s2);
+        const double early = rmsOf(a, 2400, 24000), late = rmsOf(a, (size_t) n - 24000);
+        ZS_CHECK_GT(early, 1.0e-3);
+        ZS_CHECK_LT(20.0 * std::log10((late + 1e-12) / early), -40.0);
+    }
 }
 
 ZS_TEST(engine_high_polyphony_and_cpu)
