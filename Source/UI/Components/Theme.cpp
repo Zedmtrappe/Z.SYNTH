@@ -52,16 +52,43 @@ ZLookAndFeel::ZLookAndFeel()
 
 void ZLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& b, const juce::Colour&, bool highlighted, bool down)
 {
-    auto r = b.getLocalBounds().toFloat().reduced(0.5f);
+    // A moulded rubber/plastic key standing on the panel; it sinks when pressed.
+    auto r = b.getLocalBounds().toFloat().reduced(1.5f, 1.5f).withTrimmedBottom(1.5f);
     const bool on = b.getToggleState();
-    juce::ColourGradient grad(on ? Colours::accentDim.brighter(0.2f) : Colours::knobTop.brighter(highlighted ? 0.15f : 0.0f), r.getX(), r.getY(),
-                              on ? Colours::accentDim.darker(0.3f) : Colours::knobBottom.brighter(0.1f), r.getX(), r.getBottom(), false);
+    const float sink = down ? 1.2f : 0.0f;
+    g.setColour(juce::Colours::black.withAlpha(0.3f));
+    g.fillRoundedRectangle(r.expanded(1.0f).translated(0.8f, 2.8f - sink), 5.0f);
+    g.setColour(juce::Colours::black.withAlpha(0.6f));
+    g.fillRoundedRectangle(r.translated(0.4f, 1.5f - sink * 0.5f), 4.0f);
+    r = r.translated(0.0f, sink);
+    const auto top = on ? Colours::accentDim.brighter(0.35f) : juce::Colour(0xff4a4d55).brighter(highlighted ? 0.12f : 0.0f);
+    const auto bottom = on ? Colours::accentDim.darker(0.4f) : juce::Colour(0xff17181b);
+    juce::ColourGradient grad(top, r.getX(), r.getY(), bottom, r.getX(), r.getBottom(), false);
+    grad.addColour(0.5, top.interpolatedWith(bottom, 0.6f));
     g.setGradientFill(grad);
     g.fillRoundedRectangle(r, 4.0f);
-    g.setColour(down ? Colours::accent : Colours::knobEdge.withAlpha(0.9f));
-    g.drawRoundedRectangle(r, 4.0f, 1.0f);
-    g.setColour(juce::Colours::white.withAlpha(0.06f));
-    g.drawHorizontalLine((int) r.getY() + 1, r.getX() + 3, r.getRight() - 3);
+    juce::ColourGradient edge(juce::Colours::white.withAlpha(0.28f), 0.0f, r.getY(), juce::Colours::black.withAlpha(0.6f), 0.0f, r.getBottom(), false);
+    edge.addColour(0.2, juce::Colours::white.withAlpha(0.05f));
+    edge.addColour(0.8, juce::Colours::transparentBlack);
+    g.setGradientFill(edge);
+    g.drawRoundedRectangle(r.reduced(0.6f), 3.5f, 1.2f);
+    g.setColour(juce::Colours::black.withAlpha(0.85f));
+    g.drawRoundedRectangle(r.expanded(0.5f), 4.5f, 1.0f);
+}
+
+void ZLookAndFeel::drawButtonText(juce::Graphics& g, juce::TextButton& b, bool, bool down)
+{
+    // Back-lit legend on the key cap.
+    const auto font = getTextButtonFont(b, b.getHeight());
+    auto r = b.getLocalBounds().reduced(4, 2).translated(0, down ? 1 : 0).toFloat().withTrimmedBottom(1.5f);
+    const auto colour = b.findColour(b.getToggleState() ? juce::TextButton::textColourOnId : juce::TextButton::textColourOffId)
+                            .withMultipliedAlpha(b.isEnabled() ? 1.0f : 0.5f);
+    g.setFont(font);
+    g.setColour(colour.withAlpha(0.18f));
+    for (auto d : { juce::Point<float>(-0.8f, 0.0f), juce::Point<float>(0.8f, 0.0f), juce::Point<float>(0.0f, 0.8f) })
+        g.drawFittedText(b.getButtonText(), (r + d).toNearestInt(), juce::Justification::centred, 1, 0.7f);
+    g.setColour(colour);
+    g.drawFittedText(b.getButtonText(), r.toNearestInt(), juce::Justification::centred, 1, 0.7f);
 }
 
 juce::Font ZLookAndFeel::getTextButtonFont(juce::TextButton&, int buttonHeight)
@@ -114,15 +141,32 @@ juce::Rectangle<int> ZLookAndFeel::getTooltipBounds(const juce::String& tipText,
 
 void drawLcd(juce::Graphics& g, juce::Rectangle<float> r)
 {
-    g.setColour(juce::Colours::black.withAlpha(0.6f));
-    g.fillRoundedRectangle(r.translated(0.0f, 1.0f), 3.0f);
-    juce::ColourGradient grad(Colours::lcdBack.brighter(0.08f), r.getX(), r.getY(), Colours::lcdBack, r.getX(), r.getBottom(), false);
+    // A display window set into the panel: dark smoked glass with depth.
+    // Gradients only (no blurs): displays repaint at the panel frame rate.
+    constexpr float radius = 3.0f;
+    juce::ColourGradient grad(Colours::lcdBack.brighter(0.1f), r.getX(), r.getY(), Colours::lcdBack.darker(0.4f), r.getX(), r.getBottom(), false);
     g.setGradientFill(grad);
-    g.fillRoundedRectangle(r, 3.0f);
-    g.setColour(juce::Colours::black);
-    g.drawRoundedRectangle(r, 3.0f, 1.0f);
-    g.setColour(juce::Colours::white.withAlpha(0.05f));
-    g.drawHorizontalLine((int) r.getBottom(), r.getX() + 2, r.getRight() - 2);
+    g.fillRoundedRectangle(r, radius);
+
+    g.saveState();
+    juce::Path p;
+    p.addRoundedRectangle(r, radius);
+    g.reduceClipRegion(p);
+    // Inner shadow from the upper and left walls of the cut-out.
+    const float d = juce::jmin(7.0f, r.getHeight() * 0.35f);
+    juce::ColourGradient topWall(juce::Colours::black.withAlpha(0.75f), 0.0f, r.getY(), juce::Colours::transparentBlack, 0.0f, r.getY() + d, false);
+    g.setGradientFill(topWall);
+    g.fillRect(r.withHeight(d));
+    juce::ColourGradient leftWall(juce::Colours::black.withAlpha(0.45f), r.getX(), 0.0f, juce::Colours::transparentBlack, r.getX() + d * 0.7f, 0.0f, false);
+    g.setGradientFill(leftWall);
+    g.fillRect(r.withWidth(d * 0.7f));
+    g.restoreState();
+
+    // Bezel: dark upper wall, lit lower lip.
+    juce::ColourGradient lip(juce::Colours::black, 0.0f, r.getY(), juce::Colours::white.withAlpha(0.16f), 0.0f, r.getBottom(), false);
+    lip.addColour(0.6, juce::Colours::black.withAlpha(0.6f));
+    g.setGradientFill(lip);
+    g.drawRoundedRectangle(r.expanded(0.5f), radius + 0.5f, 1.2f);
 }
 
 } // namespace zsynth::ui

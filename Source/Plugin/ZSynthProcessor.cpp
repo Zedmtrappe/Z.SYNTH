@@ -34,8 +34,77 @@ ZSynthProcessor::ZSynthProcessor(juce::File userPresetDir)
     // Start on a playable factory sound rather than a bare init patch.
     if (! presets->getEntries().empty())
         presets->load(0);
+    loadBuiltInClip(0);
 
     startTimerHz(30);
+}
+
+namespace
+{
+    struct ClipResource
+    {
+        juce::String name;
+        const char* data;
+        int size;
+    };
+
+    std::vector<ClipResource> builtInClips()
+    {
+        std::vector<ClipResource> clips;
+        for (int i = 0; i < BinaryData::namedResourceListSize; ++i)
+        {
+            const juce::String file(BinaryData::originalFilenames[i]);
+            if (! file.endsWithIgnoreCase(".mid"))
+                continue;
+            int size = 0;
+            const char* data = BinaryData::getNamedResource(BinaryData::namedResourceList[i], size);
+            // "03 Mono Lead.mid" -> "Mono Lead" (the number only orders the menu).
+            const auto name = file.upToLastOccurrenceOf(".", false, false).fromFirstOccurrenceOf(" ", false, false);
+            clips.push_back({ file, data, size });
+            clips.back().name = name.isNotEmpty() ? name : file;
+            clips.back().name = file + "|" + clips.back().name;
+        }
+        std::sort(clips.begin(), clips.end(), [](const ClipResource& a, const ClipResource& b) { return a.name < b.name; });
+        for (auto& c : clips)
+            c.name = c.name.fromFirstOccurrenceOf("|", false, false);
+        return clips;
+    }
+}
+
+juce::StringArray ZSynthProcessor::getBuiltInClipNames()
+{
+    juce::StringArray names;
+    for (const auto& c : builtInClips())
+        names.add(c.name);
+    return names;
+}
+
+bool ZSynthProcessor::loadBuiltInClip(int index)
+{
+    const auto clips = builtInClips();
+    if (index < 0 || index >= (int) clips.size())
+        return false;
+    juce::String error;
+    auto clip = AuditionPlayer::parse(clips[(size_t) index].data, (size_t) clips[(size_t) index].size, clips[(size_t) index].name, error);
+    if (clip == nullptr)
+        return false;
+    audition.collectGarbage();
+    audition.setClip(std::move(clip));
+    return true;
+}
+
+juce::Result ZSynthProcessor::loadAuditionFile(const juce::File& file)
+{
+    juce::MemoryBlock data;
+    if (! file.loadFileAsData(data))
+        return juce::Result::fail("Could not read " + file.getFullPathName());
+    juce::String error;
+    auto clip = AuditionPlayer::parse(data.getData(), data.getSize(), file.getFileNameWithoutExtension(), error);
+    if (clip == nullptr)
+        return juce::Result::fail(file.getFileName() + ": " + error);
+    audition.collectGarbage();
+    audition.setClip(std::move(clip));
+    return juce::Result::ok();
 }
 
 ZSynthProcessor::~ZSynthProcessor()
@@ -85,6 +154,11 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     const int n = buffer.getNumSamples();
     const auto startTicks = juce::Time::getHighResolutionTicks();
     audioCallbacks.fetch_add(1, std::memory_order_relaxed);
+
+    // The audition clip plays on the receive channel, before the on-screen
+    // keyboard merge so its notes light the keys too.
+    const int receive = juce::roundToInt(rawValues[(size_t) P::MidiChannel]->load());
+    audition.render(midi, n, currentSampleRate, receive <= 0 ? 1 : receive);
 
     // On-screen keyboard notes join the incoming MIDI (and external notes light the keys).
     keyboardState.processNextMidiBuffer(midi, 0, n, true);
@@ -155,6 +229,7 @@ juce::AudioProcessorEditor* ZSynthProcessor::createEditor()
 
 void ZSynthProcessor::panic()
 {
+    audition.stop();
     engine.requestPanic();
     keyboardState.allNotesOff(0);
 }
@@ -172,6 +247,7 @@ void ZSynthProcessor::setModWheel(float unipolar)
 void ZSynthProcessor::timerCallback()
 {
     midiLearn.dispatchPending(apvts);
+    audition.collectGarbage();
 }
 
 // ---- programs: the preset library is exposed to hosts as programs

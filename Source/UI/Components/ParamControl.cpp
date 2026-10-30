@@ -336,82 +336,167 @@ void ParamControl::paintLearnOutline(juce::Graphics& g)
     }
 }
 
+namespace
+{
+    namespace m = material;
+
+    /** Small LCD read-out drawn over a legend while a control is touched. */
+    void valueReadout(juce::Graphics& g, const juce::String& text, juce::Rectangle<float> r)
+    {
+        g.setColour(juce::Colours::black.withAlpha(0.85f));
+        g.fillRoundedRectangle(r, 2.5f);
+        g.setColour(Colours::accentDim.withAlpha(0.6f));
+        g.drawRoundedRectangle(r, 2.5f, 0.8f);
+        m::glowText(g, text, r.reduced(2.0f, 0.0f), labelFont(9.5f), Colours::lcdText, juce::Justification::centred, 0.8f);
+    }
+
+    /** LED lens: dark red glass when off, glowing with a bloom when on. */
+    void ledLens(juce::Graphics& g, juce::Rectangle<float> led, bool on, juce::Colour colour)
+    {
+        if (on)
+        {
+            juce::ColourGradient bloom(colour.withAlpha(0.55f), led.getCentreX(), led.getCentreY(), colour.withAlpha(0.0f),
+                                       led.getCentreX() + led.getWidth() * 1.6f, led.getCentreY(), true);
+            g.setGradientFill(bloom);
+            g.fillEllipse(led.expanded(led.getWidth() * 1.6f));
+        }
+        g.setColour(juce::Colours::black.withAlpha(0.8f));
+        g.fillEllipse(led.expanded(1.0f));
+        juce::ColourGradient lens(on ? colour.brighter(0.9f) : colour.withMultipliedBrightness(0.32f), led.getCentreX(), led.getCentreY(),
+                                  on ? colour.darker(0.1f) : colour.withMultipliedBrightness(0.12f), led.getRight(), led.getBottom(), true);
+        g.setGradientFill(lens);
+        g.fillEllipse(led);
+        g.setColour(juce::Colours::white.withAlpha(on ? 0.7f : 0.3f));
+        g.fillEllipse(led.getX() + led.getWidth() * 0.22f, led.getY() + led.getHeight() * 0.16f, led.getWidth() * 0.32f, led.getHeight() * 0.26f);
+    }
+
+    /** A moulded plastic button cap standing on the panel. */
+    void buttonCap(juce::Graphics& g, juce::Rectangle<float> r, float radius, bool lit, bool pressed)
+    {
+        g.setColour(juce::Colours::black.withAlpha(0.35f));
+        g.fillRoundedRectangle(r.expanded(1.5f).translated(0.8f, pressed ? 1.5f : 3.0f), radius + 1.5f);
+        g.setColour(juce::Colours::black.withAlpha(0.55f));
+        g.fillRoundedRectangle(r.translated(0.5f, pressed ? 0.8f : 1.6f), radius);
+        const auto body = r.translated(0.0f, pressed ? 0.8f : 0.0f);
+        juce::ColourGradient grad(juce::Colour(0xff4d5058).brighter(lit ? 0.12f : 0.0f), body.getX(), body.getY(),
+                                  juce::Colour(0xff17181b), body.getX(), body.getBottom(), false);
+        grad.addColour(0.5, juce::Colour(0xff2c2e33));
+        g.setGradientFill(grad);
+        g.fillRoundedRectangle(body, radius);
+        m::raisedEdge(g, body, radius, 0.9f);
+    }
+}
+
 void ParamControl::paintKnob(juce::Graphics& g, float diameter, bool showLabel)
 {
+    // A machined knob: black knurled skirt with a spun aluminium cap, standing
+    // in a back-lit value ring engraved into the panel.
     const auto bounds = getLocalBounds().toFloat();
     const float cx = bounds.getCentreX();
     const float cy = showLabel ? 2.0f + diameter * 0.5f : bounds.getCentreY();
     const float rOuter = diameter * 0.5f;
     const float rArc = rOuter - 1.5f;
-    const float rBody = rOuter * 0.74f;
+    const float rBody = rOuter * 0.76f;
     const float norm = getNormalised();
     const float angle = kStartAngle + norm * (kEndAngle - kStartAngle);
+    constexpr float lightAngle = -2.4f; // top-left
 
-    // Scale ticks.
     if (diameter > 30.0f)
     {
-        g.setColour(Colours::textDim.withAlpha(0.55f));
         const int ticks = numSteps() > 0 && numSteps() <= 16 ? numSteps() + 1 : 11;
         for (int i = 0; i < ticks; ++i)
         {
             const float a = kStartAngle + (float) i / (float) (ticks - 1) * (kEndAngle - kStartAngle);
             const juce::Point<float> p1(cx + std::sin(a) * (rOuter + 1.5f), cy - std::cos(a) * (rOuter + 1.5f));
-            const juce::Point<float> p2(cx + std::sin(a) * (rOuter + 4.0f), cy - std::cos(a) * (rOuter + 4.0f));
-            g.drawLine({ p1, p2 }, 1.0f);
+            const juce::Point<float> p2(cx + std::sin(a) * (rOuter + 4.5f), cy - std::cos(a) * (rOuter + 4.5f));
+            m::engravedLine(g, { p1, p2 }, 1.0f);
         }
     }
 
-    // Track and value arc.
+    // Engraved ring groove and the back-lit value arc inside it.
     const float arcWidth = diameter > 50.0f ? 3.5f : (diameter > 30.0f ? 3.0f : 2.2f);
     juce::Path track;
     track.addCentredArc(cx, cy, rArc, rArc, 0.0f, kStartAngle, kEndAngle, true);
-    g.setColour(Colours::track);
-    g.strokePath(track, juce::PathStrokeType(arcWidth, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-
+    g.setColour(juce::Colours::white.withAlpha(0.08f));
+    g.strokePath(track, juce::PathStrokeType(arcWidth + 1.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded),
+                 juce::AffineTransform::translation(0.0f, 0.8f));
+    g.setColour(juce::Colour(0xff060607));
+    g.strokePath(track, juce::PathStrokeType(arcWidth + 0.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
     const float from = isBipolar() ? (kStartAngle + kEndAngle) * 0.5f : kStartAngle;
     if (std::abs(angle - from) > 0.001f)
     {
         juce::Path arc;
         arc.addCentredArc(cx, cy, rArc, rArc, 0.0f, juce::jmin(from, angle), juce::jmax(from, angle), true);
-        g.setColour(Colours::accent);
-        g.strokePath(arc, juce::PathStrokeType(arcWidth, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        g.setColour(accent.withAlpha(0.25f));
+        g.strokePath(arc, juce::PathStrokeType(arcWidth + 3.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        g.setColour(accent.brighter(0.25f));
+        g.strokePath(arc, juce::PathStrokeType(arcWidth - 0.8f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
     }
 
-    // Body: shadow, metal cap, edge highlight.
+    // Cast shadow, down and to the right of the light.
+    const auto body = juce::Rectangle<float>(rBody * 2.0f, rBody * 2.0f).withCentre({ cx, cy });
+    g.setColour(juce::Colours::black.withAlpha(0.28f));
+    g.fillEllipse(body.expanded(3.0f).translated(2.0f, 4.5f));
     g.setColour(juce::Colours::black.withAlpha(0.55f));
-    g.fillEllipse(cx - rBody, cy - rBody + 2.0f, rBody * 2.0f, rBody * 2.0f);
-    juce::ColourGradient body(Colours::knobTop.brighter(hovered ? 0.12f : 0.0f), cx, cy - rBody,
-                              Colours::knobBottom, cx, cy + rBody, false);
-    g.setGradientFill(body);
-    g.fillEllipse(cx - rBody, cy - rBody, rBody * 2.0f, rBody * 2.0f);
-    g.setColour(Colours::knobEdge);
-    g.drawEllipse(cx - rBody, cy - rBody, rBody * 2.0f, rBody * 2.0f, 1.0f);
-    const float rCap = rBody * 0.72f;
-    juce::ColourGradient cap(Colours::knobBottom.brighter(0.25f), cx, cy + rCap, Colours::knobTop.darker(0.1f), cx, cy - rCap, false);
-    g.setGradientFill(cap);
-    g.fillEllipse(cx - rCap, cy - rCap, rCap * 2.0f, rCap * 2.0f);
+    g.fillEllipse(body.expanded(0.8f).translated(1.0f, 2.2f));
 
-    // Pointer.
-    const juce::Point<float> tip(cx + std::sin(angle) * (rBody - 2.0f), cy - std::cos(angle) * (rBody - 2.0f));
-    const juce::Point<float> base(cx + std::sin(angle) * rBody * 0.25f, cy - std::cos(angle) * rBody * 0.25f);
+    // Skirt: black moulding with knurled grip.
+    juce::ColourGradient skirt(juce::Colour(0xff45474d).brighter(hovered ? 0.1f : 0.0f), body.getX(), body.getY(),
+                               juce::Colour(0xff09090a), body.getRight(), body.getBottom(), false);
+    g.setGradientFill(skirt);
+    g.fillEllipse(body);
+    const int knurls = diameter > 50.0f ? 60 : (diameter > 30.0f ? 44 : 30);
+    for (int k = 0; k < knurls; ++k)
+    {
+        const float a = (float) k / (float) knurls * juce::MathConstants<float>::twoPi;
+        const float facing = std::cos(a - lightAngle);
+        const juce::Point<float> o(cx + std::cos(a) * (rBody - 0.5f), cy + std::sin(a) * (rBody - 0.5f));
+        const juce::Point<float> i(cx + std::cos(a) * (rBody - 2.6f), cy + std::sin(a) * (rBody - 2.6f));
+        g.setColour(k % 2 == 0 ? juce::Colours::white.withAlpha(0.05f + 0.13f * juce::jmax(0.0f, facing))
+                               : juce::Colours::black.withAlpha(0.5f));
+        g.drawLine({ i, o }, 0.9f);
+    }
+
+    // Spun aluminium cap: brightness follows the angle to the light twice per turn.
+    const float rCap = rBody * 0.68f;
+    const int slices = diameter > 30.0f ? 72 : 40;
+    for (int k = 0; k < slices; ++k)
+    {
+        const float a0 = (float) k / (float) slices * juce::MathConstants<float>::twoPi;
+        const float a1 = (float) (k + 1) / (float) slices * juce::MathConstants<float>::twoPi + 0.02f;
+        const float mid = 0.5f * (a0 + a1);
+        const float b = 0.5f + 0.2f * std::cos(2.0f * (mid - lightAngle)) + 0.1f * std::cos(mid - lightAngle);
+        juce::Path wedge;
+        wedge.startNewSubPath(cx, cy);
+        wedge.lineTo(cx + std::cos(a0) * rCap, cy + std::sin(a0) * rCap);
+        wedge.lineTo(cx + std::cos(a1) * rCap, cy + std::sin(a1) * rCap);
+        wedge.closeSubPath();
+        g.setColour(juce::Colour::greyLevel(juce::jlimit(0.0f, 1.0f, b)).withMultipliedBrightness(hovered ? 1.06f : 1.0f));
+        g.fillPath(wedge);
+    }
+    const auto cap = juce::Rectangle<float>(rCap * 2.0f, rCap * 2.0f).withCentre({ cx, cy });
+    juce::ColourGradient capEdge(juce::Colours::white.withAlpha(0.5f), cap.getX(), cap.getY(), juce::Colours::black.withAlpha(0.6f),
+                                 cap.getRight(), cap.getBottom(), false);
+    g.setGradientFill(capEdge);
+    g.drawEllipse(cap, 1.0f);
+    g.setColour(juce::Colours::black.withAlpha(0.35f));
+    g.drawEllipse(cap.expanded(1.0f), 0.8f);
+
+    // Pointer: a black-filled groove across the cap, continued as a white line on the skirt.
+    const auto dir = juce::Point<float>(std::sin(angle), -std::cos(angle));
+    const juce::Point<float> c(cx, cy);
+    g.setColour(juce::Colour(0xff121214));
+    g.drawLine({ c + dir * (rCap * 0.15f), c + dir * (rCap - 1.0f) }, diameter > 30.0f ? 2.4f : 1.8f);
     g.setColour(Colours::white);
-    g.drawLine({ base, tip }, diameter > 30.0f ? 2.2f : 1.6f);
+    g.drawLine({ c + dir * (rCap + 1.0f), c + dir * (rBody - 1.0f) }, diameter > 30.0f ? 2.0f : 1.5f);
 
     if (showLabel)
     {
-        const auto textArea = juce::Rectangle<float>(0.0f, cy + rOuter + 4.0f, bounds.getWidth(), 14.0f);
+        const auto textArea = juce::Rectangle<float>(-6.0f, cy + rOuter + 4.0f, bounds.getWidth() + 12.0f, 14.0f);
         if (dragging || hovered)
-        {
-            g.setColour(Colours::lcdText);
-            g.setFont(labelFont(10.5f));
-            g.drawFittedText(getValueText(), textArea.toNearestInt().expanded(6, 0), juce::Justification::centred, 1, 0.7f);
-        }
+            valueReadout(g, getValueText(), textArea.reduced(6.0f, 0.0f));
         else
-        {
-            g.setColour(Colours::text);
-            g.setFont(labelFont(10.0f));
-            g.drawFittedText(label, textArea.toNearestInt().expanded(6, 0), juce::Justification::centred, 1, 0.7f);
-        }
+            legend.draw(g, label, textArea, labelFont(10.0f), juce::Justification::centred, m::kLegend, 0.7f);
     }
 }
 
@@ -420,25 +505,18 @@ void ParamControl::paintSelector(juce::Graphics& g)
     auto r = getLocalBounds().toFloat();
     if (label.isNotEmpty())
     {
-        g.setColour(Colours::text);
-        g.setFont(labelFont(10.0f));
-        g.drawText(label, r.removeFromTop(14.0f).toNearestInt(), juce::Justification::centredLeft, true);
+        legend.draw(g, label, r.removeFromTop(14.0f), labelFont(10.0f), juce::Justification::centredLeft, m::kLegend, 0.6f);
         r.removeFromTop(2.0f);
     }
     drawLcd(g, r);
-    if (hovered)
-    {
-        g.setColour(Colours::accent.withAlpha(0.35f));
-        g.drawRoundedRectangle(r, 3.0f, 1.0f);
-    }
-    auto arrow = r.removeFromRight(14.0f).reduced(3.0f, r.getHeight() * 0.36f);
+    auto arrow = r.withTrimmedLeft(r.getWidth() - 14.0f).reduced(3.0f, r.getHeight() * 0.36f);
     juce::Path p;
     p.addTriangle(arrow.getX(), arrow.getY(), arrow.getRight(), arrow.getY(), arrow.getCentreX(), arrow.getBottom());
-    g.setColour(Colours::lcdDim.brighter(0.4f));
+    g.setColour(Colours::lcdText.withAlpha(hovered ? 0.9f : 0.45f));
     g.fillPath(p);
-    g.setColour(Colours::lcdText);
-    g.setFont(lcdFont(r.getHeight() > 20.0f ? 13.0f : 12.0f));
-    g.drawFittedText(getValueText(), r.reduced(6.0f, 0.0f).toNearestInt(), juce::Justification::centredLeft, 1, 0.75f);
+    m::glowText(g, getValueText(), r.withTrimmedRight(14.0f).reduced(6.0f, 0.0f), lcdFont(r.getHeight() > 20.0f ? 13.0f : 12.0f),
+                Colours::lcdText.brighter(hovered ? 0.2f : 0.0f), juce::Justification::centredLeft, 1.0f);
+    m::glassSheen(g, r, 3.0f, 1.0f);
 }
 
 void ParamControl::paintSwitch(juce::Graphics& g)
@@ -450,44 +528,24 @@ void ParamControl::paintSwitch(juce::Graphics& g)
     juce::Rectangle<float> button;
     if (compact)
     {
-        button = r.reduced(0.5f);
+        button = r.reduced(1.0f, 1.5f).withTrimmedBottom(1.0f);
     }
     else
     {
-        g.setColour(Colours::text);
-        g.setFont(labelFont(10.0f));
-        g.drawFittedText(label, r.removeFromTop(14.0f).toNearestInt(), juce::Justification::centred, 1, 0.7f);
+        legend.draw(g, label, r.removeFromTop(14.0f), labelFont(10.0f), juce::Justification::centred, m::kLegend, 0.6f);
         r.removeFromTop(2.0f);
         button = r.withSizeKeepingCentre(juce::jmin(r.getWidth(), 40.0f), 20.0f);
     }
 
-    g.setColour(juce::Colours::black.withAlpha(0.5f));
-    g.fillRoundedRectangle(button.translated(0.0f, 1.0f), 3.0f);
-    juce::ColourGradient grad(Colours::knobTop.brighter(hovered ? 0.12f : 0.0f), button.getX(), button.getY(),
-                              Colours::knobBottom, button.getX(), button.getBottom(), false);
-    g.setGradientFill(grad);
-    g.fillRoundedRectangle(button, 3.0f);
-    g.setColour(Colours::knobEdge);
-    g.drawRoundedRectangle(button, 3.0f, 1.0f);
-
-    // LED
+    buttonCap(g, button, 3.0f, hovered, dragging);
     const float ledSize = compact ? 6.0f : 8.0f;
-    const juce::Rectangle<float> led(button.getX() + (compact ? 4.0f : button.getWidth() * 0.5f - ledSize * 0.5f),
+    const juce::Rectangle<float> led(button.getX() + (compact ? 4.5f : button.getWidth() * 0.5f - ledSize * 0.5f),
                                      button.getCentreY() - ledSize * 0.5f, ledSize, ledSize);
-    if (on)
-    {
-        g.setColour(Colours::ledOn.withAlpha(0.35f));
-        g.fillEllipse(led.expanded(3.0f));
-    }
-    g.setColour(on ? Colours::ledOn : Colours::ledOff);
-    g.fillEllipse(led);
+    ledLens(g, led, on, Colours::ledOn);
 
     if (compact)
-    {
-        g.setColour(on ? Colours::text : Colours::textDim);
-        g.setFont(labelFont(9.0f));
-        g.drawFittedText(label, button.withTrimmedLeft(12.0f).toNearestInt(), juce::Justification::centred, 1, 0.7f);
-    }
+        legend.draw(g, label, button.withTrimmedLeft(12.0f), labelFont(9.0f), juce::Justification::centred,
+                    on ? m::kLegend : m::kLegend.withMultipliedBrightness(0.6f), on ? 0.6f : 0.2f);
 }
 
 void ParamControl::paintVSlider(juce::Graphics& g)
@@ -498,91 +556,104 @@ void ParamControl::paintVSlider(juce::Graphics& g)
     const float norm = getNormalised();
     const float y = bottom - norm * (bottom - top);
 
-    g.setColour(juce::Colours::black.withAlpha(0.8f));
+    g.setColour(juce::Colour(0xff050506));
     g.fillRoundedRectangle(cx - 2.5f, top - 2.0f, 5.0f, bottom - top + 4.0f, 2.0f);
-    g.setColour(Colours::accent.withAlpha(0.85f));
-    g.fillRoundedRectangle(cx - 1.5f, y, 3.0f, bottom - y + 1.0f, 1.5f);
-
-    const juce::Rectangle<float> cap(cx - 11.0f, y - 6.0f, 22.0f, 12.0f);
-    g.setColour(juce::Colours::black.withAlpha(0.5f));
-    g.fillRoundedRectangle(cap.translated(0.0f, 2.0f), 2.0f);
-    juce::ColourGradient grad(Colours::knobTop.brighter(hovered || dragging ? 0.2f : 0.05f), cap.getX(), cap.getY(), Colours::knobBottom, cap.getX(), cap.getBottom(), false);
-    g.setGradientFill(grad);
-    g.fillRoundedRectangle(cap, 2.0f);
+    g.setColour(accent.withAlpha(0.85f));
+    g.fillRoundedRectangle(cx - 1.0f, y, 2.0f, bottom - y + 1.0f, 1.0f);
+    buttonCap(g, juce::Rectangle<float>(cx - 11.0f, y - 6.0f, 22.0f, 12.0f), 2.0f, hovered || dragging, false);
     g.setColour(Colours::white);
-    g.drawHorizontalLine((int) cap.getCentreY(), cap.getX() + 3.0f, cap.getRight() - 3.0f);
+    g.drawHorizontalLine((int) y, cx - 8.0f, cx + 8.0f);
 
-    g.setColour(dragging || hovered ? Colours::lcdText : Colours::text);
-    g.setFont(labelFont(10.0f));
-    g.drawText(dragging || hovered ? getValueText() : label,
-               juce::Rectangle<float>(-8.0f, bottom + 6.0f, r.getWidth() + 16.0f, 14.0f).toNearestInt(), juce::Justification::centred, false);
+    const auto area = juce::Rectangle<float>(-8.0f, bottom + 6.0f, r.getWidth() + 16.0f, 14.0f);
+    if (dragging || hovered)
+        valueReadout(g, getValueText(), area.reduced(8.0f, 0.0f));
+    else
+        legend.draw(g, label, area, labelFont(10.0f), juce::Justification::centred, m::kLegend, 0.6f);
 }
 
 void ParamControl::paintFader(juce::Graphics& g)
 {
-    // Hardware-style fader: recessed slot with scale marks, a dark cap with a
-    // coloured stripe (section colour), and the label (or value) below.
+    // Hardware fader: a slot cut through the panel, lit from inside by the
+    // value, with a moulded two-face cap carrying a coloured insert.
     const auto r = getLocalBounds().toFloat();
     const float labelH = 16.0f;
-    const float capH = 18.0f;
+    const float capH = 20.0f;
     const float top = 4.0f + capH * 0.5f;
     const float bottom = r.getHeight() - labelH - 4.0f - capH * 0.5f;
     const float cx = r.getCentreX();
     const float norm = getNormalised();
     const float y = bottom - norm * (bottom - top);
 
-    // Scale marks either side of the slot.
-    g.setColour(Colours::textDim.withAlpha(0.45f));
+    // Engraved scale either side of the slot.
     for (int i = 0; i <= 10; ++i)
     {
-        const float ty = bottom - (float) i / 10.0f * (bottom - top);
+        const float ty = std::round(bottom - (float) i / 10.0f * (bottom - top)) + 0.5f;
         const float len = (i % 5 == 0) ? 5.0f : 3.0f;
-        g.drawHorizontalLine((int) ty, cx - 9.0f - len, cx - 8.0f);
-        g.drawHorizontalLine((int) ty, cx + 8.0f, cx + 9.0f + len);
+        m::engravedLine(g, { cx - 9.0f - len, ty, cx - 8.0f, ty }, 1.0f);
+        m::engravedLine(g, { cx + 8.0f, ty, cx + 9.0f + len, ty }, 1.0f);
     }
     if (isBipolar())
     {
-        g.setColour(Colours::text.withAlpha(0.6f));
-        const float mid = (top + bottom) * 0.5f;
-        g.drawHorizontalLine((int) mid, cx - 15.0f, cx + 15.0f);
+        const float mid = std::round((top + bottom) * 0.5f) + 0.5f;
+        g.setColour(m::kLegend.withAlpha(0.5f));
+        g.drawHorizontalLine((int) mid, cx - 15.0f, cx - 10.0f);
+        g.drawHorizontalLine((int) mid, cx + 10.0f, cx + 15.0f);
     }
 
-    // Slot.
+    // The slot: a deep cut with a shadowed upper end and a lit lower lip.
     const auto slot = juce::Rectangle<float>(cx - 2.5f, top - capH * 0.5f + 2.0f, 5.0f, bottom - top + capH - 4.0f);
-    g.setColour(juce::Colours::black);
+    g.setColour(juce::Colour(0xff030304));
     g.fillRoundedRectangle(slot, 2.5f);
-    g.setColour(juce::Colours::white.withAlpha(0.06f));
-    g.drawVerticalLine((int) slot.getRight(), slot.getY() + 2.0f, slot.getBottom() - 2.0f);
+    juce::ColourGradient lip(juce::Colours::black, 0.0f, slot.getY(), juce::Colours::white.withAlpha(0.16f), 0.0f, slot.getBottom(), false);
+    g.setGradientFill(lip);
+    g.drawRoundedRectangle(slot.expanded(0.6f), 3.0f, 0.9f);
 
-    // Value trail in the slot (from zero, or from centre when bipolar).
+    // Light from inside the slot up to the value (from centre when bipolar).
     const float from = isBipolar() ? (top + bottom) * 0.5f : bottom;
-    g.setColour(accent.withAlpha(0.55f));
-    g.fillRect(juce::Rectangle<float>(cx - 1.0f, juce::jmin(from, y), 2.0f, std::abs(from - y)));
+    const auto trail = juce::Rectangle<float>(cx - 1.0f, juce::jmin(from, y), 2.0f, std::abs(from - y));
+    g.setColour(accent.withAlpha(0.18f));
+    g.fillRect(trail.expanded(1.5f, 0.0f));
+    g.setColour(accent.withAlpha(0.8f));
+    g.fillRect(trail);
 
-    // Cap.
+    // Cap: soft cast shadow, then the moulding.
     const float capW = juce::jmin(r.getWidth() - 4.0f, 28.0f);
     const auto cap = juce::Rectangle<float>(capW, capH).withCentre({ cx, y });
-    g.setColour(juce::Colours::black.withAlpha(0.6f));
-    g.fillRoundedRectangle(cap.translated(0.0f, 2.5f), 2.5f);
-    juce::ColourGradient body(juce::Colour(0xff4a4d55).brighter(hovered || dragging ? 0.15f : 0.0f), cap.getX(), cap.getY(),
-                              juce::Colour(0xff1c1d21), cap.getX(), cap.getBottom(), false);
-    g.setGradientFill(body);
-    g.fillRoundedRectangle(cap, 2.5f);
-    g.setColour(accent);
-    g.fillRect(cap.getX() + 2.0f, cap.getCentreY() - 1.5f, cap.getWidth() - 4.0f, 3.0f);
-    g.setColour(juce::Colours::white.withAlpha(0.18f));
-    g.drawHorizontalLine((int) cap.getY() + 1, cap.getX() + 2.0f, cap.getRight() - 2.0f);
-    g.setColour(juce::Colours::black);
-    g.drawRoundedRectangle(cap, 2.5f, 1.0f);
+    g.setColour(juce::Colours::black.withAlpha(0.22f));
+    g.fillRoundedRectangle(cap.expanded(2.5f).translated(1.5f, 5.0f), 5.0f);
+    g.setColour(juce::Colours::black.withAlpha(0.5f));
+    g.fillRoundedRectangle(cap.expanded(0.5f).translated(0.8f, 2.6f), 3.0f);
 
-    // Label, or the live value while hovering / dragging.
-    // Labels stay inside the fader's own width so neighbours never collide;
-    // the full value is also shown in the floating value bubble while dragging.
-    const auto labelArea = juce::Rectangle<float>(0.0f, r.getHeight() - labelH, r.getWidth(), labelH).toNearestInt();
-    const bool showValue = dragging || hovered;
-    g.setColour(showValue ? Colours::lcdText : Colours::text);
-    g.setFont(labelFont(9.0f));
-    g.drawFittedText(showValue ? getValueText() : label, labelArea, juce::Justification::centred, 1, 0.5f);
+    const float lift = hovered || dragging ? 0.12f : 0.0f;
+    const auto upper = cap.withHeight(cap.getHeight() * 0.5f - 1.0f);
+    const auto lower = cap.withTrimmedTop(cap.getHeight() * 0.5f + 1.0f);
+    g.setColour(juce::Colour(0xff101114));
+    g.fillRoundedRectangle(cap, 2.5f);
+    // Upper face tilts towards the light, the lower face away from it.
+    juce::ColourGradient up(juce::Colour(0xff72767e).brighter(lift), 0.0f, upper.getY(), juce::Colour(0xff3a3d43).brighter(lift), 0.0f, upper.getBottom(), false);
+    g.setGradientFill(up);
+    g.fillRoundedRectangle(upper.reduced(0.6f, 0.6f), 2.0f);
+    juce::ColourGradient down(juce::Colour(0xff2b2d32).brighter(lift), 0.0f, lower.getY(), juce::Colour(0xff121316), 0.0f, lower.getBottom(), false);
+    g.setGradientFill(down);
+    g.fillRoundedRectangle(lower.reduced(0.6f, 0.6f), 2.0f);
+    // Coloured insert in the centre groove, glowing slightly.
+    const auto insert = juce::Rectangle<float>(cap.getX() + 2.0f, cap.getCentreY() - 1.2f, cap.getWidth() - 4.0f, 2.4f);
+    g.setColour(accent.withAlpha(0.3f));
+    g.fillRect(insert.expanded(0.0f, 1.2f));
+    g.setColour(accent.brighter(0.15f));
+    g.fillRect(insert);
+    // Specular top edge and dark outline.
+    g.setColour(juce::Colours::white.withAlpha(0.45f));
+    g.drawHorizontalLine((int) cap.getY() + 1, cap.getX() + 2.5f, cap.getRight() - 2.5f);
+    g.setColour(juce::Colours::black.withAlpha(0.9f));
+    g.drawRoundedRectangle(cap, 2.5f, 0.9f);
+
+    // Back-lit legend, or the live value while hovering / dragging.
+    const auto labelArea = juce::Rectangle<float>(0.0f, r.getHeight() - labelH, r.getWidth(), labelH);
+    if (dragging || hovered)
+        valueReadout(g, getValueText(), labelArea.reduced(0.0f, 1.0f));
+    else
+        legend.draw(g, label, labelArea, labelFont(9.0f), juce::Justification::centred, m::kLegend, 0.6f);
 }
 
 void ParamControl::paintStepSlider(juce::Graphics& g)

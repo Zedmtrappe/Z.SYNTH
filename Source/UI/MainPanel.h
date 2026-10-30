@@ -29,6 +29,8 @@ public:
 
 private:
     juce::String id;
+    juce::Image cache;
+    float cacheScale = 0.0f;
     juce::TextButton closeButton { juce::String::fromUTF8("\xc3\x97") };
 };
 

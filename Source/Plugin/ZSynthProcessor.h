@@ -8,6 +8,7 @@
 #include "../MIDI/MidiLearn.h"
 #include "../Parameters/ParameterLayout.h"
 #include "../Presets/PresetManager.h"
+#include "AuditionPlayer.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_utils/juce_audio_utils.h>
@@ -62,6 +63,15 @@ public:
     /** Parameter value in real units (thread-safe). */
     float getValue(int index) const { return rawValues[(size_t) index]->load(); }
 
+    // ---- audition player
+    AuditionPlayer& getAudition() { return audition; }
+    /** Names of the built-in audition clips (in menu order). */
+    static juce::StringArray getBuiltInClipNames();
+    /** Loads built-in clip `index` (keeps play/stop state). */
+    bool loadBuiltInClip(int index);
+    /** Loads a standard MIDI file from disk. */
+    juce::Result loadAuditionFile(const juce::File& file);
+
     uint32_t getAudioCallbackCount() const { return audioCallbacks.load(); }
     /** Smoothed fraction of the real-time budget used by processBlock. */
     float getCpuLoad() const { return cpuLoad.load(); }
@@ -78,6 +88,7 @@ private:
     juce::MidiKeyboardState keyboardState;
     MidiLearn midiLearn;
     std::unique_ptr<PresetManager> presets;
+    AuditionPlayer audition;
 
     std::vector<dsp::MidiEvent> events;
     std::vector<float> monoScratch;

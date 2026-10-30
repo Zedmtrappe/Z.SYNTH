@@ -345,7 +345,8 @@ PanelLayout::PanelLayout()
     utilityAt("kbdOctDown", 22, 1154, 56, 28);
     utilityAt("kbdOctUp", 84, 1154, 56, 28);
     sectionAt("keys", "", 168, 972, 1742, 218);
-    utilityAt("keyboard", 172, 976, 1734, 210);
+    utilityAt("auditionBar", 176, 976, 1726, 30);
+    utilityAt("keyboard", 172, 1010, 1734, 176);
 
     // ======================================================================
     //                              POPUP PAGES

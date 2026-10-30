@@ -14,7 +14,7 @@ advanced sections.
 | Engine | JUCE-free C++17 library, usable without any GUI |
 | Parameters | 333, all host-automatable, one authoritative table |
 | Factory library | 227 presets: *ZYNTH Originals* (160, 15 categories) and *Classic Machines* (67 sounds in 20 instrument folders), level-matched by measurement |
-| Tests | 41 DSP tests, 17 state/preset/layout/editor tests, a VST3 host test |
+| Tests | 41 DSP tests, 19 state/preset/layout/editor tests, a VST3 host test |
 | Tested on | Ubuntu 24.04, x86-64, GCC 13.3, CMake 3.28, JUCE 8.0.9 |
 
 ## What it does
@@ -38,8 +38,10 @@ advanced sections.
 * **Voices** — up to 32 voices, poly/mono/legato, note priority, three
   allocation modes, click-free voice stealing, unison up to 8, glide,
   vintage per-voice variation, sustain pedal.
-* **Panel** — one fixed layout of JD-style vertical faders with section-coloured
-  caps; the modulation matrix, FM operator detail and sequencer steps open as
+* **Panel** — a photo-real hardware surface: brushed steel plates on a black
+  chassis, engraved back-lit legends, moulded fader caps in lit slots, machined
+  knobs, LED buttons and smoked-glass displays; one fixed layout of JD-style
+  faders with section-coloured caps; the modulation matrix, FM operator detail and sequencer steps open as
   popup editors. Presets are chosen from a Bank > Folder > Preset menu.
 * **Performance** — arpeggiator (6 modes, host sync, swing, hold), 16-step
   sequencer (modulation or acid-style note mode with accent and slide),
@@ -55,6 +57,10 @@ advanced sections.
   algorithms voiced after those units), with decay, low cut, diffusion,
   modulation, early/late and width; delay and reverb each have a menu of
   factory presets.
+* **Audition player** — a strip above the keyboard plays a MIDI clip into the
+  current sound while you work the panel: 10 built-in loops (basslines, acid,
+  lead, chords, e-piano, pads, arpeggio, plucks, brass, bells) or any standard
+  MIDI file, merged to one part that plays poly or mono as the patch decides.
 * **Effects** — drive (2x oversampled overdrive/distortion/wavefolder),
   phaser, flanger, chorus, string ensemble, ping-pong delay, FDN reverb,
   stereo width and output character, safety limiter.

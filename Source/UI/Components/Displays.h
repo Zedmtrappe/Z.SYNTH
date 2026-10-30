@@ -134,6 +134,18 @@ public:
     void paint(juce::Graphics&) override;
 protected:
     uint64_t stateHash() const override;
+private:
+    /** Static layers rendered once per size/scale/type; only the glow is drawn live. */
+    void renderLayers(float scale, int type);
+    struct Geometry
+    {
+        juce::Rectangle<float> window, tube, plates[2], slots[2], getter;
+        float floorY = 0.0f;
+    };
+    Geometry geometry() const;
+    juce::Image back, internals, front;
+    float layerScale = 0.0f;
+    int layerType = -1;
 };
 
 class OutputInfo : public Display

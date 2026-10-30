@@ -615,6 +615,93 @@ ZS_TEST(fx_presets_parse_and_cover_every_type)
         ZS_CHECK(juce::StringArray::fromTokens(ZS_CH_REVERB_TYPE, "|", "").contains(g));
 }
 
+ZS_TEST(audition_builtin_clips_load)
+{
+    const auto names = ZSynthProcessor::getBuiltInClipNames();
+    ZS_CHECK(names.size() == 10);
+    ZS_CHECK(names[0] == "Mono Bassline");
+    ProcessorFixture f("audition");
+    for (int i = 0; i < names.size(); ++i)
+    {
+        ZS_CHECK(f.processor.loadBuiltInClip(i));
+        f.processor.getAudition().collectGarbage();
+    }
+    ZS_CHECK(! f.processor.loadBuiltInClip(names.size()));
+}
+
+ZS_TEST(audition_player_timing_loop_and_release)
+{
+    // Two quarter notes at 120 BPM in a one-bar (2 s) file.
+    juce::MidiMessageSequence track;
+    track.addEvent(juce::MidiMessage::tempoMetaEvent(500000), 0.0);
+    track.addEvent(juce::MidiMessage::noteOn(3, 60, (uint8_t) 100), 0.0);
+    track.addEvent(juce::MidiMessage::noteOff(3, 60), 480.0);
+    track.addEvent(juce::MidiMessage::noteOn(5, 64, (uint8_t) 90), 960.0);   // another channel: merged
+    track.addEvent(juce::MidiMessage::noteOff(5, 64), 1440.0);
+    track.addEvent(juce::MidiMessage::endOfTrack(), 1920.0);
+    track.updateMatchedPairs();
+    juce::MidiFile file;
+    file.setTicksPerQuarterNote(480);
+    file.addTrack(track);
+    juce::MemoryOutputStream out;
+    ZS_CHECK(file.writeTo(out));
+
+    juce::String error;
+    auto clip = AuditionPlayer::parse(out.getData(), out.getDataSize(), "test", error);
+    ZS_CHECK(clip != nullptr);
+    if (clip == nullptr)
+        return;
+    ZS_CHECK(clip->notes == 2);
+    ZS_CHECK_NEAR(clip->lengthSeconds, 2.0, 1e-6);
+
+    AuditionPlayer player;
+    player.setClip(std::move(clip));
+    player.setLooping(true);
+    player.play();
+    const double sr = 48000.0;
+    const int block = 512;
+    std::vector<std::pair<int64_t, juce::MidiMessage>> got; // absolute sample, message
+    int64_t t = 0;
+    for (int b = 0; b < (int) (4.5 * sr / block); ++b, t += block)
+    {
+        juce::MidiBuffer midi;
+        player.render(midi, block, sr, 2);
+        for (const auto m : midi)
+            got.emplace_back(t + m.samplePosition, m.getMessage());
+    }
+    // Two loops plus the start of a third: notes at 0, 1, 2, 3, 4 s.
+    std::vector<int64_t> ons;
+    for (const auto& [when, m] : got)
+    {
+        ZS_CHECK(m.getChannel() == 2);
+        if (m.isNoteOn())
+            ons.push_back(when);
+    }
+    ZS_CHECK(ons.size() == 5);
+    for (size_t i = 0; i < ons.size(); ++i)
+        ZS_CHECK(std::llabs(ons[i] - (int64_t) (i * sr)) <= 1);
+
+    // Stopping mid-note releases it.
+    juce::MidiBuffer midi;
+    player.stop();
+    player.render(midi, block, sr, 2);
+    bool released = false;
+    for (const auto m : midi)
+        released = released || (m.getMessage().isNoteOff() && m.getMessage().getNoteNumber() == 60);
+    ZS_CHECK(released);
+
+    // Garbage: a file without notes is refused with a message.
+    juce::MidiMessageSequence empty;
+    empty.addEvent(juce::MidiMessage::tempoMetaEvent(500000), 0.0);
+    juce::MidiFile emptyFile;
+    emptyFile.setTicksPerQuarterNote(480);
+    emptyFile.addTrack(empty);
+    juce::MemoryOutputStream out2;
+    emptyFile.writeTo(out2);
+    ZS_CHECK(AuditionPlayer::parse(out2.getData(), out2.getDataSize(), "empty", error) == nullptr);
+    ZS_CHECK(error.isNotEmpty());
+}
+
 ZS_TEST(activity_rules_examples)
 {
     float v[kNumParams];

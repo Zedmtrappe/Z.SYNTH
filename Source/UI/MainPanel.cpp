@@ -1,5 +1,7 @@
 #include "MainPanel.h"
 
+#include "Components/AuditionBar.h"
+#include "Components/Materials.h"
 #include "Layout/ActivityRules.h"
 
 namespace zsynth::ui
@@ -25,70 +27,69 @@ namespace
         return Colours::accent;
     }
 
+    // Panel materials (see Components/Materials.h for the lighting model).
+    const juce::Colour kChassis   { 0xff0f1012 }; // black textured plastic body
+    const juce::Colour kPlate     { 0xff2e3035 }; // anodised, brushed steel section plates
+    const juce::Colour kSubPlate  { 0xff1d1f23 }; // recessed sub-panels
+    const juce::Colour kHeader    { 0xff1a1b1e }; // header moulding
+
     void paintSection(juce::Graphics& g, const SectionSpec& s)
     {
+        namespace m = material;
         const auto r = s.bounds.toFloat();
         const auto colour = sectionColour(s.id);
 
         if (s.id == "header")
         {
-            juce::ColourGradient hg(juce::Colour(0xff2a2c31), 0.0f, 0.0f, juce::Colour(0xff17181b), 0.0f, r.getBottom(), false);
-            g.setGradientFill(hg);
-            g.fillRect(r);
-            g.setColour(Colours::accent);
-            g.fillRect(r.getX(), r.getBottom() - 3.0f, r.getWidth(), 3.0f);
-            g.setColour(juce::Colours::black);
-            g.fillRect(r.getX(), r.getBottom(), r.getWidth(), 1.0f);
+            m::texturedPlastic(g, r, 0.0f, kHeader, 1.2f);
+            // Soft gloss on the moulded top edge.
+            juce::ColourGradient gloss(juce::Colours::white.withAlpha(0.07f), 0.0f, r.getY(), juce::Colours::transparentWhite, 0.0f, r.getY() + 34.0f, false);
+            g.setGradientFill(gloss);
+            g.fillRect(r.withHeight(34.0f));
+            // Back-lit amber light bar along the bottom edge.
+            const auto bar = juce::Rectangle<float>(r.getX(), r.getBottom() - 3.0f, r.getWidth(), 3.0f);
+            m::castShadow(g, juce::Rectangle<float>(r.getX(), r.getBottom() - 2.0f, r.getWidth(), 6.0f), 0.0f, 6.0f, { 0, 3 }, 0.9f);
+            juce::DropShadow(Colours::accent.withAlpha(0.55f), 7, {}).drawForRectangle(g, bar.toNearestInt());
+            juce::ColourGradient light(Colours::accent.brighter(0.5f), 0.0f, bar.getY(), Colours::accent.darker(0.2f), 0.0f, bar.getBottom(), false);
+            g.setGradientFill(light);
+            g.fillRect(bar);
+            for (auto p : { juce::Point<float>(9.0f, 12.0f), juce::Point<float>(9.0f, 82.0f),
+                            juce::Point<float>(r.getRight() - 9.0f, 12.0f), juce::Point<float>(r.getRight() - 9.0f, 82.0f) })
+                m::screw(g, p, 4.2f, 0.4f + p.x * 0.01f);
             return;
         }
 
         if (s.subPanel)
         {
-            g.setColour(Colours::subPanel);
-            g.fillRoundedRectangle(r, 4.0f);
-            g.setColour(juce::Colours::black.withAlpha(0.6f));
-            g.drawRoundedRectangle(r.reduced(0.5f), 4.0f, 1.0f);
-            g.setColour(juce::Colours::white.withAlpha(0.04f));
-            g.drawHorizontalLine((int) r.getBottom(), r.getX() + 4.0f, r.getRight() - 4.0f);
+            m::brushedMetal(g, r, 4.0f, kSubPlate, 0.55f);
+            m::recess(g, r, 4.0f, juce::Colours::transparentBlack, 0.8f);
             if (s.title.isNotEmpty())
-            {
-                g.setColour(colour.withAlpha(0.9f));
-                g.setFont(titleFont(10.5f));
-                g.drawText(s.title, r.reduced(6.0f, 2.0f).removeFromTop(13.0f).toNearestInt(), juce::Justification::centredLeft, false);
-            }
+                m::engravedText(g, s.title, r.reduced(7.0f, 2.0f).removeFromTop(14.0f), titleFont(10.5f),
+                                juce::Justification::centredLeft, colour.interpolatedWith(m::kLegend, 0.25f), 0.8f);
             return;
         }
 
         if (s.id == "wheels" || s.id == "keys")
         {
-            g.setColour(juce::Colour(0xff0d0d0f));
-            g.fillRoundedRectangle(r, 5.0f);
-            g.setColour(Colours::sectionEdge.withAlpha(0.6f));
-            g.drawRoundedRectangle(r.reduced(0.5f), 5.0f, 1.0f);
+            m::recess(g, r, 5.0f, juce::Colour(0xff09090b), 1.4f);
             return;
         }
 
-        g.setColour(Colours::sectionShadow.withAlpha(0.8f));
-        g.fillRoundedRectangle(r.translated(0.0f, 3.0f), 6.0f);
-        juce::ColourGradient body(Colours::section, 0.0f, r.getY(), Colours::sectionLow, 0.0f, r.getBottom(), false);
-        g.setGradientFill(body);
-        g.fillRoundedRectangle(r, 5.0f);
-        g.setColour(Colours::sectionEdge);
-        g.drawRoundedRectangle(r.reduced(0.5f), 5.0f, 1.0f);
+        // A raised steel plate standing proud of the chassis.
+        m::castShadow(g, r, 6.0f, 12.0f, { 2, 7 }, 0.85f);
+        m::brushedMetal(g, r, 6.0f, kPlate, 1.0f);
+        m::raisedEdge(g, r, 6.0f, 1.0f);
 
         if (s.title.isNotEmpty())
         {
-            const auto bar = r.withHeight(26.0f).reduced(1.0f, 1.0f);
-            g.setColour(Colours::titleBar);
-            g.fillRoundedRectangle(bar, 4.0f);
-            g.fillRect(bar.withTrimmedTop(10.0f));
-            g.setColour(juce::Colours::black.withAlpha(0.5f));
-            g.drawHorizontalLine((int) bar.getBottom(), r.getX() + 1.0f, r.getRight() - 1.0f);
-            g.setColour(colour);
-            g.fillRect(bar.getX() + 10.0f, bar.getCentreY() - 5.0f, 3.0f, 10.0f);
-            g.setColour(Colours::text);
-            g.setFont(titleFont(12.5f));
-            g.drawText(s.title, bar.withTrimmedLeft(20.0f).toNearestInt(), juce::Justification::centredLeft, false);
+            // Coloured back-lit tag, engraved legend and an engraved rule.
+            const auto tag = juce::Rectangle<float>(r.getX() + 11.0f, r.getY() + 9.0f, 4.0f, 11.0f);
+            juce::DropShadow(colour.withAlpha(0.7f), 6, {}).drawForRectangle(g, tag.toNearestInt());
+            g.setColour(colour.brighter(0.2f));
+            g.fillRoundedRectangle(tag, 1.0f);
+            m::engravedText(g, s.title, juce::Rectangle<float>(r.getX() + 23.0f, r.getY() + 3.0f, r.getWidth() - 30.0f, 23.0f),
+                            titleFont(13.0f), juce::Justification::centredLeft, m::kLegend, 0.9f);
+            m::engravedLine(g, { r.getX() + 8.0f, r.getY() + 27.0f, r.getRight() - 8.0f, r.getY() + 27.0f });
         }
     }
 }
@@ -104,9 +105,9 @@ void paintLayoutPage(juce::Graphics& g, const juce::String& page)
     {
         if (l.page != page)
             continue;
-        g.setColour(l.heading ? Colours::accent.withAlpha(0.95f) : Colours::text);
-        g.setFont(labelFont(l.heading ? 11.0f : 10.0f));
-        g.drawFittedText(l.text, l.bounds, l.justification, juce::jmax(1, l.bounds.getHeight() / 13), 0.7f);
+        material::engravedText(g, l.text, l.bounds.toFloat(), labelFont(l.heading ? 11.0f : 10.0f), l.justification,
+                               l.heading ? Colours::accent.brighter(0.2f) : material::kLegend.withMultipliedBrightness(0.92f),
+                               l.heading ? 0.9f : 0.45f, juce::jmax(1, l.bounds.getHeight() / 13));
     }
 }
 
@@ -123,12 +124,29 @@ PopupPage::PopupPage(const PageSpec& spec) : id(spec.id)
 
 void PopupPage::paint(juce::Graphics& g)
 {
-    const auto r = getLocalBounds().toFloat();
-    g.setColour(juce::Colours::black.withAlpha(0.55f));
-    g.fillRoundedRectangle(r, 8.0f);
-    paintLayoutPage(g, id);
-    g.setColour(sectionColour(id).withAlpha(0.8f));
-    g.drawRoundedRectangle(r.reduced(0.75f), 6.0f, 1.5f);
+    // The page is a separate steel plate lifted above the panel; its surface is
+    // rendered once per scale like the main panel.
+    const float scale = juce::jlimit(0.25f, 3.0f, g.getInternalContext().getPhysicalPixelScaleFactor());
+    if (cache.isNull() || std::abs(scale - cacheScale) > 0.01f)
+    {
+        cacheScale = scale;
+        cache = juce::Image(juce::Image::ARGB, juce::jmax(1, juce::roundToInt((float) getWidth() * scale)),
+                            juce::jmax(1, juce::roundToInt((float) getHeight() * scale)), true);
+        juce::Graphics cg(cache);
+        cg.addTransform(juce::AffineTransform::scale(scale));
+        paintLayoutPage(cg, id);
+        const auto r = getLocalBounds().toFloat();
+        cg.setColour(juce::Colours::black);
+        cg.drawRoundedRectangle(r.reduced(0.5f), 6.0f, 1.0f);
+        juce::DropShadow(sectionColour(id).withAlpha(0.35f), 4, {}).drawForPath(cg, [&] {
+            juce::Path p;
+            p.addRoundedRectangle(r.reduced(1.5f), 5.5f);
+            juce::Path stroke;
+            juce::PathStrokeType(1.0f).createStrokedPath(stroke, p);
+            return stroke;
+        }());
+    }
+    g.drawImage(cache, getLocalBounds().toFloat());
 }
 
 // =============================================================== MainPanel
@@ -290,6 +308,7 @@ void MainPanel::buildUtilities()
     wheels.push_back(&addUtility<PerformanceWheel>("pitchWheel", processor, true));
     wheels.push_back(&addUtility<PerformanceWheel>("modWheel", processor, false));
     keyboard = &addUtility<ZKeyboard>("keyboard", processor.getKeyboardState());
+    addUtility<AuditionBar>("auditionBar", processor);
     button("kbdOctDown", "OCT -", "Shift the on-screen keyboard down one octave", [this] { keyboard->shiftOctave(-1); });
     button("kbdOctUp", "OCT +", "Shift the on-screen keyboard up one octave", [this] { keyboard->shiftOctave(1); });
 }
@@ -501,15 +520,13 @@ void MainPanel::renderBackground(float scale)
     juce::Graphics g(background);
     g.addTransform(juce::AffineTransform::scale(backgroundScale));
 
+    // The chassis: black textured plastic, slightly darker towards the edges.
     const auto bounds = juce::Rectangle<float>(0.0f, 0.0f, (float) PanelLayout::kWidth, (float) PanelLayout::kHeight);
-    juce::ColourGradient bg(Colours::panelTop, 0.0f, 0.0f, Colours::panel, 0.0f, bounds.getBottom(), false);
-    g.setGradientFill(bg);
+    material::texturedPlastic(g, bounds, 0.0f, kChassis, 1.4f);
+    juce::ColourGradient vignette(juce::Colours::transparentBlack, bounds.getCentreX(), bounds.getCentreY() * 0.8f,
+                                  juce::Colours::black.withAlpha(0.45f), 0.0f, 0.0f, true);
+    g.setGradientFill(vignette);
     g.fillRect(bounds);
-    for (int y = 0; y < PanelLayout::kHeight; y += 3)
-    {
-        g.setColour(juce::Colours::white.withAlpha((y / 3) % 2 == 0 ? 0.012f : 0.0f));
-        g.drawHorizontalLine(y, 0.0f, bounds.getRight());
-    }
     paintLayoutPage(g, kMainPage);
 }
 

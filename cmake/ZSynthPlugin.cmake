@@ -16,9 +16,11 @@ if(APPLE)
     list(APPEND ZSYNTH_FORMATS AU)
 endif()
 
+file(GLOB ZSYNTH_AUDITION_CLIPS ${CMAKE_SOURCE_DIR}/Resources/Audition/*.mid)
 juce_add_binary_data(ZSynthData SOURCES
     ${CMAKE_SOURCE_DIR}/Resources/Presets/FactoryBank.zsbank
-    ${CMAKE_SOURCE_DIR}/Resources/Presets/ClassicsBank.zsbank)
+    ${CMAKE_SOURCE_DIR}/Resources/Presets/ClassicsBank.zsbank
+    ${ZSYNTH_AUDITION_CLIPS})
 set_target_properties(ZSynthData PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 juce_add_plugin(ZSynth
@@ -46,7 +48,10 @@ set(ZSYNTH_APP_SOURCES
     ${CMAKE_SOURCE_DIR}/Source/Presets/PresetManager.cpp
     ${CMAKE_SOURCE_DIR}/Source/MIDI/MidiLearn.cpp
     ${CMAKE_SOURCE_DIR}/Source/Plugin/ZSynthProcessor.cpp
+    ${CMAKE_SOURCE_DIR}/Source/Plugin/AuditionPlayer.cpp
+    ${CMAKE_SOURCE_DIR}/Source/UI/Components/AuditionBar.cpp
     ${CMAKE_SOURCE_DIR}/Source/UI/Components/Theme.cpp
+    ${CMAKE_SOURCE_DIR}/Source/UI/Components/Materials.cpp
     ${CMAKE_SOURCE_DIR}/Source/UI/Components/ParamControl.cpp
     ${CMAKE_SOURCE_DIR}/Source/UI/Components/Displays.cpp
     ${CMAKE_SOURCE_DIR}/Source/UI/Components/Keyboard.cpp

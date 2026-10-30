@@ -5,6 +5,7 @@
 // exactly the same path as external MIDI.
 
 #include "../../Plugin/ZSynthProcessor.h"
+#include "Materials.h"
 #include "Theme.h"
 
 namespace zsynth::ui
@@ -43,6 +44,7 @@ private:
     ZSynthProcessor& processor;
     const bool pitch;
     float position = 0.0f; // -1..1 (pitch) or 0..1 (mod)
+    material::LegendCache legend;
     bool dragging = false;
     float startPos = 0.0f;
 };

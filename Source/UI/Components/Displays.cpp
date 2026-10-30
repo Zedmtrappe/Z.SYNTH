@@ -1,4 +1,5 @@
 #include "Displays.h"
+#include "Materials.h"
 
 #include "../../DSP/FM/FmAlgorithms.h"
 #include "../../DSP/Wavetable/WavetableBank.h"
@@ -528,136 +529,307 @@ uint64_t ValveDisplay::stateHash() const
     return h;
 }
 
+ValveDisplay::Geometry ValveDisplay::geometry() const
+{
+    Geometry geo;
+    const auto r = getLocalBounds().toFloat();
+    geo.window = r.reduced(13.0f, 12.0f);
+    const auto& w = geo.window;
+    geo.floorY = w.getBottom() - w.getHeight() * 0.2f;
+    const float tw = juce::jmin(54.0f, w.getWidth() * 0.4f);
+    geo.tube = juce::Rectangle<float>(w.getCentreX() - tw * 0.5f, w.getY() + 9.0f, tw, geo.floorY - 2.0f - (w.getY() + 9.0f));
+    const auto& t = geo.tube;
+    const float plateTop = t.getY() + t.getHeight() * 0.36f, plateH = t.getHeight() * 0.4f;
+    const float pw = (t.getWidth() - 14.0f) * 0.5f;
+    for (int i = 0; i < 2; ++i)
+    {
+        geo.plates[i] = juce::Rectangle<float>(t.getX() + 6.0f + (float) i * (pw + 2.0f), plateTop, pw, plateH);
+        geo.slots[i] = geo.plates[i].withSizeKeepingCentre(pw * 0.34f, plateH * 0.7f);
+    }
+    geo.getter = juce::Rectangle<float>(t.getX() + 2.0f, t.getY() + 3.0f, t.getWidth() - 4.0f, t.getHeight() * 0.22f);
+    return geo;
+}
+
+void ValveDisplay::renderLayers(float scale, int type)
+{
+    namespace m = material;
+    layerScale = scale;
+    layerType = type;
+    const auto geo = geometry();
+    const auto r = getLocalBounds().toFloat();
+    const auto& win = geo.window;
+    const auto& tube = geo.tube;
+    const int iw = juce::jmax(1, juce::roundToInt(r.getWidth() * scale)), ih = juce::jmax(1, juce::roundToInt(r.getHeight() * scale));
+    auto makeLayer = [&](juce::Image& img) {
+        img = juce::Image(juce::Image::ARGB, iw, ih, true);
+        return juce::AffineTransform::scale(scale);
+    };
+    juce::Path winPath;
+    winPath.addRoundedRectangle(win, 7.0f);
+
+    // ---------------------------------------------------------------- back
+    {
+        const auto xf = makeLayer(back);
+        juce::Graphics g(back);
+        g.addTransform(xf);
+        g.reduceClipRegion(winPath);
+        // Back wall: dark chassis metal, falling into shadow towards the top.
+        juce::ColourGradient wall(juce::Colour(0xff050506), 0.0f, win.getY(), juce::Colour(0xff1c1d20), 0.0f, geo.floorY, false);
+        g.setGradientFill(wall);
+        g.fillRect(win);
+        // Out-of-focus components on the board behind (depth of field).
+        auto blurred = [&](juce::Rectangle<float> c, juce::Colour col) {
+            juce::Path p;
+            p.addRoundedRectangle(c, c.getWidth() * 0.3f);
+            juce::DropShadow(col.withAlpha(0.55f), 6, {}).drawForPath(g, p);
+        };
+        blurred({ win.getX() + 6.0f, geo.floorY - 34.0f, 13.0f, 30.0f }, juce::Colour(0xff28406a)); // film capacitor
+        blurred({ win.getRight() - 22.0f, geo.floorY - 26.0f, 15.0f, 22.0f }, juce::Colour(0xff5a3a22)); // electrolytic
+        blurred({ win.getRight() - 30.0f, win.getY() + 12.0f, 20.0f, 10.0f }, juce::Colour(0xff2f3a2a));
+        // Chassis floor: brushed steel seen at a grazing angle.
+        const auto floor = juce::Rectangle<float>(win.getX(), geo.floorY, win.getWidth(), win.getBottom() - geo.floorY);
+        m::brushedMetal(g, floor, 0.0f, juce::Colour(0xff2a2c30), 1.2f);
+        juce::ColourGradient floorShade(juce::Colours::black.withAlpha(0.55f), 0.0f, floor.getY(), juce::Colours::transparentBlack, 0.0f, floor.getBottom(), false);
+        g.setGradientFill(floorShade);
+        g.fillRect(floor);
+        g.setColour(juce::Colours::white.withAlpha(0.12f));
+        g.drawHorizontalLine(juce::roundToInt(geo.floorY), win.getX(), win.getRight());
+        // Contact shadow of the socket.
+        g.setColour(juce::Colours::black.withAlpha(0.7f));
+        g.fillEllipse(tube.getX() - 9.0f, geo.floorY - 2.0f, tube.getWidth() + 18.0f, 10.0f);
+        // Ceramic socket.
+        const auto socket = juce::Rectangle<float>(tube.getX() - 6.0f, geo.floorY - 6.0f, tube.getWidth() + 12.0f, 9.0f);
+        juce::ColourGradient cer(juce::Colour(0xffd8d1c2), 0.0f, socket.getY(), juce::Colour(0xff6e695f), 0.0f, socket.getBottom(), false);
+        g.setGradientFill(cer);
+        g.fillRoundedRectangle(socket, 3.0f);
+        g.setColour(juce::Colours::black.withAlpha(0.4f));
+        g.drawRoundedRectangle(socket, 3.0f, 0.8f);
+    }
+
+    // ----------------------------------------------------------- internals
+    {
+        const auto xf = makeLayer(internals);
+        juce::Graphics g(internals);
+        g.addTransform(xf);
+        g.reduceClipRegion(winPath);
+        // Pins and press seal at the base.
+        g.setColour(juce::Colour(0xffb4b7bc));
+        for (int k = 0; k < 7; ++k)
+            g.fillRect(tube.getX() + 8.0f + (float) k * (tube.getWidth() - 16.0f) / 6.0f, tube.getBottom() - 3.0f, 1.2f, 6.0f);
+        // Support rods.
+        g.setColour(juce::Colour(0xff8c8f95));
+        for (float fx : { 0.2f, 0.5f, 0.8f })
+            g.fillRect(tube.getX() + tube.getWidth() * fx - 0.6f, geo.plates[0].getY() - 10.0f, 1.2f, tube.getBottom() - geo.plates[0].getY() + 6.0f);
+        // Mica spacers (translucent, slightly milky).
+        for (float yy : { geo.plates[0].getY() - 7.0f, geo.plates[0].getBottom() + 3.0f })
+        {
+            juce::ColourGradient mica(juce::Colour(0x99e6dccb), tube.getX(), yy, juce::Colour(0x66a89f90), tube.getRight(), yy, false);
+            g.setGradientFill(mica);
+            g.fillRoundedRectangle(tube.getX() + 2.5f, yy, tube.getWidth() - 5.0f, 3.5f, 1.0f);
+        }
+        // Plates: matte grey metal boxes with a darker side face, slot left open.
+        for (int i = 0; i < 2; ++i)
+        {
+            const auto& pl = geo.plates[i];
+            juce::Path plate;
+            plate.addRectangle(pl);
+            juce::Path slot;
+            slot.addRoundedRectangle(geo.slots[i], 1.0f);
+            plate.addPath(slot);
+            plate.setUsingNonZeroWinding(false);
+            juce::ColourGradient face(juce::Colour(0xff6b6e74), pl.getX(), pl.getY(), juce::Colour(0xff2e3034), pl.getRight(), pl.getBottom(), false);
+            face.addColour(0.35, juce::Colour(0xff55585e));
+            g.setGradientFill(face);
+            g.fillPath(plate);
+            // Pressed ribs.
+            for (int k = 1; k < 4; ++k)
+            {
+                const float rx = pl.getX() + pl.getWidth() * (float) k / 4.0f;
+                if (std::abs(rx - geo.slots[i].getCentreX()) < geo.slots[i].getWidth() * 0.7f)
+                    continue;
+                g.setColour(juce::Colours::black.withAlpha(0.45f));
+                g.drawVerticalLine(juce::roundToInt(rx), pl.getY() + 2.0f, pl.getBottom() - 2.0f);
+                g.setColour(juce::Colours::white.withAlpha(0.12f));
+                g.drawVerticalLine(juce::roundToInt(rx) + 1, pl.getY() + 2.0f, pl.getBottom() - 2.0f);
+            }
+            g.setColour(juce::Colours::black.withAlpha(0.6f));
+            g.drawRect(pl, 0.8f);
+            g.setColour(juce::Colours::black.withAlpha(0.7f));
+            g.drawRoundedRectangle(geo.slots[i], 1.0f, 0.8f);
+        }
+        // Getter flash: a silvered mirror on the inside of the dome.
+        const auto& gt = geo.getter;
+        juce::Path dome;
+        dome.addRoundedRectangle(gt.getX(), gt.getY(), gt.getWidth(), gt.getHeight(), gt.getWidth() * 0.42f, gt.getWidth() * 0.42f,
+                                 true, true, false, false);
+        juce::ColourGradient silver(juce::Colour(0xffe2e4e8), gt.getX(), gt.getY(), juce::Colour(0xff26282c), gt.getRight(), gt.getBottom(), false);
+        silver.addColour(0.3, juce::Colour(0xff9da1a8));
+        silver.addColour(0.55, juce::Colour(0xff4a4d53));
+        silver.addColour(0.8, juce::Colour(0xff8a8e95));
+        g.setGradientFill(silver);
+        g.fillPath(dome);
+        juce::ColourGradient flashEdge(juce::Colours::transparentBlack, 0.0f, gt.getBottom() - 6.0f, juce::Colour(0x00000000), 0.0f, gt.getBottom(), false);
+        flashEdge.addColour(0.5, juce::Colours::black.withAlpha(0.25f));
+        g.setGradientFill(flashEdge);
+        g.fillRect(gt.withTrimmedTop(gt.getHeight() - 6.0f));
+    }
+
+    // --------------------------------------------------------------- front
+    {
+        const auto xf = makeLayer(front);
+        juce::Graphics g(front);
+        g.addTransform(xf);
+        {
+            g.saveState();
+            g.reduceClipRegion(winPath);
+            // Grid wires across the slots, in front of the cathodes.
+            g.setColour(juce::Colour(0xff9a9da3).withAlpha(0.8f));
+            for (int i = 0; i < 2; ++i)
+                for (float yy = geo.slots[i].getY() + 2.0f; yy < geo.slots[i].getBottom() - 1.0f; yy += 2.6f)
+                    g.drawLine(geo.slots[i].getX() - 1.0f, yy, geo.slots[i].getRight() + 1.0f, yy + 0.8f, 0.5f);
+
+            // Glass envelope: a cylinder, so darker and greener at the edges.
+            juce::Path glass;
+            glass.addRoundedRectangle(tube.getX(), tube.getY(), tube.getWidth(), tube.getHeight(), tube.getWidth() * 0.46f,
+                                      tube.getWidth() * 0.46f, true, true, false, false);
+            g.saveState();
+            g.reduceClipRegion(glass);
+            juce::ColourGradient edges(juce::Colour(0x5520302a), tube.getX(), 0.0f, juce::Colour(0x5520302a), tube.getRight(), 0.0f, false);
+            edges.addColour(0.18, juce::Colour(0x0f203028));
+            edges.addColour(0.5, juce::Colour(0x00000000));
+            edges.addColour(0.82, juce::Colour(0x0f203028));
+            g.setGradientFill(edges);
+            g.fillRect(tube);
+            // Specular reflections of the light, tall and narrow on the curve.
+            auto streak = [&](float fx, float width, float alpha) {
+                const auto s = juce::Rectangle<float>(tube.getX() + tube.getWidth() * fx, tube.getY() + 6.0f, width, tube.getHeight() - 12.0f);
+                juce::ColourGradient sg(juce::Colours::white.withAlpha(0.0f), 0.0f, s.getY(), juce::Colours::white.withAlpha(0.0f), 0.0f, s.getBottom(), false);
+                sg.addColour(0.15, juce::Colours::white.withAlpha(alpha));
+                sg.addColour(0.7, juce::Colours::white.withAlpha(alpha * 0.6f));
+                g.setGradientFill(sg);
+                g.fillRoundedRectangle(s, width * 0.5f);
+            };
+            streak(0.14f, 3.2f, 0.55f);
+            streak(0.24f, 1.4f, 0.25f);
+            streak(0.84f, 1.6f, 0.18f);
+            g.restoreState();
+            g.setColour(juce::Colours::white.withAlpha(0.32f));
+            g.strokePath(glass, juce::PathStrokeType(0.9f));
+            // Exhaust tip on the top of the dome.
+            const auto tip = juce::Rectangle<float>(tube.getCentreX() - 3.0f, tube.getY() - 5.0f, 6.0f, 7.0f);
+            g.setColour(juce::Colours::white.withAlpha(0.18f));
+            g.fillRoundedRectangle(tip, 2.5f);
+            g.setColour(juce::Colours::white.withAlpha(0.45f));
+            g.drawRoundedRectangle(tip, 2.5f, 0.7f);
+            // Type printed on the glass in white ink.
+            static const char* names[4] = { "12AX7", "12AU7", "EL84", "6L6GC" };
+            g.setColour(juce::Colours::white.withAlpha(0.6f));
+            g.setFont(juce::Font(juce::FontOptions(8.5f, juce::Font::bold)).withExtraKerningFactor(0.05f));
+            g.drawText(names[juce::jlimit(0, 3, type)], juce::Rectangle<float>(tube.getX(), tube.getY() + tube.getHeight() * 0.25f, tube.getWidth(), 10.0f).toNearestInt(),
+                       juce::Justification::centred, false);
+            // The window pane: a broad reflection across the whole port.
+            m::glassSheen(g, win, 7.0f, 1.3f);
+            g.restoreState();
+        }
+
+        // Bezel: a machined steel frame with an inner chamfer down to the glass.
+        juce::Path frame;
+        frame.addRoundedRectangle(r, 10.0f);
+        frame.addRoundedRectangle(win, 7.0f);
+        frame.setUsingNonZeroWinding(false);
+        g.saveState();
+        g.reduceClipRegion(frame);
+        m::brushedMetal(g, r, 10.0f, juce::Colour(0xff55585f), 1.3f);
+        g.restoreState();
+        m::raisedEdge(g, r.reduced(0.5f), 10.0f, 1.1f);
+        // Inner chamfer: the upper wall faces down (dark), the lower wall faces up (lit).
+        juce::ColourGradient chamfer(juce::Colours::black.withAlpha(0.85f), 0.0f, win.getY(), juce::Colours::white.withAlpha(0.35f), 0.0f, win.getBottom(), false);
+        chamfer.addColour(0.5, juce::Colours::black.withAlpha(0.4f));
+        g.setGradientFill(chamfer);
+        g.drawRoundedRectangle(win.expanded(2.0f), 8.5f, 3.5f);
+        g.setColour(juce::Colour(0xff050505)); // rubber gasket
+        g.drawRoundedRectangle(win.expanded(0.4f), 7.2f, 1.2f);
+        for (auto p : { r.getTopLeft() + juce::Point<float>(7.0f, 6.5f), r.getTopRight() + juce::Point<float>(-7.0f, 6.5f),
+                        r.getBottomLeft() + juce::Point<float>(7.0f, -6.5f), r.getBottomRight() + juce::Point<float>(-7.0f, -6.5f) })
+            m::screw(g, p, 3.3f, p.x * 0.05f);
+    }
+}
+
 void ValveDisplay::paint(juce::Graphics& g)
 {
     // A small glass window into the synth: a 9-pin preamp valve on its socket.
     // The heaters glow brighter with DRIVE and flicker slightly with the signal.
-    const auto r = getLocalBounds().toFloat();
-    const bool on = v(P::ValveOn) >= 0.5f;
+    const float scale = juce::jlimit(0.5f, 4.0f, g.getInternalContext().getPhysicalPixelScaleFactor());
     const int type = juce::jlimit(0, 3, iv(P::ValveType));
+    if (back.isNull() || std::abs(scale - layerScale) > 0.01f || type != layerType)
+        renderLayers(scale, type);
+
+    const auto r = getLocalBounds().toFloat();
+    const auto geo = geometry();
+    const bool on = v(P::ValveOn) >= 0.5f;
     const auto& e = processor.getEngine();
     const float signal = juce::jmin(1.0f, juce::jmax(e.getPeak(0), e.getPeak(1)) * 1.5f);
     const float glow = on ? juce::jlimit(0.0f, 1.0f, 0.12f + 0.78f * v(P::ValveDrive) + 0.1f * signal) : 0.0f;
-    const auto heat = juce::Colour(0xffff6a12);
-    const auto hot = juce::Colour(0xffffc070);
+    const auto heat = juce::Colour(0xffff5a0a);
+    const auto hot = juce::Colour(0xffffb35a);
 
-    // ---- bezel: brushed metal frame with four screws
-    juce::ColourGradient metal(juce::Colour(0xff6b6e74), r.getX(), r.getY(), juce::Colour(0xff26282c), r.getRight(), r.getBottom(), false);
-    g.setGradientFill(metal);
-    g.fillRoundedRectangle(r, 10.0f);
-    g.setColour(juce::Colours::black.withAlpha(0.6f));
-    g.drawRoundedRectangle(r.reduced(0.5f), 10.0f, 1.0f);
-    for (auto p : { r.getTopLeft() + juce::Point<float>(8, 8), r.getTopRight() + juce::Point<float>(-8, 8),
-                    r.getBottomLeft() + juce::Point<float>(8, -8), r.getBottomRight() + juce::Point<float>(-8, -8) })
-    {
-        g.setColour(juce::Colour(0xff1a1b1e));
-        g.fillEllipse(juce::Rectangle<float>(6.0f, 6.0f).withCentre(p));
-        g.setColour(juce::Colour(0xff8d9096));
-        g.drawLine(p.x - 2.0f, p.y + 2.0f, p.x + 2.0f, p.y - 2.0f, 1.0f);
-    }
+    g.drawImage(back, r);
 
-    // ---- the cavity behind the glass
-    const auto win = r.reduced(14.0f, 12.0f);
     juce::Path winPath;
-    winPath.addRoundedRectangle(win, 8.0f);
+    winPath.addRoundedRectangle(geo.window, 7.0f);
     g.saveState();
     g.reduceClipRegion(winPath);
-    g.setColour(juce::Colour(0xff0b0b0d));
-    g.fillRect(win);
-    // Warm light thrown onto the chassis by the heaters.
-    juce::ColourGradient spill(heat.withAlpha(0.42f * glow), win.getCentreX(), win.getBottom() - win.getHeight() * 0.38f,
-                               heat.withAlpha(0.0f), win.getCentreX() + win.getWidth() * 0.62f, win.getBottom(), true);
-    g.setGradientFill(spill);
-    g.fillRect(win);
-
-    // Chassis floor and socket.
-    const float floorY = win.getBottom() - 16.0f;
-    g.setColour(juce::Colour(0xff1d1e21));
-    g.fillRect(win.getX(), floorY, win.getWidth(), win.getBottom() - floorY);
-    const float vx = win.getCentreX();
-    const float vw = 40.0f;
-    g.setColour(juce::Colour(0xff2b2a27));
-    g.fillRoundedRectangle(vx - vw * 0.62f, floorY - 5.0f, vw * 1.24f, 9.0f, 3.0f);
-
-    // ---- the valve
-    const float top = win.getY() + 10.0f;
-    const float bottom = floorY - 4.0f;
-    juce::Rectangle<float> tube(vx - vw * 0.5f, top, vw, bottom - top);
-    // Pins into the socket.
-    g.setColour(juce::Colour(0xffa7a9ad));
-    for (int k = 0; k < 5; ++k)
-        g.fillRect(vx - 12.0f + (float) k * 6.0f, bottom - 1.0f, 1.2f, 5.0f);
-
-    // Internal structure: mica spacers, two triode plate assemblies, heater glow.
-    const auto plates = juce::Rectangle<float>(tube.getX() + 6.0f, tube.getY() + tube.getHeight() * 0.36f, tube.getWidth() - 12.0f,
-                                               tube.getHeight() * 0.42f);
-    // Heater bloom behind and between the plates.
-    juce::ColourGradient bloom(hot.withAlpha(0.95f * glow), plates.getCentreX(), plates.getCentreY() + 4.0f,
-                               heat.withAlpha(0.0f), plates.getCentreX() + plates.getWidth() * 0.95f, plates.getCentreY(), true);
-    g.setGradientFill(bloom);
-    g.fillEllipse(plates.expanded(14.0f, 10.0f));
-    for (int half = 0; half < 2; ++half)
+    if (glow > 0.0f)
     {
-        const float w = plates.getWidth() * 0.5f - 2.0f;
-        const auto pl = juce::Rectangle<float>(plates.getX() + (float) half * (w + 4.0f), plates.getY(), w, plates.getHeight());
-        juce::ColourGradient plateGrad(juce::Colour(0xff4d4f54), pl.getX(), 0.0f, juce::Colour(0xff222326), pl.getRight(), 0.0f, false);
-        g.setGradientFill(plateGrad);
-        g.fillRect(pl);
-        g.setColour(juce::Colours::black.withAlpha(0.5f));
-        for (int k = 1; k < 4; ++k)
-            g.drawVerticalLine(juce::roundToInt(pl.getX() + pl.getWidth() * (float) k / 4.0f), pl.getY(), pl.getBottom());
-        // Glowing heater visible through the slot in each plate.
-        const auto slot = juce::Rectangle<float>(2.4f, pl.getHeight() * 0.62f).withCentre(pl.getCentre());
-        g.setColour(juce::Colour(0xff3a1a08).interpolatedWith(hot, glow));
-        g.fillRoundedRectangle(slot, 1.2f);
-        g.setColour(hot.withAlpha(0.6f * glow));
-        g.fillRoundedRectangle(slot.expanded(1.8f * glow, 1.0f), 2.0f);
+        // Warm light thrown onto the chassis around the valve.
+        const auto c = geo.plates[0].getRight() + 1.0f;
+        juce::ColourGradient spill(heat.withAlpha(0.5f * glow), c, geo.plates[0].getCentreY(),
+                                   heat.withAlpha(0.0f), c + geo.window.getWidth() * 0.6f, geo.plates[0].getCentreY(), true);
+        g.setGradientFill(spill);
+        g.fillRect(geo.window);
+        juce::ColourGradient floorGlow(hot.withAlpha(0.35f * glow), geo.tube.getCentreX(), geo.floorY + 2.0f,
+                                       hot.withAlpha(0.0f), geo.tube.getCentreX() + geo.tube.getWidth() * 1.1f, geo.floorY + 2.0f, true);
+        g.setGradientFill(floorGlow);
+        g.fillRect(geo.window.withTop(geo.floorY - 4.0f));
     }
-    g.setColour(juce::Colour(0xffd8d2c4).withAlpha(0.55f));
-    g.fillRect(tube.getX() + 3.0f, plates.getY() - 6.0f, tube.getWidth() - 6.0f, 3.0f);
-    g.fillRect(tube.getX() + 3.0f, plates.getBottom() + 3.0f, tube.getWidth() - 6.0f, 3.0f);
-    g.setColour(juce::Colour(0xff8e9096));
-    for (int k = 0; k < 3; ++k)
-        g.fillRect(tube.getX() + 8.0f + (float) k * 11.0f, plates.getBottom() + 6.0f, 1.0f, bottom - plates.getBottom() - 8.0f);
+    g.drawImage(internals, r);
 
-    // Getter flash: the silvered dome at the top.
-    const auto getter = juce::Rectangle<float>(tube.getX() + 1.5f, tube.getY() + 4.0f, tube.getWidth() - 3.0f, tube.getHeight() * 0.22f);
-    juce::ColourGradient silver(juce::Colour(0xffc9ccd2), getter.getX(), getter.getY(), juce::Colour(0xff3c3e44), getter.getRight(), getter.getBottom(), false);
-    silver.addColour(0.45, juce::Colour(0xff7a7d84));
-    g.setGradientFill(silver);
-    g.fillRoundedRectangle(getter, 8.0f);
-
-    // Glass envelope, seal tip and reflections.
-    juce::Path glass;
-    glass.addRoundedRectangle(tube.getX(), tube.getY(), tube.getWidth(), tube.getHeight(), tube.getWidth() * 0.45f,
-                              tube.getWidth() * 0.45f, true, true, false, false);
-    g.setColour(juce::Colours::white.withAlpha(0.05f));
-    g.fillPath(glass);
-    g.setColour(juce::Colours::white.withAlpha(0.35f));
-    g.strokePath(glass, juce::PathStrokeType(1.0f));
-    g.fillRoundedRectangle(vx - 3.0f, tube.getY() - 4.0f, 6.0f, 6.0f, 2.0f);
-    g.setColour(juce::Colours::white.withAlpha(0.22f));
-    g.fillRoundedRectangle(tube.getX() + 5.0f, tube.getY() + 10.0f, 3.0f, tube.getHeight() * 0.7f, 1.5f);
-    g.setColour(heat.withAlpha(0.35f * glow));
-    g.strokePath(glass, juce::PathStrokeType(1.6f));
-
-    // Type printed on the glass.
-    static const char* names[4] = { "12AX7", "12AU7", "EL84", "6L6" };
-    g.setColour(juce::Colours::white.withAlpha(0.55f));
-    g.setFont(juce::Font(juce::FontOptions(9.0f, juce::Font::bold)));
-    g.drawText(names[type], tube.withTrimmedTop(tube.getHeight() * 0.25f).withHeight(11.0f).toNearestInt(), juce::Justification::centred, false);
-
-    // Window glass: a faint diagonal reflection across the whole port.
-    juce::ColourGradient sheen(juce::Colours::white.withAlpha(0.10f), win.getX(), win.getY(), juce::Colours::white.withAlpha(0.0f),
-                               win.getX() + win.getWidth() * 0.55f, win.getY() + win.getHeight() * 0.45f, false);
-    g.setGradientFill(sheen);
-    g.fillRect(win);
+    // Cathodes seen through the plate slots: dark grey when cold, through
+    // dull red to orange and a yellow-white core as the heater warms up.
+    for (int i = 0; i < 2; ++i)
+    {
+        const auto& sl = geo.slots[i];
+        const auto cold = juce::Colour(0xff2a2522);
+        const auto body = glow < 0.5f ? cold.interpolatedWith(heat, glow * 2.0f) : heat.interpolatedWith(hot, (glow - 0.5f) * 2.0f);
+        g.setColour(juce::Colour(0xff0b0908));
+        g.fillRoundedRectangle(sl, 1.0f);
+        const auto cathode = sl.withSizeKeepingCentre(sl.getWidth() * 0.55f, sl.getHeight() - 2.0f);
+        juce::ColourGradient cg(body.darker(0.3f), cathode.getX(), 0.0f, body.darker(0.3f), cathode.getRight(), 0.0f, false);
+        cg.addColour(0.5, body.brighter(0.4f * glow));
+        g.setGradientFill(cg);
+        g.fillRoundedRectangle(cathode, 1.0f);
+        if (glow > 0.0f)
+        {
+            // Light escaping above and below each plate.
+            for (float yy : { geo.plates[i].getY(), geo.plates[i].getBottom() })
+            {
+                juce::ColourGradient esc(hot.withAlpha(0.55f * glow), sl.getCentreX(), yy, hot.withAlpha(0.0f), sl.getCentreX() + 9.0f, yy, true);
+                g.setGradientFill(esc);
+                g.fillEllipse(sl.getCentreX() - 9.0f, yy - 4.0f, 18.0f, 8.0f);
+            }
+        }
+    }
+    if (glow > 0.0f)
+    {
+        // The glow mirrored in the underside of the getter flash.
+        const auto& gt = geo.getter;
+        juce::ColourGradient refl(heat.withAlpha(0.0f), 0.0f, gt.getY() + gt.getHeight() * 0.4f, heat.withAlpha(0.45f * glow), 0.0f, gt.getBottom(), false);
+        g.setGradientFill(refl);
+        g.fillRect(gt.reduced(3.0f, 0.0f).withTrimmedTop(gt.getHeight() * 0.4f));
+    }
     g.restoreState();
 
-    g.setColour(juce::Colours::black.withAlpha(0.8f));
-    g.drawRoundedRectangle(win, 8.0f, 2.0f);
-    g.setColour(juce::Colours::white.withAlpha(0.12f));
-    g.drawRoundedRectangle(win.expanded(1.5f), 9.0f, 1.0f);
+    g.drawImage(front, r);
 }
 
 // ============================================================ voice LEDs ====
@@ -877,34 +1049,49 @@ void Logo::paint(juce::Graphics& g)
     z.lineTo(x, y + h * 0.17f);
     z.closeSubPath();
 
-    // Soft glow behind the mark.
-    for (int i = 4; i >= 1; --i)
-    {
-        g.setColour(Colours::accent.withAlpha(0.05f));
-        g.strokePath(z, juce::PathStrokeType((float) i * 3.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-    }
-    juce::ColourGradient grad(Colours::accent.brighter(0.35f), x, y, Colours::accent.darker(0.3f), x, y + h, false);
+    namespace m = material;
+
+    // The Z: amber acrylic lit from behind, with a bloom on the panel.
+    juce::DropShadow(Colours::accent.withAlpha(0.6f), 14, {}).drawForPath(g, z);
+    m::castShadow(g, z, 3.0f, { 1, 2 }, 0.7f);
+    juce::ColourGradient grad(Colours::accent.brighter(0.7f), x, y, Colours::accent.darker(0.15f), x, y + h, false);
+    grad.addColour(0.5, Colours::accent.brighter(0.2f));
     g.setGradientFill(grad);
     g.fillPath(z);
+    g.setColour(juce::Colours::white.withAlpha(0.35f));
+    g.strokePath(z, juce::PathStrokeType(0.8f), juce::AffineTransform::translation(0.0f, 0.5f));
 
-    // "YNTH" follows the Z mark, set tall and wide, so the mark reads as the
-    // first letter of ZYNTH.
+    // "YNTH": raised, polished chrome letters standing on the header.
     const float textX = x + h * 0.9f;
     auto font = juce::Font(juce::FontOptions(h * 1.12f, juce::Font::bold)).withExtraKerningFactor(0.1f);
-    g.setFont(font);
-    juce::ColourGradient tg(juce::Colours::white, 0.0f, y, Colours::white.darker(0.25f), 0.0f, y + h, false);
-    g.setGradientFill(tg);
-    g.drawText("YNTH", juce::Rectangle<float>(textX, y - h * 0.12f, r.getRight() - textX, h * 1.24f).toNearestInt(),
-               juce::Justification::centredLeft, false);
+    const auto letters = m::textPath("YNTH", juce::Rectangle<float>(textX, y - h * 0.12f, r.getRight() - textX, h * 1.24f), font,
+                                     juce::Justification::centredLeft, 1, 1.0f);
+    const auto lb = letters.getBounds();
+    m::castShadow(g, letters, 4.0f, { 2, 4 }, 0.85f);
+    juce::ColourGradient chrome(juce::Colour(0xfff4f5f7), 0.0f, lb.getY(), juce::Colour(0xff9a9ea6), 0.0f, lb.getBottom(), false);
+    chrome.addColour(0.42, juce::Colour(0xffc9ccd2));
+    chrome.addColour(0.5, juce::Colour(0xff5b5f67));       // horizon line of a chrome reflection
+    chrome.addColour(0.62, juce::Colour(0xff7d818a));
+    chrome.addColour(0.9, juce::Colour(0xffd6d9de));
+    g.setGradientFill(chrome);
+    g.fillPath(letters);
+    // Bevelled edges: lit above, dark below.
+    g.saveState();
+    g.reduceClipRegion(letters);
+    g.setColour(juce::Colours::black.withAlpha(0.45f));
+    g.strokePath(letters, juce::PathStrokeType(2.0f), juce::AffineTransform::translation(0.0f, -1.2f));
+    g.restoreState();
+    g.setColour(juce::Colours::white.withAlpha(0.6f));
+    g.strokePath(letters, juce::PathStrokeType(0.6f));
 
-    // Subtitle with an accent rule.
+    // Subtitle: back-lit legend with an amber rule.
     const float subY = y + h + 6.0f;
-    g.setColour(Colours::accent.withAlpha(0.8f));
-    g.fillRect(x, subY + 4.0f, h * 0.82f, 2.0f);
-    g.setColour(Colours::text.withAlpha(0.75f));
-    g.setFont(labelFont(10.5f).withExtraKerningFactor(0.42f));
-    g.drawText("HYBRID SYNTHESIS INSTRUMENT", juce::Rectangle<float>(x + h * 0.9f, subY - 2.0f, r.getWidth() - h, 12.0f).toNearestInt(),
-               juce::Justification::centredLeft, false);
+    const auto rule = juce::Rectangle<float>(x, subY + 4.0f, h * 0.82f, 2.0f);
+    juce::DropShadow(Colours::accent.withAlpha(0.6f), 4, {}).drawForRectangle(g, rule.toNearestInt());
+    g.setColour(Colours::accent.brighter(0.3f));
+    g.fillRect(rule);
+    m::engravedText(g, "HYBRID SYNTHESIS INSTRUMENT", juce::Rectangle<float>(x + h * 0.9f, subY - 3.0f, r.getWidth() - h, 14.0f),
+                    labelFont(10.5f).withExtraKerningFactor(0.42f), juce::Justification::centredLeft, m::kLegend, 0.6f);
 }
 
 } // namespace zsynth::ui

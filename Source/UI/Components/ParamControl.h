@@ -14,6 +14,7 @@
 #include "../../MIDI/MidiLearn.h"
 #include "../../Parameters/ParameterLayout.h"
 #include "../Layout/PanelLayout.h"
+#include "Materials.h"
 #include "Theme.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -100,6 +101,7 @@ private:
     float dragStartNorm = 0.0f, dragNorm = 0.0f;
     juce::Colour ledColour = Colours::accent;
     juce::Colour accent = Colours::accent;
+    material::LegendCache legend;
 };
 
 } // namespace zsynth::ui
