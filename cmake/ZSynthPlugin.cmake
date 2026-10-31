@@ -28,6 +28,7 @@ juce_add_plugin(ZSynth
     COMPANY_WEBSITE "https://example.invalid/zynth"
     BUNDLE_ID "com.zynth.zynth"
     PRODUCT_NAME "ZYNTH"
+    ICON_BIG ${CMAKE_SOURCE_DIR}/Resources/Icon/zynth-icon.png
     VERSION ${PROJECT_VERSION}
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
