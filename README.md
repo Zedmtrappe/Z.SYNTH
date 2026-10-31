@@ -14,7 +14,7 @@ advanced sections.
 | Engine | JUCE-free C++17 library, usable without any GUI |
 | Parameters | 333, all host-automatable, one authoritative table |
 | Factory library | 227 presets: *ZYNTH Originals* (160, 15 categories) and *Classic Machines* (67 sounds in 20 instrument folders), level-matched by measurement |
-| Tests | 41 DSP tests, 19 state/preset/layout/editor tests, a VST3 host test |
+| Tests | 41 DSP tests, 20 state/preset/layout/editor tests, a VST3 host test |
 | Tested on | Ubuntu 24.04, x86-64, GCC 13.3, CMake 3.28, JUCE 8.0.9 |
 
 ## What it does
@@ -57,6 +57,9 @@ advanced sections.
   algorithms voiced after those units), with decay, low cut, diffusion,
   modulation, early/late and width; delay and reverb each have a menu of
   factory presets.
+* **Musical typing** — a floating Mac-keyboard window (TYPING button): play
+  from the computer keyboard with Logic's layout, octave/velocity keys,
+  sustain, pitch bend and mod wheel.
 * **Audition player** — a strip above the keyboard plays a MIDI clip into the
   current sound while you work the panel: 10 built-in loops (basslines, acid,
   lead, chords, e-piano, pads, arpeggio, plucks, brass, bells) or any standard

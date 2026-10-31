@@ -9,7 +9,8 @@ ZKeyboard::ZKeyboard(juce::MidiKeyboardState& state)
     setScrollButtonsVisible(false);
     setAvailableRange(lowestKey, lowestKey + 60);
     setOctaveForMiddleC(4);
-    setKeyPressBaseOctave(4);
+    // Computer-keyboard playing is handled by Musical Typing (TYPING button).
+    clearKeyMappings();
     setVelocity(0.8f, true);
     setColour(keySeparatorLineColourId, juce::Colour(0xff2a2a2c));
     setColour(mouseOverKeyOverlayColourId, Colours::accent.withAlpha(0.25f));

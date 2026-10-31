@@ -275,6 +275,8 @@ void MainPanel::buildUtilities()
         showFxPresetMenu(delayPresets(), "delayPresets", P::DelayOn); });
     button("reverbPresets", juce::String::fromUTF8("REVERB PRESETS \xe2\x96\xbe"), "Load a reverb starting point (sets only the reverb)", [this] {
         showFxPresetMenu(reverbPresets(), "reverbPresets", P::ReverbOn); });
+    typingButton = &button("musicalTyping", "TYPING", "Musical typing: play ZYNTH from your computer keyboard (floating window)", [this] {
+        showMusicalTyping(! isMusicalTypingVisible()); });
     button("openValve", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Valve type, bias, sag, warmth and mix", [this] {
         showPage(getVisiblePage() == "valve" ? juce::String() : juce::String("valve")); });
 
@@ -336,8 +338,29 @@ juce::String MainPanel::getVisiblePage() const
     return {};
 }
 
+void MainPanel::showMusicalTyping(bool show)
+{
+    if (show && typingWindow == nullptr)
+    {
+        typing = std::make_unique<MusicalTyping>(processor);
+        typingWindow = std::make_unique<MusicalTypingWindow>(*typing);
+    }
+    if (typingWindow != nullptr)
+        typingWindow->setVisible(show);
+    if (typingButton != nullptr)
+        typingButton->setToggleState(show, juce::dontSendNotification);
+}
+
+bool MainPanel::keyStateChanged(bool)
+{
+    // While the musical typing window is open the keys play notes from here too.
+    return isMusicalTypingVisible() && typing->keyStateChanged();
+}
+
 bool MainPanel::keyPressed(const juce::KeyPress& k)
 {
+    if (isMusicalTypingVisible() && typing->isMapped(k))
+        return true;
     if (k == juce::KeyPress::escapeKey && getVisiblePage().isNotEmpty())
     {
         showPage({});
@@ -470,6 +493,8 @@ void MainPanel::showPresetBrowser(bool show)
 // ------------------------------------------------------------------ refresh
 void MainPanel::timerCallback()
 {
+    if (typingButton != nullptr && typingButton->getToggleState() != isMusicalTypingVisible())
+        typingButton->setToggleState(isMusicalTypingVisible(), juce::dontSendNotification);
     for (auto* d : displays)
         if (d->isShowing())
             d->refresh();

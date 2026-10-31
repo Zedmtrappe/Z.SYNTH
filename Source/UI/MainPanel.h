@@ -7,6 +7,7 @@
 #include "../Plugin/ZSynthProcessor.h"
 #include "Components/Displays.h"
 #include "Components/Keyboard.h"
+#include "Components/MusicalTyping.h"
 #include "Components/ParamControl.h"
 #include "Components/PresetBrowser.h"
 #include "Layout/PanelLayout.h"
@@ -43,6 +44,9 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override {}
     bool keyPressed(const juce::KeyPress&) override;
+    bool keyStateChanged(bool isKeyDown) override;
+    void showMusicalTyping(bool show);
+    bool isMusicalTypingVisible() const { return typingWindow != nullptr && typingWindow->isVisible(); }
 
     const std::vector<std::unique_ptr<ParamControl>>& getControls() const { return controls; }
     void showPresetBrowser(bool show);
@@ -89,6 +93,9 @@ private:
     ZKeyboard* keyboard = nullptr;
 
     PresetBrowser browser;
+    std::unique_ptr<MusicalTyping> typing;
+    std::unique_ptr<MusicalTypingWindow> typingWindow;
+    juce::TextButton* typingButton = nullptr;
     juce::Label valueBubble;
     juce::Image background;
     float backgroundScale = 0.0f;

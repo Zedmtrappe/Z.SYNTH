@@ -3,6 +3,7 @@
 // tool:  ZSynthStateTests --preset-report [wavOutputDir]
 
 #include "Presets/FxPresets.h"
+#include "UI/Components/MusicalTyping.h"
 #include "TestFramework.h"
 #include "TestHelpers.h"
 
@@ -700,6 +701,48 @@ ZS_TEST(audition_player_timing_loop_and_release)
     emptyFile.writeTo(out2);
     ZS_CHECK(AuditionPlayer::parse(out2.getData(), out2.getDataSize(), "empty", error) == nullptr);
     ZS_CHECK(error.isNotEmpty());
+}
+
+ZS_TEST(musical_typing_keys_play_notes)
+{
+    ProcessorFixture f("typing");
+    auto& kb = f.processor.getKeyboardState();
+    ui::MusicalTyping t(f.processor);
+    ZS_CHECK(t.isMapped(juce::KeyPress('a')));
+    ZS_CHECK(t.isMapped(juce::KeyPress(juce::KeyPress::tabKey)));
+    ZS_CHECK(! t.isMapped(juce::KeyPress('q')));
+    ZS_CHECK(! t.isMapped(juce::KeyPress('a', juce::ModifierKeys::commandModifier, 0))); // shortcuts pass through
+
+    t.press('a');
+    ZS_CHECK(kb.isNoteOn(1, 60));
+    t.press('w');
+    ZS_CHECK(kb.isNoteOn(1, 61));
+    t.release('w');
+    ZS_CHECK(! kb.isNoteOn(1, 61));
+    // Octave up while A is held: A keeps its note, new presses use the new octave.
+    t.press('x');
+    t.release('x');
+    ZS_CHECK(t.getBaseNote() == 72);
+    t.press('s');
+    ZS_CHECK(kb.isNoteOn(1, 74));
+    t.release('a');
+    ZS_CHECK(! kb.isNoteOn(1, 60));
+    t.press('c');
+    t.release('c');
+    ZS_CHECK(t.getVelocity() == 84);
+    t.press(juce::KeyPress::tabKey);
+    ZS_CHECK(t.isSustaining());
+    t.allOff();
+    ZS_CHECK(! kb.isNoteOn(1, 74));
+    ZS_CHECK(! t.isSustaining());
+    // Layout rows are complete (14.5 key units each, like a Mac keyboard).
+    for (const auto& row : ui::MusicalTyping::layout())
+    {
+        float w = 0.0f;
+        for (const auto& k : row)
+            w += k.width;
+        ZS_CHECK_NEAR(w, 14.5, 1e-4);
+    }
 }
 
 ZS_TEST(activity_rules_examples)

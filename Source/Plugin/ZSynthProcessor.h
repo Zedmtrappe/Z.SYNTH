@@ -59,6 +59,7 @@ public:
     /** Injects controller data from the on-screen wheels (thread-safe). */
     void setPitchWheel(float bipolar);
     void setModWheel(float unipolar);
+    void setSustainPedal(bool down);
 
     /** Parameter value in real units (thread-safe). */
     float getValue(int index) const { return rawValues[(size_t) index]->load(); }
@@ -97,6 +98,7 @@ private:
     // On-screen wheels -> MIDI, consumed on the audio thread.
     std::atomic<int> pendingPitchWheel { -1 };
     std::atomic<int> pendingModWheel { -1 };
+    std::atomic<int> pendingSustain { -1 };
     std::atomic<uint32_t> audioCallbacks { 0 };
     std::atomic<float> cpuLoad { 0.0f };
     double currentSampleRate = 48000.0;

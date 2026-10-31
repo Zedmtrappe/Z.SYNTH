@@ -120,7 +120,8 @@ PanelLayout::PanelLayout()
     utilityAt("voiceCount", 1570, 20, 100, 54);
     add("master.volume", K::Knob, 1680, 16, "MASTER");
     utilityAt("panic", 1744, 32, 84, 34);
-    utilityAt("version", 1836, 32, 74, 34);
+    utilityAt("musicalTyping", 1838, 14, 72, 32);
+    utilityAt("version", 1836, 58, 74, 22);
 
     // -------------------------------------------------------- oscillators
     sectionAt("osc", "OSCILLATORS", 10, 104, 980, 320);

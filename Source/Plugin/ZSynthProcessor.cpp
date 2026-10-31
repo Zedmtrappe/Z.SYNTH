@@ -166,6 +166,9 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     const int pw = pendingPitchWheel.exchange(-1);
     if (pw >= 0)
         midi.addEvent(juce::MidiMessage::pitchWheel(1, pw), 0);
+    const int sus = pendingSustain.exchange(-1);
+    if (sus >= 0)
+        midi.addEvent(juce::MidiMessage::controllerEvent(1, 64, sus), 0);
     const int mw = pendingModWheel.exchange(-1);
     if (mw >= 0)
         midi.addEvent(juce::MidiMessage::controllerEvent(1, 1, mw), 0);
@@ -237,6 +240,11 @@ void ZSynthProcessor::panic()
 void ZSynthProcessor::setPitchWheel(float bipolar)
 {
     pendingPitchWheel.store(juce::jlimit(0, 16383, (int) std::lround((bipolar + 1.0f) * 8191.5f)));
+}
+
+void ZSynthProcessor::setSustainPedal(bool down)
+{
+    pendingSustain.store(down ? 127 : 0);
 }
 
 void ZSynthProcessor::setModWheel(float unipolar)

@@ -48,6 +48,26 @@ close with their **x** button or **Esc**:
 | ADV | Delay module | delay presets, wow, flutter, age, spread, ducking |
 | ADVANCED | Reverb module | reverb presets, decay, low cut, diffusion, modulation, early/late, width |
 
+## Musical typing
+
+**TYPING** (top right of the header) opens a floating window showing a Mac
+keyboard. While it is open, the computer keyboard plays ZYNTH (the layout
+Logic Pro uses), whether the floating window or the main panel has focus:
+
+| Keys | |
+|---|---|
+| A S D F G H J K L ; ' | White notes, C upwards |
+| W E, T Y U, O P | Black notes |
+| Z / X | Octave down / up |
+| C / V | Velocity down / up (steps of 16) |
+| Tab | Sustain pedal (while held) |
+| 1 / 2 | Pitch bend down / up (while held) |
+| 3 to 8 | Modulation wheel off, 20 %, 40 %, 60 %, 80 %, 100 % |
+
+Pressed keys light on the drawing and on the panel keyboard; you can also
+click the drawn keys. Shortcuts with Cmd, Ctrl or Option are left alone.
+Closing the window (or the TYPING button) releases any held notes.
+
 ## Audition
 
 The strip above the keyboard plays a MIDI clip into the current sound, so you
