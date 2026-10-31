@@ -229,6 +229,7 @@ X(Width,         "out.width",      "Stereo Width",  "Output", Float, 0.f, 2.f, 1
 X(Character,     "out.character",  "Character",     "Output", Float, 0.f, 1.f, 0.1f, LIN, "", nullptr, "Analogue-style output stage saturation and warmth.") \
 X(Macro,         "out.macro",      "Macro",         "Output", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "Performance macro: a modulation-matrix source.") \
 X(Limiter,       "out.limiter",    "Limiter",       "Output", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "Output safety limiter (keeps peaks below 0 dBFS).") \
+X(Smooth,        "out.smooth",     "Smooth",        "Output", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "SMOOTH: fixed 2.2 kHz dynamic compressor (4:1) that tames harshness only when it appears. AMOUNT lowers the threshold; 0 = off.") \
 X(ValveOn,       "out.valve.on",   "Valve On",      "Output", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "Valve output stage (oversampled triode / power-valve saturation).") \
 X(ValveType,     "out.valve.type", "Valve Type",    "Output", Choice, 0, 0, 0.f, LIN, "", ZS_CH_VALVE_TYPE, "12AX7: high-gain preamp triode (even harmonics). 12AU7: low-gain, clean warmth. EL84: push-pull power pair (odd harmonics, early compression). 6L6: big, smooth power valve with more headroom.") \
 X(ValveDrive,    "out.valve.drive","Valve Drive",   "Output", Float, 0.f, 1.f, 0.3f, LIN, "", nullptr, "How hard the valve is driven: warmth and gentle peak compression up to about 80 %, audible distortion from about 90 %.") \
@@ -246,9 +247,8 @@ X(CompAttack,    "comp.attack",    "Comp Attack",   "Output", Float, 0.02f, 100.
 X(CompRelease,   "comp.release",   "Comp Release",  "Output", Float, 50.f, 3000.f, 300.f, LOG, "ms", nullptr, "Release time (SSL 0.1-1.2 s, 1176 50-1100 ms, Fairchild 0.3-3 s; the LA-2A's is program dependent).") \
 X(CompAutoRel,   "comp.autorel",   "Comp Auto Release","Output", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "SSL AUTO release: fast after transients, slow after sustained compression.") \
 X(CompKnee,      "comp.knee",      "Comp Knee",     "Output", Float, 0.f, 1.f, 0.3f, LIN, "", nullptr, "Knee softness (SSL).") \
-X(CompScHpf,     "comp.schpf",     "Comp SC HPF",   "Output", Float, 20.f, 500.f, 20.f, LOG, "Hz", nullptr, "Side-chain high-pass: stops the low end pumping the compressor.") \
-X(CompEmph,      "comp.emph",      "Comp Emphasis", "Output", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "LA-2A side-chain HF emphasis: reacts more to bright sounds.") \
-X(CompColour,    "comp.color",     "Comp Colour",   "Output", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Analogue colour of the model (valve / FET / VCA saturation); 0.5 = as voiced.") \
+X(CompEmph,      "comp.emph",      "Comp Emphasis", "Output", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "LA-2A only: side-chain HF emphasis, so bright and harsh sounds are compressed harder.") \
+X(CompColour,    "comp.color",     "Comp Colour",   "Output", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Analogue colour of the model (valve / FET / VCA saturation): gentle at 0.5, clearly driven at full.") \
 X(GeqOn,         "geq.on",         "Graphic EQ On", "Output", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "Vintage graphic EQ in/out (with all bands at 0 dB it is bypassed anyway).") \
 X(GeqBand1,     "geq.b1",        "Graphic EQ 31 Hz", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ band at 31 Hz (proportional Q: narrower as it is pushed).") \
 X(GeqBand2,     "geq.b2",        "Graphic EQ 63 Hz", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ band at 63 Hz (proportional Q: narrower as it is pushed).") \

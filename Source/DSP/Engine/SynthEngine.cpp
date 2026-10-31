@@ -61,6 +61,7 @@ void SynthEngine::prepare(double sampleRate, int maxBlockSize)
     valve.prepare(fs);
     compressor.prepare(fs);
     graphicEq.prepare(fs);
+    smooth.prepare(fs);
     output.prepare(fs);
     for (auto& f : fades)
         f = 0.0f;
@@ -103,7 +104,7 @@ void SynthEngine::process(float* left, float* right, int numSamples,
         arp.reset();
         seq.reset();
         drive.reset(); phaser.reset(); flanger.reset(); chorus.reset();
-        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset(); compressor.reset(); graphicEq.reset();
+        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset(); compressor.reset(); graphicEq.reset(); smooth.reset();
         for (auto& ch : playedNote)
             for (auto& n : ch)
                 n = -1;
@@ -214,7 +215,7 @@ void SynthEngine::processChunk(float* left, float* right, int n, const MidiEvent
         badBlocks.fetch_add(1, std::memory_order_relaxed);
         voices.killAll();
         drive.reset(); phaser.reset(); flanger.reset(); chorus.reset();
-        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset(); compressor.reset(); graphicEq.reset();
+        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset(); compressor.reset(); graphicEq.reset(); smooth.reset();
     }
 
     activeVoices.store(voices.activeVoiceCount(), std::memory_order_relaxed);
@@ -725,12 +726,15 @@ void SynthEngine::runEffects(float* left, float* right, int n)
         cs.releaseMs = p(P::CompRelease);
         cs.autoRelease = pb(P::CompAutoRel);
         cs.knee = p(P::CompKnee);
-        cs.scHpfHz = p(P::CompScHpf);
         cs.emphasis = p(P::CompEmph);
         cs.colour = p(P::CompColour);
         compressor.process(l, r, n, cs);
         compGrOut.store(compressor.takeGainReduction(), std::memory_order_relaxed);
     }, [&] { compressor.reset(); });
+
+    // SMOOTH: the last tonal stage, on the finished mix (bypassed at 0).
+    smooth.process(left, right, n, p(P::Smooth));
+    smoothGrOut.store(smooth.takeGainReduction(), std::memory_order_relaxed);
 }
 
 } // namespace zsynth::dsp

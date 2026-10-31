@@ -10,7 +10,7 @@
 //                  side-chain; valve output stage colour.
 //   SSL Bus        VCA bus compressor: peak detection, hard-ish knee, ratio,
 //                  attack (0.1..30 ms) and release (0.1..1.2 s or AUTO,
-//                  program dependent), side-chain high-pass; very clean.
+//                  program dependent); very clean.
 //   1176 FET       fast FET limiter: 20..800 us attack, 50..1100 ms release,
 //                  4/8/12/20:1 and ALL (all buttons in: harder, overshooting,
 //                  grittier); FET colour (odd harmonics).
@@ -38,7 +38,6 @@ struct CompSettings
     float releaseMs = 300.0f;
     bool autoRelease = false;
     float knee = 0.3f;       // 0..1
-    float scHpfHz = 20.0f;
     float emphasis = 0.0f;   // 0..1, side-chain HF emphasis
     float colour = 0.5f;     // 0..1, analogue colour of the model
 };
@@ -63,7 +62,7 @@ public:
         envFast = envSlow = 0.0f;
         rms = 0.0f;
         for (int c = 0; c < 2; ++c)
-            scHp[c] = scLp[c] = 0.0f;
+            scLp[c] = 0.0f;
         maxReduction.store(0.0f, std::memory_order_relaxed);
     }
 
@@ -91,8 +90,8 @@ public:
                 slowAttackMs = 400.0f;        // ...charges a slow memory while compressing
                 slowReleaseMs = 2500.0f;
                 rmsDetect = true;
-                satAmount = 0.5f;
-                satAsym = 0.25f;              // valve: even harmonics
+                satAmount = 1.0f;
+                satAsym = 0.3f;               // valve: even harmonics
                 break;
             case CompModel::SSLBus:
                 attackMs = clampf(attackMs, 0.1f, 30.0f);
@@ -104,7 +103,7 @@ public:
                     slowAttackMs = 150.0f;
                     slowReleaseMs = 1200.0f;
                 }
-                satAmount = 0.08f;            // nearly clean VCA
+                satAmount = 0.35f;            // a clean VCA: the least colour
                 break;
             case CompModel::FET1176:
                 attackMs = clampf(attackMs, 0.02f, 0.8f);
@@ -117,11 +116,11 @@ public:
                     threshold -= 4.0f;
                     kneeDb = 0.5f;
                     overshoot = 1.3f;
-                    satAmount = 1.0f;
+                    satAmount = 1.5f;
                 }
                 else
                 {
-                    satAmount = 0.45f;
+                    satAmount = 0.8f;
                 }
                 break;
             case CompModel::Fairchild:
@@ -131,35 +130,33 @@ public:
                 attackMs = clampf(attackMs, 0.2f, 2.0f);
                 releaseMs = clampf(releaseMs, 300.0f, 3000.0f);
                 rmsDetect = true;
-                satAmount = 0.55f;
-                satAsym = 0.1f;
+                satAmount = 1.0f;
+                satAsym = 0.2f;
                 break;
         }
-        satAmount *= 2.0f * clampf(s.colour, 0.0f, 1.0f);
+        // COLOUR: the model's saturation scaled so the default (0.5) adds a
+        // gentle 1-2 % of character and full COLOUR is clearly driven.
+        const float colour = clampf(s.colour, 0.0f, 1.0f);
+        satAmount = clampf(satAmount * (0.25f * colour + 0.75f * colour * colour * colour), 0.0f, 1.0f);
 
         const float aAtt = timeCoeff(attackMs), aRel = timeCoeff(releaseMs);
         const float aSlowAtt = slowAttackMs > 0.0f ? timeCoeff(slowAttackMs) : 0.0f;
         const float aSlowRel = slowReleaseMs > 0.0f ? timeCoeff(slowReleaseMs) : 0.0f;
         const float aRms = timeCoeff(8.0f);
-        const float aHp = 1.0f - std::exp(-kTwoPi * clampf(s.scHpfHz, 10.0f, 2000.0f) / fs);
         const float aEmph = 1.0f - std::exp(-kTwoPi * 2000.0f / fs);
-        const bool hp = s.scHpfHz > 21.0f;
-        const float emph = s.model == CompModel::LA2A ? clampf(s.emphasis, 0.0f, 1.0f) * 3.0f : 0.0f;
+        // HF emphasis lifts the side-chain above ~2 kHz by up to about 20 dB,
+        // so bright sounds are compressed noticeably harder (LA-2A only).
+        const float emph = s.model == CompModel::LA2A ? clampf(s.emphasis, 0.0f, 1.0f) * 10.0f : 0.0f;
         const float makeup = dbToGain(s.makeupDb);
         const float mix = clampf(s.mix, 0.0f, 1.0f);
         float peakReduction = 0.0f;
 
         for (int i = 0; i < n; ++i)
         {
-            // ---- side-chain: optional high-pass and HF emphasis, linked stereo
+            // ---- side-chain: optional HF emphasis, linked stereo
             float sc[2] = { L[i], R[i] };
             for (int c = 0; c < 2; ++c)
             {
-                if (hp)
-                {
-                    scHp[c] += aHp * (sc[c] - scHp[c]);
-                    sc[c] -= scHp[c];
-                }
                 if (emph > 0.0f)
                 {
                     scLp[c] += aEmph * (sc[c] - scLp[c]);
@@ -209,15 +206,20 @@ public:
             float io[2] = { L[i], R[i] };
             for (int c = 0; c < 2; ++c)
             {
-                float y = io[c] * g;
+                // Colour at the unit's input stage, at playing level (as on the
+                // hardware, where the amplifiers run at full level whatever the
+                // gain reduction), then the gain change and makeup.
+                float y = io[c];
                 if (satAmount > 0.0f)
                 {
-                    const float k = 1.0f + satAmount;
+                    // Blend in a fixed-drive saturated copy: exactly clean at 0,
+                    // and the colour rises smoothly with COLOUR.
+                    constexpr float k = 2.5f;
                     const float a = y * k;
-                    const float shaped = a >= 0.0f ? fastTanh(a) : fastTanh(a * (1.0f + satAsym)) / (1.0f + satAsym);
-                    y = shaped / k; // unity small-signal gain: colour, not level
+                    const float shaped = (a >= 0.0f ? fastTanh(a) : fastTanh(a * (1.0f + satAsym)) / (1.0f + satAsym)) / k;
+                    y += satAmount * (shaped - y);
                 }
-                y *= makeup;
+                y *= g * makeup;
                 io[c] = io[c] + (y - io[c]) * mix;
             }
             L[i] = io[0];
@@ -233,7 +235,7 @@ private:
 
     float fs = 48000.0f;
     float envFast = 0.0f, envSlow = 0.0f, rms = 0.0f;
-    float scHp[2] {}, scLp[2] {};
+    float scLp[2] {};
     std::atomic<float> maxReduction { 0.0f };
 };
 

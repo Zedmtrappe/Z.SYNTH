@@ -150,19 +150,19 @@ private:
     int dragging = -1, hoverBand = -1;
 };
 
-/** The vintage graphic EQ: its response with a bar per band. The mini
-    version (OUTPUT title bar) is clickable and opens the EQ. */
+/** The vintage graphic EQ: its response with a bar per band. The panel
+    version is clickable and opens the full EQ window. */
 class GraphicEqDisplay : public CachedDisplay, public juce::SettableTooltipClient
 {
 public:
-    GraphicEqDisplay(ZSynthProcessor& p, bool isMini);
+    GraphicEqDisplay(ZSynthProcessor& p, bool isClickable);
     void paint(juce::Graphics&) override;
     void mouseUp(const juce::MouseEvent&) override { if (onClick) onClick(); }
     std::function<void()> onClick;
 protected:
     uint64_t stateHash() const override;
 private:
-    bool mini;
+    bool clickable;
 };
 
 /** Analogue VU meter showing the output compressor's gain reduction. */
@@ -177,15 +177,29 @@ private:
     bool lit = false;
 };
 
-class OutputMeter : public Display
+/** Output level meter; its tooltip carries CPU load, voices and peak. */
+class OutputMeter : public Display, public juce::SettableTooltipClient
+{
+public:
+    explicit OutputMeter(ZSynthProcessor& p) : Display(p) { setInterceptsMouseClicks(true, false); }
+    void refresh() override;
+    void paint(juce::Graphics&) override;
+private:
+    float level[2] {}, hold[2] {};
+    int holdTimer[2] {};
+    int tooltipCounter = 0;
+};
+
+/** LED ladder showing SMOOTH's gain reduction. */
+class SmoothMeter : public Display
 {
 public:
     using Display::Display;
     void refresh() override;
     void paint(juce::Graphics&) override;
 private:
-    float level[2] {}, hold[2] {};
-    int holdTimer[2] {};
+    float shown = 0.0f;
+    int litLeds = -1;
 };
 
 /** The valve stage: glowing valve(s) whose heaters follow drive and signal,
@@ -209,18 +223,6 @@ private:
     juce::Image back, internals, front;
     float layerScale = 0.0f;
     int layerType = -1;
-};
-
-class OutputInfo : public Display
-{
-public:
-    using Display::Display;
-    void refresh() override;
-    void paint(juce::Graphics&) override;
-private:
-    juce::String lines[4];
-    bool warn[4] {};
-    float cpu = 0.0f;
 };
 
 class VoiceLeds : public Display

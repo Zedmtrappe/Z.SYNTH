@@ -57,7 +57,7 @@ juce::Rectangle<int> PanelLayout::pageBounds(const juce::String& page) const
 
 PanelLayout::PanelLayout()
 {
-    juce::String currentSection, currentPage = kMainPage;
+    juce::String currentSection, currentPage = kMainPage, currentView;
 
     // Parameter ids built at runtime need stable storage for the const char* in ControlSpec.
     static juce::StringArray idStore;
@@ -70,6 +70,7 @@ PanelLayout::PanelLayout()
     };
 
     auto page = [&](const juce::String& id) { currentPage = id; };
+    auto view = [&](const juce::String& id) { currentView = id; };
     auto sectionAt = [&](const juce::String& id, const juce::String& title, int x, int y, int w, int h, bool sub = false) {
         sectionList.push_back({ id, title, { x, y, w, h }, sub, currentPage });
         currentSection = id;
@@ -77,7 +78,8 @@ PanelLayout::PanelLayout()
     auto inSection = [&](const juce::String& id) { currentSection = id; };
     auto add = [&](const juce::String& id, ControlKind kind, int x, int y, const juce::String& label, int w = -1, int h = -1) {
         const auto size = controlSize(kind);
-        controlList.push_back({ stableId(id), kind, { x, y, w > 0 ? w : size.x, h > 0 ? h : size.y }, label, currentSection, currentPage });
+        controlList.push_back({ stableId(id), kind, { x, y, w > 0 ? w : size.x, h > 0 ? h : size.y }, label, currentSection, currentPage,
+                                currentView });
     };
     auto fader = [&](const juce::String& id, int x, int y, const juce::String& label) { add(id, ControlKind::Fader, x, y, label); };
     auto shortFader = [&](const juce::String& id, int x, int y, const juce::String& label) { add(id, ControlKind::ShortFader, x, y, label); };
@@ -258,14 +260,14 @@ PanelLayout::PanelLayout()
     // ------------------------------------------------------------- output
     sectionAt("output", "OUTPUT", 1538, 432, 372, 320);
     compact("out.limiter", 1546, 462, "LIMITER", 106);
-    utilityAt("outputInfo", 1546, 482, 106, 74);
+    // SMOOTH: fixed 2.2 kHz dynamic compressor; AMOUNT and its GR ladder.
+    text("SMOOTH", 1546, 478, 60, 12, juce::Justification::centredLeft, true);
+    add("out.smooth", K::Knob, 1548, 492, "AMOUNT");
+    utilityAt("smoothMeter", 1608, 480, 40, 76);
     fader("out.macro",     1546, 562, "MACRO");
     fader("out.width",     1582, 562, "WIDTH");
     fader("out.character", 1618, 562, "CHAR");
     utilityAt("meter", 1842, 464, 60, 282);
-    // Graphic EQ: a tiny live display and the button that opens it, in the title bar.
-    utilityAt("geqMini", 1666, 436, 104, 19);
-    utilityAt("openGeq", 1776, 435, 126, 20);
 
     // The valve stage: a window onto the valve plus DRIVE; the rest is on the "valve" page.
     sectionAt("valve", "VALVE", 1658, 456, 178, 290, true);
@@ -276,16 +278,15 @@ PanelLayout::PanelLayout()
 
     // ------------------------------------------------------------ effects
     sectionAt("fx", "EFFECTS", 10, 760, 1900, 204);
-    struct Module { const char* id; const char* title; };
-    const Module modules[7] = { { "fxDrive", "DRIVE" }, { "fxChorus", "CHORUS" }, { "fxEns", "ENSEMBLE" }, { "fxPhaser", "PHASER" },
-                                { "fxFlanger", "FLANGER" }, { "fxDelay", "DELAY" }, { "fxReverb", "REVERB" } };
-    // Module widths follow their contents; the space saved on the small
-    // modulation effects makes room for the output compressor at the end.
-    const int mw[7] = { 236, 160, 160, 176, 176, 264, 264 };
-    int mx[7];
-    for (int i = 0, x = 18; i < 7; ++i)
+    // Order follows the signal: drive, modulation, delay, reverb, graphic EQ, compressor.
+    struct Module { const char* id; const char* title; int width; };
+    const Module modules[6] = { { "fxDrive", "DRIVE", 236 }, { "fxMod", "MODULATION", 264 }, { "fxDelay", "DELAY", 264 },
+                                { "fxReverb", "REVERB", 264 }, { "geqModule", "GRAPHIC EQ", 232 }, { "compModule", "OUTPUT COMP", 0 } };
+    int mx[6], mw[6];
+    for (int i = 0, x = 18; i < 6; ++i)
     {
         mx[i] = x;
+        mw[i] = modules[i].width > 0 ? modules[i].width : 1902 - x;
         sectionAt(modules[i].id, modules[i].title, mx[i], 788, mw[i], 170, true);
         x += mw[i] + 6;
     }
@@ -299,64 +300,63 @@ PanelLayout::PanelLayout()
     shortFader("fx.drive.tone", mx[0] + 156, 810, "TONE");
     shortFader("fx.drive.mix",  mx[0] + 192, 810, "MIX");
 
-    inSection("fxChorus");
-    fxOn(1, "fx.cho.on");
-    fxFader(1, 0, "fx.cho.rate", "RATE");
-    fxFader(1, 1, "fx.cho.depth", "DEPTH");
-    fxFader(1, 2, "fx.cho.mix", "MIX");
-
-    inSection("fxEns");
-    fxOn(2, "fx.ens.on");
-    fxFader(2, 0, "fx.ens.rate", "RATE");
-    fxFader(2, 1, "fx.ens.depth", "DEPTH");
-    fxFader(2, 2, "fx.ens.mix", "MIX");
-
-    inSection("fxPhaser");
-    fxOn(3, "fx.pha.on");
-    fxFader(3, 0, "fx.pha.rate", "RATE");
-    fxFader(3, 1, "fx.pha.depth", "DEPTH");
-    fxFader(3, 2, "fx.pha.fb", "FDBK");
-    fxFader(3, 3, "fx.pha.mix", "MIX");
-
-    inSection("fxFlanger");
-    fxOn(4, "fx.fla.on");
-    fxFader(4, 0, "fx.fla.rate", "RATE");
-    fxFader(4, 1, "fx.fla.depth", "DEPTH");
-    fxFader(4, 2, "fx.fla.fb", "FDBK");
-    fxFader(4, 3, "fx.fla.mix", "MIX");
+    // Modulation: one block, the EFFECT selector chooses which effect's controls
+    // are shown. Each effect keeps its own ON, so several can run at once.
+    inSection("fxMod");
+    utilityAt("modSelector", mx[1] + 8, 812, 100, 40);
+    struct ModFx { const char* view; const char* on; std::vector<std::pair<const char*, const char*>> faders; };
+    const ModFx modFx[4] = {
+        { "mod:chorus",   "fx.cho.on", { { "fx.cho.rate", "RATE" }, { "fx.cho.depth", "DEPTH" }, { "fx.cho.mix", "MIX" } } },
+        { "mod:ensemble", "fx.ens.on", { { "fx.ens.rate", "RATE" }, { "fx.ens.depth", "DEPTH" }, { "fx.ens.mix", "MIX" } } },
+        { "mod:phaser",   "fx.pha.on", { { "fx.pha.rate", "RATE" }, { "fx.pha.depth", "DEPTH" }, { "fx.pha.fb", "FDBK" }, { "fx.pha.mix", "MIX" } } },
+        { "mod:flanger",  "fx.fla.on", { { "fx.fla.rate", "RATE" }, { "fx.fla.depth", "DEPTH" }, { "fx.fla.fb", "FDBK" }, { "fx.fla.mix", "MIX" } } } };
+    for (const auto& fx : modFx)
+    {
+        view(fx.view);
+        fxOn(1, fx.on);
+        for (size_t k = 0; k < fx.faders.size(); ++k)
+            shortFader(fx.faders[k].first, mx[1] + 120 + (int) k * 36, 810, fx.faders[k].second);
+    }
+    view({});
 
     inSection("fxDelay");
-    fxOn(5, "fx.dly.on");
-    compact("fx.dly.pp", mx[5] + 176, 789, "P.PONG", 42);
-    compact("fx.dly.sync", mx[5] + 134, 789, "SYNC", 38);
-    fxFader(5, 0, "fx.dly.time", "TIME");
-    fxFader(5, 1, "fx.dly.div", "DIV");
-    fxFader(5, 2, "fx.dly.fb", "FDBK");
-    fxFader(5, 3, "fx.dly.tone", "TONE");
-    fxFader(5, 4, "fx.dly.mix", "MIX");
-    add("fx.dly.type", K::Selector, mx[5] + 192, 812, "TYPE", 66);
-    utilityAt("openDelay", mx[5] + 192, 862, 66, 24);
+    fxOn(2, "fx.dly.on");
+    compact("fx.dly.pp", mx[2] + 176, 789, "P.PONG", 42);
+    compact("fx.dly.sync", mx[2] + 134, 789, "SYNC", 38);
+    fxFader(2, 0, "fx.dly.time", "TIME");
+    fxFader(2, 1, "fx.dly.div", "DIV");
+    fxFader(2, 2, "fx.dly.fb", "FDBK");
+    fxFader(2, 3, "fx.dly.tone", "TONE");
+    fxFader(2, 4, "fx.dly.mix", "MIX");
+    add("fx.dly.type", K::Selector, mx[2] + 192, 812, "TYPE", 66);
+    utilityAt("openDelay", mx[2] + 192, 862, 66, 24);
 
     inSection("fxReverb");
-    fxOn(6, "fx.rev.on");
-    fxFader(6, 0, "fx.rev.size", "SIZE");
-    fxFader(6, 1, "fx.rev.damp", "DAMP");
-    fxFader(6, 2, "fx.rev.pre", "PRE");
-    fxFader(6, 3, "fx.rev.mix", "MIX");
-    add("fx.rev.type", K::Selector, mx[6] + 158, 812, "TYPE", 100);
-    utilityAt("openReverb", mx[6] + 158, 862, 100, 24);
-    utilityAt("reverbEqCurve", mx[6] + 158, 892, 100, 58);
+    fxOn(3, "fx.rev.on");
+    fxFader(3, 0, "fx.rev.size", "SIZE");
+    fxFader(3, 1, "fx.rev.damp", "DAMP");
+    fxFader(3, 2, "fx.rev.pre", "PRE");
+    fxFader(3, 3, "fx.rev.mix", "MIX");
+    add("fx.rev.type", K::Selector, mx[3] + 158, 812, "TYPE", 100);
+    utilityAt("openReverb", mx[3] + 158, 862, 100, 24);
+    utilityAt("reverbEqCurve", mx[3] + 158, 892, 100, 58);
+
+    // Graphic EQ: the curve at a glance; ADVANCED opens all ten bands.
+    inSection("geqModule");
+    compact("geq.on", mx[4] + mw[4] - 42, 789, "ON");
+    utilityAt("geqCurve", mx[4] + 8, 808, mw[4] - 16, 112);
+    utilityAt("openGeq", mx[4] + 8, 926, mw[4] - 16, 24);
 
     // Output compressor: model, the gain-reduction VU and the everyday controls.
-    const int cx = mx[6] + mw[6] + 6, cw = 1902 - cx;
-    sectionAt("compModule", "OUTPUT COMP", cx, 788, cw, 170, true);
+    const int cx = mx[5], cw = mw[5];
+    inSection("compModule");
     compact("comp.on", cx + cw - 42, 789, "ON");
-    utilityAt("compMeter", cx + 8, 808, 184, 144);
-    shortFader("comp.thresh", cx + 200, 810, "THRESH");
-    shortFader("comp.mix",    cx + 236, 810, "MIX");
-    shortFader("comp.makeup", cx + 272, 810, "MAKEUP"); // output gain last, as on the hardware
-    add("comp.model", K::Selector, cx + 310, 812, "MODEL", cw - 318);
-    utilityAt("openComp", cx + 310, 862, cw - 318, 24);
+    utilityAt("compMeter", cx + 8, 808, 300, 144);
+    shortFader("comp.thresh", cx + 318, 810, "THRESH");
+    shortFader("comp.mix",    cx + 354, 810, "MIX");
+    shortFader("comp.makeup", cx + 390, 810, "MAKEUP"); // output gain last, as on the hardware
+    add("comp.model", K::Selector, cx + 432, 812, "MODEL", cw - 440);
+    utilityAt("openComp", cx + 432, 862, cw - 440, 24);
 
     // ----------------------------------------------------------- keyboard
     sectionAt("wheels", "", 10, 972, 150, 218);
@@ -508,37 +508,37 @@ PanelLayout::PanelLayout()
     utilityAt("compMeterBig", 20, 44, 260, 190);
     add("comp.ratio", K::Selector, 300, 48, "RATIO", 120);
     add("comp.autorel", K::Switch, 430, 48, "AUTO REL", 70);
-    const std::pair<const char*, const char*> compFaders[6] = { { "comp.attack", "ATTACK" }, { "comp.release", "RELEASE" },
-        { "comp.knee", "KNEE" }, { "comp.schpf", "SC HPF" }, { "comp.emph", "EMPH" }, { "comp.color", "COLOUR" } };
-    for (int k = 0; k < 6; ++k)
+    const std::pair<const char*, const char*> compFaders[5] = { { "comp.attack", "ATTACK" }, { "comp.release", "RELEASE" },
+        { "comp.knee", "KNEE" }, { "comp.emph", "EMPH" }, { "comp.color", "COLOUR" } };
+    for (int k = 0; k < 5; ++k)
         fader(compFaders[k].first, 300 + k * 46, 110, compFaders[k].second);
     heading("MODELS (MODEL on the panel)", 590, 44, 250);
     const char* compNotes[4] = {
-        "LA-2A OPTO   Optical leveller: smooth, program-dependent two-stage release. THRESH = peak reduction; ratio up to 4:1 = COMPRESS, 8:1+ = LIMIT; EMPH = HF emphasis.",
-        "SSL BUS      VCA bus compressor for glue: ratio, attack 0.1-30 ms, release 0.1-1.2 s or AUTO, side-chain HPF. Very clean.",
+        "LA-2A OPTO   Optical leveller: smooth, program-dependent two-stage release. THRESH = peak reduction; ratio up to 4:1 = COMPRESS, 8:1+ = LIMIT; EMPH = HF emphasis (bright sounds compressed harder).",
+        "SSL BUS      VCA bus compressor for glue: ratio, attack 0.1-30 ms, release 0.1-1.2 s or AUTO, knee. Very clean.",
         "1176 FET     Fast FET limiter: attack 20-800 us, release 50 ms-1.1 s, 4/8/12/20:1 or ALL buttons (aggressive, gritty).",
         "FAIRCHILD    Variable-mu valve: very soft knee, ratio rises with level, slow and smooth; rich valve colour." };
     for (int k = 0; k < 4; ++k)
         text(compNotes[k], 590, 66 + k * 70, 250, 66, juce::Justification::topLeft);
     text("GAIN REDUCTION", 20, 240, 260, 16, juce::Justification::centred, true);
-    text("COLOUR adds the model's valve / FET / VCA saturation (0.5 = as voiced).  MIX on the panel blends in the dry signal for parallel compression.",
+    text("COLOUR adds the model's valve / FET / VCA saturation: gentle at 0.5, clearly driven at full.  MIX on the panel blends in the dry signal for parallel compression.",
          20, 262, 260, 70, juce::Justification::topLeft);
 
     // ---------------------------------------------------------- graphic EQ
-    pageList.push_back({ "geq", "GRAPHIC EQ", { 900, 280, 1000, 420 } });
+    pageList.push_back({ "geq", "GRAPHIC EQ", { 880, 300, 1000, 420 } });
     page("geq");
     sectionAt("geqPage", "VINTAGE GRAPHIC EQ  -  OUTPUT", 0, 0, 1000, 420);
     utilityAt("geqClose", 960, 3, 34, 20);
-    add("geq.on", K::Switch, 20, 40, "IN", 52);
-    utilityAt("geqFlat", 20, 92, 52, 22);
-    utilityAt("geqCurve", 90, 40, 890, 120);
+    utilityAt("geqFlat", 20, 44, 52, 22);
+    utilityAt("geqCurveBig", 90, 40, 890, 120);
     const char* geqLabels[10] = { "31", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k" };
     for (int b = 0; b < 10; ++b)
         fader("geq.b" + juce::String(b + 1), 100 + b * 64, 180, geqLabels[b]);
     fader("geq.color", 790, 180, "XFMR");
     fader("geq.out", 850, 180, "OUTPUT");
     text("Ten octave bands of +/-12 dB with proportional Q (each band narrows the harder it is pushed), voiced after the API 560, "
-         "into an output transformer.  All bands at 0 dB = completely dry.  XFMR sets the transformer colour; OUTPUT trims the level.",
+         "into an output transformer.  All bands at 0 dB = completely dry.  XFMR sets the transformer colour; OUTPUT trims the level.  "
+         "ON is on the panel.",
          20, 370, 960, 40, juce::Justification::topLeft);
 
     // ------------------------------------------------------- sequencer steps

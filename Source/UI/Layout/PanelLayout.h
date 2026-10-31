@@ -45,6 +45,7 @@ struct ControlSpec
     juce::String label;
     juce::String section;
     juce::String page;
+    juce::String view; // controls sharing a place, one view shown at a time ("" = always shown)
 };
 
 struct SectionSpec

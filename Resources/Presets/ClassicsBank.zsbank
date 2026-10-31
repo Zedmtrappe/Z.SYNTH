@@ -1091,7 +1091,6 @@ comp.attack = 10.000002
 comp.release = 300
 comp.autorel = off
 comp.knee = 0.3
-comp.schpf = 20
 comp.emph = 0
 comp.color = 0.5
 

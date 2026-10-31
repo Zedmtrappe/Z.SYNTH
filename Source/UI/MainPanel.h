@@ -35,6 +35,29 @@ private:
     juce::TextButton closeButton { juce::String::fromUTF8("\xc3\x97") };
 };
 
+/** The MODULATION block's EFFECT selector: picks which effect's controls are
+    shown (each effect keeps its own ON, so several can run at once). */
+class ModEffectSelector : public juce::Component, public juce::SettableTooltipClient
+{
+public:
+    explicit ModEffectSelector(ZSynthProcessor& p);
+    void paint(juce::Graphics&) override;
+    void mouseDown(const juce::MouseEvent&) override;
+    void setCurrent(int index);
+    int getCurrent() const { return current; }
+    std::function<void(int)> onChange;
+
+    static constexpr int kCount = 4;
+    static const char* const names[kCount];
+    static const char* const views[kCount];
+    static const int onParams[kCount];
+
+private:
+    ZSynthProcessor& processor;
+    int current = 0;
+    material::LegendCache legend;
+};
+
 class MainPanel : public juce::Component, private juce::Timer
 {
 public:
@@ -65,6 +88,7 @@ private:
     void updateActivity();
     void savePreset();
     void showPresetMenu();
+    void showModView(const juce::String& view);
     void showFxPresetMenu(const std::vector<FxPreset>& list, const juce::String& anchor, int onParam);
     juce::Component& parentForPage(const juce::String& page);
 
@@ -86,6 +110,7 @@ private:
     ZSynthProcessor& processor;
     std::vector<std::unique_ptr<PopupPage>> pages;
     std::vector<std::unique_ptr<ParamControl>> controls;
+    juce::StringArray controlViews; // parallel to controls: the view each belongs to ("" = always shown)
     std::vector<std::unique_ptr<juce::Component>> ownedUtilities;
     std::vector<Display*> displays;
     std::vector<PerformanceWheel*> wheels;
@@ -96,6 +121,7 @@ private:
     std::unique_ptr<MusicalTyping> typing;
     std::unique_ptr<MusicalTypingWindow> typingWindow;
     juce::TextButton* typingButton = nullptr;
+    ModEffectSelector* modSelector = nullptr;
     juce::Label valueBubble;
     juce::Image background;
     float backgroundScale = 0.0f;

@@ -14,7 +14,7 @@ advanced sections.
 | Engine | JUCE-free C++17 library, usable without any GUI |
 | Parameters | 370, all host-automatable, one authoritative table |
 | Factory library | 228 presets: *ZYNTH Originals* (160, 15 categories) and *Classic Machines* (68 sounds in 20 instrument folders), level-matched by measurement |
-| Tests | 44 DSP tests, 23 state/preset/layout/editor tests, a VST3 host test |
+| Tests | 45 DSP tests, 23 state/preset/layout/editor tests, a VST3 host test |
 | Tested on | Ubuntu 24.04, x86-64, GCC 13.3, CMake 3.28, JUCE 8.0.9 |
 
 ## What it does
@@ -52,13 +52,15 @@ advanced sections.
   warmth and mix. Gentle by design: warmth and soft peak compression through
   most of the DRIVE travel, audible distortion from about 90 %.
 * **Vintage graphic EQ** — a 10-band output EQ voiced after the API 560
-  (proportional Q, output transformer); flat = completely dry. A tiny live
-  curve in the OUTPUT title bar opens it.
+  (proportional Q, output transformer); flat = completely dry. Its block in
+  the effects row shows the curve; ADVANCED opens all ten bands.
+* **SMOOTH** — a fixed 2.2 kHz dynamic compressor on the output that tames
+  harshness only when it appears; one AMOUNT knob and an LED GR ladder.
 * **Output compressor** — LA-2A-style opto leveller, SSL-style VCA bus
   compressor, 1176-style FET limiter (with all-buttons mode) and
   Fairchild-style variable-mu, with an analogue gain-reduction VU meter on the
   panel and the full control set (ratio, attack, release/auto, knee,
-  side-chain HPF, emphasis, colour) in its advanced popup.
+  emphasis, colour) in its advanced popup.
 * **Delay** — six characters: Digital, Tape RE-201, Tape EP-3, Analog DM-2,
   Diffuse and Lo-Fi, with wow, flutter, age, spread and ducking.
 * **Reverb** — nine algorithms: Hall, Room, EMT 140 Plate, Echo Chamber,
@@ -71,11 +73,11 @@ advanced sections.
   from the computer keyboard with Logic's layout, octave/velocity keys,
   sustain, pitch bend and mod wheel.
 * **Audition player** — a strip above the keyboard plays a MIDI clip into the
-  current sound while you work the panel: 10 built-in loops (basslines, acid,
-  lead, chords, e-piano, pads, arpeggio, plucks, brass, bells) or any standard
+  current sound while you work the panel: 11 built-in loops (basslines, acid,
+  lead, chords, e-piano, pads, arpeggio, plucks, brass, bells, Jump) or any standard
   MIDI file, merged to one part that plays poly or mono as the patch decides.
-* **Effects** — drive (2x oversampled overdrive/distortion/wavefolder),
-  phaser, flanger, chorus, string ensemble, ping-pong delay, FDN reverb,
+* **Effects** — drive (2x oversampled overdrive/distortion/wavefolder), a
+  modulation block (chorus, string ensemble, phaser, flanger; stackable), ping-pong delay, FDN reverb,
   stereo width and output character, safety limiter.
 
 See [docs/USER_MANUAL.md](docs/USER_MANUAL.md) for how to play it and

@@ -7,6 +7,7 @@
 #include "DSP/Envelopes/Envelope.h"
 #include "DSP/Effects/Compressor.h"
 #include "DSP/Effects/DriveAndOutput.h"
+#include "DSP/Effects/SmoothBand.h"
 #include "DSP/Effects/TimeEffects.h"
 #include "DSP/Effects/VintageGraphicEq.h"
 #include "DSP/FM/FmAlgorithms.h"
@@ -776,6 +777,42 @@ ZS_TEST(vintage_graphic_eq)
     ZS_CHECK_LT(std::abs(run(s, 100.0f, l)), 1.5);
     // Proportional Q: a bigger boost is narrower.
     ZS_CHECK_GT(VintageGraphicEq::qFor(12.0f), VintageGraphicEq::qFor(3.0f));
+}
+
+ZS_TEST(smooth_band_tames_only_the_presence_band)
+{
+    const float fs = 48000.0f;
+    auto levelAfter = [&](float freq, float amp, float amount, float& gr) {
+        SmoothBand sm;
+        sm.prepare(fs);
+        const int n = 24064;
+        std::vector<float> l((size_t) n), r((size_t) n);
+        for (int i = 0; i < n; ++i)
+            l[(size_t) i] = r[(size_t) i] = amp * std::sin(kTwoPi * freq * (float) i / fs);
+        gr = 0.0f;
+        for (int i = 0; i < n; i += 256)
+        {
+            sm.process(l.data() + i, r.data() + i, 256, amount);
+            gr = std::max(gr, sm.takeGainReduction());
+        }
+        return 20.0 * std::log10(rmsOf(l, 9600) / (amp / std::sqrt(2.0)));
+    };
+    float gr = 0.0f;
+    // AMOUNT 0 is an exact bypass.
+    ZS_CHECK_NEAR(levelAfter(2200.0f, 0.5f, 0.0f, gr), 0.0, 1e-3); // bypass (the sine window itself measures 0.0003 dB off)
+    ZS_CHECK(gr == 0.0f);
+    // A loud 2.2 kHz tone is turned down; the same level at 200 Hz barely is.
+    const double cut = levelAfter(2200.0f, 0.5f, 0.7f, gr);
+    ZS_CHECK_LT(cut, -3.0);
+    ZS_CHECK_GT(gr, 3.0f);
+    ZS_CHECK_GT(levelAfter(200.0f, 0.5f, 0.7f, gr), -1.0);
+    // Quiet material passes untouched.
+    ZS_CHECK_NEAR(levelAfter(2200.0f, 0.005f, 0.7f, gr), 0.0, 0.05);
+    // More AMOUNT, more reduction.
+    float grLow = 0.0f, grHigh = 0.0f;
+    levelAfter(2200.0f, 0.3f, 0.3f, grLow);
+    levelAfter(2200.0f, 0.3f, 0.9f, grHigh);
+    ZS_CHECK_GT(grHigh, grLow);
 }
 
 ZS_TEST(delay_types_stable_and_decaying)

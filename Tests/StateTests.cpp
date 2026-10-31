@@ -541,7 +541,8 @@ ZS_TEST(layout_controls_inside_sections_and_not_overlapping)
     }
     for (size_t a = 0; a < controls.size(); ++a)
         for (size_t b = a + 1; b < controls.size(); ++b)
-            if (controls[a].page == controls[b].page && controls[a].bounds.intersects(controls[b].bounds))
+            if (controls[a].page == controls[b].page && controls[a].bounds.intersects(controls[b].bounds)
+                && ! (controls[a].view.isNotEmpty() && controls[b].view.isNotEmpty() && controls[a].view != controls[b].view))
             {
                 std::printf("    overlap: %s / %s\n", controls[a].paramId, controls[b].paramId);
                 ZS_CHECK(false);
@@ -587,8 +588,8 @@ ZS_TEST(layout_controls_inside_sections_and_not_overlapping)
                             || id == "fx.dly.duck" || id == "fx.rev.decay" || id == "fx.rev.lowcut" || id == "fx.rev.diff"
                             || id == "fx.rev.mod" || id == "fx.rev.early" || id == "fx.rev.width"
                             || id == "comp.ratio" || id == "comp.attack" || id == "comp.release" || id == "comp.autorel"
-                            || id == "comp.knee" || id == "comp.schpf" || id == "comp.emph" || id == "comp.color"
-                            || id.startsWith("fx.rev.eq.") || id.startsWith("geq.");
+                            || id == "comp.knee" || id == "comp.emph" || id == "comp.color"
+                            || id.startsWith("fx.rev.eq.") || (id.startsWith("geq.") && id != "geq.on");
         ZS_CHECK(advanced == (c.page != ui::kMainPage));
     }
 }
@@ -631,7 +632,8 @@ ZS_TEST(new_instance_starts_on_the_startup_preset)
 ZS_TEST(audition_builtin_clips_load)
 {
     const auto names = ZSynthProcessor::getBuiltInClipNames();
-    ZS_CHECK(names.size() == 10);
+    ZS_CHECK(names.size() == 11);
+    ZS_CHECK(names.contains("Jump"));
     ZS_CHECK(names[0] == "Mono Bassline");
     ProcessorFixture f("audition");
     for (int i = 0; i < names.size(); ++i)

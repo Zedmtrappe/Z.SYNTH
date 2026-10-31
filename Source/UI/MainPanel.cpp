@@ -151,6 +151,56 @@ void PopupPage::paint(juce::Graphics& g)
     g.drawImage(cache, getLocalBounds().toFloat());
 }
 
+// ======================================================= ModEffectSelector
+const char* const ModEffectSelector::names[kCount] = { "Chorus", "Ensemble", "Phaser", "Flanger" };
+const char* const ModEffectSelector::views[kCount] = { "mod:chorus", "mod:ensemble", "mod:phaser", "mod:flanger" };
+const int ModEffectSelector::onParams[kCount] = { P::ChorusOn, P::EnsOn, P::PhaserOn, P::FlangerOn };
+
+ModEffectSelector::ModEffectSelector(ZSynthProcessor& p) : processor(p)
+{
+    setTooltip("Choose which modulation effect to edit. Each has its own ON, so they can be stacked.");
+}
+
+void ModEffectSelector::setCurrent(int index)
+{
+    current = juce::jlimit(0, kCount - 1, index);
+    repaint();
+}
+
+void ModEffectSelector::paint(juce::Graphics& g)
+{
+    auto r = getLocalBounds().toFloat();
+    legend.draw(g, "EFFECT", r.removeFromTop(14.0f), labelFont(10.0f), juce::Justification::centredLeft, material::kLegend, 0.6f);
+    r.removeFromTop(2.0f);
+    drawLcd(g, r);
+    auto arrow = r.withTrimmedLeft(r.getWidth() - 14.0f).reduced(3.0f, r.getHeight() * 0.36f);
+    juce::Path p;
+    p.addTriangle(arrow.getX(), arrow.getY(), arrow.getRight(), arrow.getY(), arrow.getCentreX(), arrow.getBottom());
+    g.setColour(Colours::lcdText.withAlpha(0.6f));
+    g.fillPath(p);
+    material::glowText(g, names[current], r.withTrimmedRight(14.0f).reduced(6.0f, 0.0f), lcdFont(13.0f), Colours::lcdText,
+                       juce::Justification::centredLeft);
+    material::glassSheen(g, r, 3.0f, 1.0f);
+}
+
+void ModEffectSelector::mouseDown(const juce::MouseEvent&)
+{
+    juce::PopupMenu menu;
+    for (int i = 0; i < kCount; ++i)
+    {
+        const bool on = processor.getValue(onParams[i]) >= 0.5f;
+        menu.addItem(i + 1, juce::String(names[i]) + (on ? juce::String::fromUTF8("   \xe2\x97\x8f on") : juce::String()), true, i == current);
+    }
+    juce::Component::SafePointer<ModEffectSelector> safe(this);
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMinimumWidth(getWidth()), [safe](int result) {
+        if (safe == nullptr || result <= 0)
+            return;
+        safe->setCurrent(result - 1);
+        if (safe->onChange)
+            safe->onChange(result - 1);
+    });
+}
+
 // =============================================================== MainPanel
 MainPanel::MainPanel(ZSynthProcessor& p) : processor(p), browser(p)
 {
@@ -236,6 +286,7 @@ void MainPanel::buildControls()
             stepSliders.push_back(c.get());
         parentForPage(spec.page).addAndMakeVisible(*c);
         controls.push_back(std::move(c));
+        controlViews.add(spec.view);
     }
 }
 
@@ -299,7 +350,7 @@ void MainPanel::buildUtilities()
         for (int i = P::GeqBand1; i <= P::GeqBand10; ++i)
             setValue(i, 0.0f);
     });
-    button("openGeq", juce::String::fromUTF8("GRAPHIC EQ \xe2\x96\xb8"), "Vintage 10-band graphic EQ on the output (flat = dry)", [this] {
+    button("openGeq", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "All ten graphic EQ bands, transformer and output", [this] {
         showPage(getVisiblePage() == "geq" ? juce::String() : juce::String("geq")); });
     button("openValve", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Valve type, bias, sag, warmth and mix", [this] {
         showPage(getVisiblePage() == "valve" ? juce::String() : juce::String("valve")); });
@@ -321,14 +372,24 @@ void MainPanel::buildUtilities()
     displays.push_back(&addUtility<LfoShapeDisplay>("lfo1Display", processor, 0));
     displays.push_back(&addUtility<LfoShapeDisplay>("lfo2Display", processor, 1));
     displays.push_back(&addUtility<VoiceLeds>("voiceLeds", processor));
-    displays.push_back(&addUtility<OutputInfo>("outputInfo", processor));
+    displays.push_back(&addUtility<SmoothMeter>("smoothMeter", processor));
+    auto& geqCurve = addUtility<GraphicEqDisplay>("geqCurve", processor, true);
+    geqCurve.onClick = [this] { showPage(getVisiblePage() == "geq" ? juce::String() : juce::String("geq")); };
+    displays.push_back(&geqCurve);
+    displays.push_back(&addUtility<GraphicEqDisplay>("geqCurveBig", processor, false));
     displays.push_back(&addUtility<ValveDisplay>("valveDisplay", processor));
+    modSelector = &addUtility<ModEffectSelector>("modSelector", processor);
+    modSelector->onChange = [this](int i) { showModView(ModEffectSelector::views[i]); };
+    // Start on the first modulation effect that is switched on.
+    for (int i = 0; i < ModEffectSelector::kCount; ++i)
+        if (processor.getValue(ModEffectSelector::onParams[i]) >= 0.5f)
+        {
+            modSelector->setCurrent(i);
+            break;
+        }
+    showModView(ModEffectSelector::views[modSelector->getCurrent()]);
     displays.push_back(&addUtility<CompMeter>("compMeter", processor));
     displays.push_back(&addUtility<ReverbEqCurve>("reverbEqCurve", processor, false));
-    displays.push_back(&addUtility<GraphicEqDisplay>("geqCurve", processor, false));
-    auto& geqMini = addUtility<GraphicEqDisplay>("geqMini", processor, true);
-    geqMini.onClick = [this] { showPage(getVisiblePage() == "geq" ? juce::String() : juce::String("geq")); };
-    displays.push_back(&geqMini);
     displays.push_back(&addUtility<ReverbEqCurve>("reverbEqCurveBig", processor, true));
     displays.push_back(&addUtility<CompMeter>("compMeterBig", processor));
     displays.push_back(&addUtility<OutputMeter>("meter", processor));
@@ -368,6 +429,13 @@ juce::String MainPanel::getVisiblePage() const
         if (p->isVisible())
             return p->getPageId();
     return {};
+}
+
+void MainPanel::showModView(const juce::String& view)
+{
+    for (size_t i = 0; i < controls.size(); ++i)
+        if (controlViews[i].isNotEmpty())
+            controls[i]->setVisible(controlViews[i] == view);
 }
 
 void MainPanel::showMusicalTyping(bool show)

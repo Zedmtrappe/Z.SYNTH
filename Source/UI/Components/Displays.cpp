@@ -456,6 +456,18 @@ void OutputMeter::refresh()
         if (p >= hold[c]) { hold[c] = p; holdTimer[c] = 45; }
         else if (--holdTimer[c] <= 0) hold[c] *= 0.92f;
     }
+    if (++tooltipCounter >= 15) // twice a second is plenty for the read-out
+    {
+        tooltipCounter = 0;
+        const auto& e = processor.getEngine();
+        const float peak = juce::jmax(e.getPeak(0), e.getPeak(1));
+        juce::String tip = "Output level\nCPU " + juce::String(juce::roundToInt(processor.getCpuLoad() * 100.0f)) + " %"
+                         + "   Voices " + juce::String(e.getActiveVoices()) + " / " + juce::String(processor.getValue(P::Polyphony), 0)
+                         + "\nPeak " + (peak > 1.0e-5f ? juce::String(20.0f * std::log10(peak), 1) + " dBFS" : juce::String("-inf"));
+        if (e.getBadSampleEvents() > 0)
+            tip += "\nOutput guard: " + juce::String((int) e.getBadSampleEvents()) + " recoveries";
+        setTooltip(tip);
+    }
     repaint();
 }
 
@@ -493,30 +505,46 @@ void OutputMeter::paint(juce::Graphics& g)
     }
 }
 
-void OutputInfo::refresh()
+// ========================================================== smooth meter ====
+void SmoothMeter::refresh()
 {
-    const auto& e = processor.getEngine();
-    cpu = processor.getCpuLoad();
-    const float peak = juce::jmax(e.getPeak(0), e.getPeak(1));
-    const float gr = 20.0f * std::log10(juce::jmax(1.0e-4f, e.getLimiterGain()));
-    lines[0] = "CPU   " + juce::String(juce::roundToInt(cpu * 100.0f)) + "%";
-    lines[1] = "VOICE " + juce::String(e.getActiveVoices()) + "/" + juce::String(processor.getValue(P::Polyphony), 0);
-    lines[2] = "PEAK  " + (peak > 1.0e-5f ? juce::String(20.0f * std::log10(peak), 1) : juce::String("-inf"));
-    lines[3] = e.getBadSampleEvents() > 0 ? "GUARD " + juce::String((int) e.getBadSampleEvents())
-             : "LIMIT " + (processor.getValue(P::Limiter) >= 0.5f ? juce::String(gr, 1) : juce::String("off"));
-    warn[0] = cpu > 0.8f;
-    warn[3] = e.getBadSampleEvents() > 0;
-    repaint();
+    const float gr = v(P::Smooth) > 0.001f ? processor.getEngine().getSmoothGainReduction() : 0.0f;
+    shown = juce::jmax(gr, shown * 0.86f); // instant rise, LED-style fall
+    static constexpr float steps[8] = { 0.5f, 1.0f, 2.0f, 3.0f, 4.5f, 6.0f, 9.0f, 12.0f };
+    int lit = 0;
+    for (float st : steps)
+        lit += shown >= st ? 1 : 0;
+    if (lit != litLeds)
+    {
+        litLeds = lit;
+        repaint();
+    }
 }
 
-void OutputInfo::paint(juce::Graphics& g)
+void SmoothMeter::paint(juce::Graphics& g)
 {
     const auto r = getLocalBounds().toFloat();
     fillPanelInset(g, r);
-    auto inner = r.reduced(6.0f, 4.0f).toNearestInt();
-    const int lineH = inner.getHeight() / 4;
-    for (int i = 0; i < 4; ++i)
-        drawLcdText(g, lines[i], inner.removeFromTop(lineH), 11.0f, warn[i] ? Colours::red : Colours::lcdText);
+    auto inner = r.reduced(5.0f, 5.0f);
+    g.setFont(lcdFont(8.5f));
+    g.setColour(Colours::lcdDim.brighter(0.6f));
+    g.drawText("GR", inner.removeFromTop(10.0f).toNearestInt(), juce::Justification::centred, false);
+    inner.removeFromTop(2.0f);
+    const float h = inner.getHeight() / 8.0f;
+    for (int i = 0; i < 8; ++i)
+    {
+        // Bottom LED first: 0.5 dB ... 12 dB at the top.
+        const auto led = juce::Rectangle<float>(inner.getX(), inner.getBottom() - (float) (i + 1) * h, inner.getWidth(), h).reduced(1.0f, 1.0f);
+        const auto colour = i < 4 ? Colours::green : (i < 6 ? Colours::accent : Colours::red);
+        const bool on = i < litLeds;
+        if (on)
+        {
+            g.setColour(colour.withAlpha(0.35f));
+            g.fillRoundedRectangle(led.expanded(1.5f), 2.0f);
+        }
+        g.setColour(on ? colour.brighter(0.2f) : colour.withAlpha(0.13f));
+        g.fillRoundedRectangle(led, 1.0f);
+    }
 }
 
 // ================================================================== valve ====
@@ -1104,12 +1132,12 @@ void ReverbEqCurve::paint(juce::Graphics& g)
 }
 
 // ========================================================= graphic EQ ====
-GraphicEqDisplay::GraphicEqDisplay(ZSynthProcessor& p, bool isMini) : CachedDisplay(p), mini(isMini)
+GraphicEqDisplay::GraphicEqDisplay(ZSynthProcessor& p, bool isClickable) : CachedDisplay(p), clickable(isClickable)
 {
-    setInterceptsMouseClicks(mini, false);
-    if (mini)
+    setInterceptsMouseClicks(clickable, false);
+    if (clickable)
     {
-        setTooltip("Graphic EQ: click to open");
+        setTooltip("Graphic EQ: click (or ADVANCED) to open all ten bands");
         setMouseCursor(juce::MouseCursor::PointingHandCursor);
     }
 }
@@ -1126,7 +1154,8 @@ void GraphicEqDisplay::paint(juce::Graphics& g)
 {
     const auto r = getLocalBounds().toFloat();
     fillPanelInset(g, r);
-    const auto a = r.reduced(mini ? 3.0f : 10.0f, mini ? 2.0f : 10.0f);
+    const bool mini = r.getHeight() < 70.0f; // thinner lines and no scale on small displays
+    const auto a = r.reduced(mini ? 4.0f : 10.0f, mini ? 4.0f : 10.0f);
     dsp::VintageGraphicEq::Settings s;
     for (int b = 0; b < dsp::VintageGraphicEq::kBands; ++b)
         s.gainDb[b] = v(P::GeqBand1 + b);
