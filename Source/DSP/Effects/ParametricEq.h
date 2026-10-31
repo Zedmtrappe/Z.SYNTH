@@ -1,7 +1,7 @@
 #pragma once
 
-// Four-band parametric EQ (low shelf, two bells, high shelf) for the reverb's
-// wet signal. RBJ biquads, transposed direct form II; coefficients are only
+// Parametric EQ for the reverb's wet signal: 12 dB/oct high-pass, low shelf,
+// two bells, high shelf and 12 dB/oct low-pass. RBJ biquads, transposed direct form II; coefficients are only
 // recomputed when a setting changes. The same design functions drive the
 // on-screen curve, so what is drawn is exactly what is heard.
 
@@ -19,16 +19,20 @@ struct EqSettings
     float bell1Freq = 400.0f, bell1Gain = 0.0f, bell1Q = 1.0f;
     float bell2Freq = 2500.0f, bell2Gain = 0.0f, bell2Q = 1.0f;
     float highFreq = 8000.0f, highGain = 0.0f;
+    float hpf = 20.0f, lpf = 20000.0f; // at or beyond these limits the filters are off
 
+    bool hpfOn() const { return hpf > 20.5f; }
+    bool lpfOn() const { return lpf < 19900.0f; }
     bool isFlat() const
     {
-        return std::abs(lowGain) < 0.01f && std::abs(bell1Gain) < 0.01f && std::abs(bell2Gain) < 0.01f && std::abs(highGain) < 0.01f;
+        return std::abs(lowGain) < 0.01f && std::abs(bell1Gain) < 0.01f && std::abs(bell2Gain) < 0.01f && std::abs(highGain) < 0.01f
+            && ! hpfOn() && ! lpfOn();
     }
     bool operator==(const EqSettings& o) const
     {
         return lowFreq == o.lowFreq && lowGain == o.lowGain && bell1Freq == o.bell1Freq && bell1Gain == o.bell1Gain
             && bell1Q == o.bell1Q && bell2Freq == o.bell2Freq && bell2Gain == o.bell2Gain && bell2Q == o.bell2Q
-            && highFreq == o.highFreq && highGain == o.highGain;
+            && highFreq == o.highFreq && highGain == o.highGain && hpf == o.hpf && lpf == o.lpf;
     }
 };
 
@@ -36,7 +40,8 @@ class ParametricEq
 {
 public:
     struct Coeffs { double b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0; };
-    enum class Shape { LowShelf, Bell, HighShelf };
+    enum class Shape { LowShelf, Bell, HighShelf, HighPass, LowPass };
+    static constexpr int kStages = 6;
 
     static Coeffs design(Shape shape, double freq, double gainDb, double q, double fs)
     {
@@ -45,7 +50,17 @@ public:
         const double cw = std::cos(w0), sw = std::sin(w0);
         Coeffs c;
         double a0;
-        if (shape == Shape::Bell)
+        if (shape == Shape::HighPass || shape == Shape::LowPass)
+        {
+            // Butterworth (Q = 0.707) second-order sections.
+            const double alpha = sw / (2.0 * 0.70710678);
+            const double sign = shape == Shape::HighPass ? -1.0 : 1.0;
+            c.b0 = (1.0 - sign * cw) * 0.5;
+            c.b1 = sign * (1.0 - sign * cw);
+            c.b2 = c.b0;
+            a0 = 1.0 + alpha; c.a1 = -2.0 * cw; c.a2 = 1.0 - alpha;
+        }
+        else if (shape == Shape::Bell)
         {
             const double alpha = sw / (2.0 * q);
             c.b0 = 1.0 + alpha * A; c.b1 = -2.0 * cw; c.b2 = 1.0 - alpha * A;
@@ -68,12 +83,15 @@ public:
         return c;
     }
 
-    static std::array<Coeffs, 4> designAll(const EqSettings& s, double fs)
+    static std::array<Coeffs, kStages> designAll(const EqSettings& s, double fs)
     {
-        return { design(Shape::LowShelf, s.lowFreq, s.lowGain, 0.7, fs),
+        const Coeffs thru;
+        return { s.hpfOn() ? design(Shape::HighPass, s.hpf, 0.0, 0.707, fs) : thru,
+                 design(Shape::LowShelf, s.lowFreq, s.lowGain, 0.7, fs),
                  design(Shape::Bell, s.bell1Freq, s.bell1Gain, s.bell1Q, fs),
                  design(Shape::Bell, s.bell2Freq, s.bell2Gain, s.bell2Q, fs),
-                 design(Shape::HighShelf, s.highFreq, s.highGain, 0.7, fs) };
+                 design(Shape::HighShelf, s.highFreq, s.highGain, 0.7, fs),
+                 s.lpfOn() ? design(Shape::LowPass, s.lpf, 0.0, 0.707, fs) : thru };
     }
 
     /** Response of the whole EQ at `freq`, in dB (used by the curve display). */
@@ -114,9 +132,9 @@ public:
         for (int c = 0; c < 2; ++c)
         {
             double x = *io[c];
-            for (int b = 0; b < 4; ++b)
+            for (int b = 0; b < kStages; ++b)
             {
-                auto& st = state[(size_t) (c * 4 + b)];
+                auto& st = state[(size_t) (c * kStages + b)];
                 const auto& k = coeffs[(size_t) b];
                 const double y = k.b0 * x + st.z1;
                 st.z1 = k.b1 * x - k.a1 * y + st.z2;
@@ -132,8 +150,8 @@ private:
     float fs = 48000.0f;
     EqSettings current;
     bool valid = false, flat = true;
-    std::array<Coeffs, 4> coeffs {};
-    std::array<State, 8> state {};
+    std::array<Coeffs, kStages> coeffs {};
+    std::array<State, 2 * kStages> state {};
 };
 
 } // namespace zsynth::dsp

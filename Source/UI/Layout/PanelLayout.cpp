@@ -263,6 +263,9 @@ PanelLayout::PanelLayout()
     fader("out.width",     1582, 562, "WIDTH");
     fader("out.character", 1618, 562, "CHAR");
     utilityAt("meter", 1842, 464, 60, 282);
+    // Graphic EQ: a tiny live display and the button that opens it, in the title bar.
+    utilityAt("geqMini", 1666, 436, 104, 19);
+    utilityAt("openGeq", 1776, 435, 126, 20);
 
     // The valve stage: a window onto the valve plus DRIVE; the rest is on the "valve" page.
     sectionAt("valve", "VALVE", 1658, 456, 178, 290, true);
@@ -456,9 +459,9 @@ PanelLayout::PanelLayout()
     sectionAt("reverbPage", "REVERB  -  ADVANCED", 0, 0, 760, 600);
     utilityAt("reverbClose", 720, 3, 34, 20);
     utilityAt("reverbPresets", 20, 44, 300, 26);
-    const std::pair<const char*, const char*> reverbFaders[6] = { { "fx.rev.decay", "DECAY" }, { "fx.rev.lowcut", "LO CUT" },
+    const std::pair<const char*, const char*> reverbFaders[5] = { { "fx.rev.decay", "DECAY" },
         { "fx.rev.diff", "DIFF" }, { "fx.rev.mod", "MOD" }, { "fx.rev.early", "E / L" }, { "fx.rev.width", "WIDTH" } };
-    for (int k = 0; k < 6; ++k)
+    for (int k = 0; k < 5; ++k)
         fader(reverbFaders[k].first, 24 + k * 50, 100, reverbFaders[k].second);
     heading("REVERB TYPES (TYPE on the panel)", 340, 44, 400);
     const char* reverbTypes[9] = {
@@ -473,7 +476,7 @@ PanelLayout::PanelLayout()
         "SHIMMER       Hall with an octave-up feedback loop." };
     for (int k = 0; k < 9; ++k)
         text(reverbTypes[k], 340, 68 + k * 26, 410, 22, juce::Justification::centredLeft);
-    text("DECAY trims SIZE's decay time.  DIFF = echo density.  MOD = tail chorusing.  E / L = early reflections vs tail.",
+    text("DECAY trims SIZE's decay time.  DIFF = echo density.  MOD = tail chorusing.  E / L = early reflections vs tail.  HPF / LPF are in the EQ below.",
          340, 308, 410, 48, juce::Justification::topLeft);
 
     // Parametric EQ on the wet signal: drag the nodes, or use the knobs.
@@ -493,6 +496,8 @@ PanelLayout::PanelLayout()
         add(eqCols[k].gn, K::Knob, x + 46, 414, "GAIN", 48);
         if (eqCols[k].q != nullptr)
             add(eqCols[k].q, K::Knob, x + 22, 500, "Q", 48);
+        else
+            add(k == 0 ? "fx.rev.lowcut" : "fx.rev.eq.lpf", K::Knob, x + 22, 500, k == 0 ? "HPF" : "LPF", 48);
     }
 
     // ------------------------------------------------------- comp advanced
@@ -518,6 +523,23 @@ PanelLayout::PanelLayout()
     text("GAIN REDUCTION", 20, 240, 260, 16, juce::Justification::centred, true);
     text("COLOUR adds the model's valve / FET / VCA saturation (0.5 = as voiced).  MIX on the panel blends in the dry signal for parallel compression.",
          20, 262, 260, 70, juce::Justification::topLeft);
+
+    // ---------------------------------------------------------- graphic EQ
+    pageList.push_back({ "geq", "GRAPHIC EQ", { 900, 280, 1000, 420 } });
+    page("geq");
+    sectionAt("geqPage", "VINTAGE GRAPHIC EQ  -  OUTPUT", 0, 0, 1000, 420);
+    utilityAt("geqClose", 960, 3, 34, 20);
+    add("geq.on", K::Switch, 20, 40, "IN", 52);
+    utilityAt("geqFlat", 20, 92, 52, 22);
+    utilityAt("geqCurve", 90, 40, 890, 120);
+    const char* geqLabels[10] = { "31", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k" };
+    for (int b = 0; b < 10; ++b)
+        fader("geq.b" + juce::String(b + 1), 100 + b * 64, 180, geqLabels[b]);
+    fader("geq.color", 790, 180, "XFMR");
+    fader("geq.out", 850, 180, "OUTPUT");
+    text("Ten octave bands of +/-12 dB with proportional Q (each band narrows the harder it is pushed), voiced after the API 560, "
+         "into an output transformer.  All bands at 0 dB = completely dry.  XFMR sets the transformer colour; OUTPUT trims the level.",
+         20, 370, 960, 40, juce::Justification::topLeft);
 
     // ------------------------------------------------------- sequencer steps
     pageList.push_back({ "seq", "STEP SEQUENCER", { 400, 300, 1120, 340 } });

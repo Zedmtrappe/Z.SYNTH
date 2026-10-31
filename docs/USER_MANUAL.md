@@ -242,6 +242,17 @@ Each module has an **ON** switch and fades in/out smoothly.
 | REVERB | SIZE, DAMP, PRE-DLY, MIX, TYPE; **ADVANCED ▸** for the rest |
 | STEREO | WIDTH (0 = mono, 100 % = unchanged, 200 % = wide), CHAR (output warmth) |
 
+### Vintage graphic EQ
+
+**GRAPHIC EQ ▸** in the OUTPUT title bar (or the tiny curve beside it) opens a
+10-band graphic EQ on the whole output, voiced after the API 560: octave bands
+from 31 Hz to 16 kHz, +/-12 dB, with proportional Q (each band narrows the
+harder it is pushed). It feeds an output transformer stage: **XFMR** sets its
+colour (soft saturation, a little low-end weight, a softened top), **OUTPUT**
+trims the level. **With every band at 0 dB the EQ is bypassed exactly**: no
+colour at all. **IN** switches it out for A/B; **FLAT** zeroes all bands. It
+sits after the valve and before the compressor, as on a console.
+
 ### Output compressor
 
 **OUTPUT COMP** (right end of the effects row) is the last stage before the
@@ -290,9 +301,10 @@ the gaps.
 | Bricasti M7 | Dense and natural, realistic early reflections |
 | Shimmer | Hall with an octave-up pitch shifter in the feedback loop |
 
-**Reverb EQ.** A four-band parametric EQ on the reverb's wet signal only
-(the dry sound is untouched): low shelf, two bells (frequency, gain, Q) and a
-high shelf, +/-15 dB. In the advanced popup, drag a band's node on the curve
+**Reverb EQ.** A parametric EQ on the reverb's wet signal only (the dry sound
+is untouched): a 12 dB/oct high-pass (HPF), low shelf, two bells (frequency,
+gain, Q), high shelf (+/-15 dB) and a 12 dB/oct low-pass (LPF). The HPF and
+LPF are off at their end stops; their square nodes drag left/right. In the advanced popup, drag a band's node on the curve
 (left/right = frequency, up/down = gain), use the mouse wheel over a bell to
 change its width, double-click a node to flatten it, or use the knobs; FLAT
 resets all four. A small live curve sits under the reverb's ADVANCED button.

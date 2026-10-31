@@ -8,6 +8,7 @@
 #include "DSP/Effects/Compressor.h"
 #include "DSP/Effects/DriveAndOutput.h"
 #include "DSP/Effects/TimeEffects.h"
+#include "DSP/Effects/VintageGraphicEq.h"
 #include "DSP/FM/FmAlgorithms.h"
 #include "DSP/FM/FmVoice.h"
 #include "DSP/Filters/Filters.h"
@@ -744,6 +745,37 @@ ZS_TEST(reverb_parametric_eq)
         }
     }
     ZS_CHECK_NEAR(10.0 * std::log10(out / in), 9.0, 0.1);
+}
+
+ZS_TEST(vintage_graphic_eq)
+{
+    const float fs = 48000.0f;
+    auto run = [&](const VintageGraphicEq::Settings& s, float freq, std::vector<float>& l) {
+        VintageGraphicEq eq;
+        eq.prepare(fs);
+        const int n = 24064;
+        l.assign((size_t) n, 0.0f);
+        std::vector<float> r((size_t) n);
+        for (int i = 0; i < n; ++i)
+            l[(size_t) i] = r[(size_t) i] = 0.1f * std::sin(kTwoPi * freq * (float) i / fs);
+        for (int i = 0; i < n; i += 256)
+            eq.process(l.data() + i, r.data() + i, 256, s);
+        return 20.0 * std::log10(rmsOf(l, 9600) / (0.1 / std::sqrt(2.0)));
+    };
+    // Flat = dry: bit-exact bypass.
+    VintageGraphicEq::Settings flat;
+    std::vector<float> l;
+    run(flat, 1000.0f, l);
+    for (int i = 0; i < 2000; ++i)
+        ZS_CHECK(l[(size_t) i] == 0.1f * std::sin(kTwoPi * 1000.0f * (float) i / fs));
+    // A boost lands where it should, matching the drawn response.
+    VintageGraphicEq::Settings s;
+    s.gainDb[5] = 9.0f; // 1 kHz
+    ZS_CHECK_NEAR(run(s, 1000.0f, l), 9.0, 0.8);
+    ZS_CHECK_NEAR(VintageGraphicEq::magnitudeDb(s, 1000.0, fs), 9.0, 0.1);
+    ZS_CHECK_LT(std::abs(run(s, 100.0f, l)), 1.5);
+    // Proportional Q: a bigger boost is narrower.
+    ZS_CHECK_GT(VintageGraphicEq::qFor(12.0f), VintageGraphicEq::qFor(3.0f));
 }
 
 ZS_TEST(delay_types_stable_and_decaying)

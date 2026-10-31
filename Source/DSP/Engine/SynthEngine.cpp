@@ -60,6 +60,7 @@ void SynthEngine::prepare(double sampleRate, int maxBlockSize)
     reverb.prepare(fs);
     valve.prepare(fs);
     compressor.prepare(fs);
+    graphicEq.prepare(fs);
     output.prepare(fs);
     for (auto& f : fades)
         f = 0.0f;
@@ -102,7 +103,7 @@ void SynthEngine::process(float* left, float* right, int numSamples,
         arp.reset();
         seq.reset();
         drive.reset(); phaser.reset(); flanger.reset(); chorus.reset();
-        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset(); compressor.reset();
+        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset(); compressor.reset(); graphicEq.reset();
         for (auto& ch : playedNote)
             for (auto& n : ch)
                 n = -1;
@@ -213,7 +214,7 @@ void SynthEngine::processChunk(float* left, float* right, int n, const MidiEvent
         badBlocks.fetch_add(1, std::memory_order_relaxed);
         voices.killAll();
         drive.reset(); phaser.reset(); flanger.reset(); chorus.reset();
-        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset(); compressor.reset();
+        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset(); compressor.reset(); graphicEq.reset();
     }
 
     activeVoices.store(voices.activeVoiceCount(), std::memory_order_relaxed);
@@ -690,7 +691,8 @@ void SynthEngine::runEffects(float* left, float* right, int n)
         rs.early = p(P::ReverbEarly);
         rs.width = p(P::ReverbWidth);
         rs.eq = { p(P::RevEqLowFreq), p(P::RevEqLowGain), p(P::RevEqB1Freq), p(P::RevEqB1Gain), p(P::RevEqB1Q),
-                  p(P::RevEqB2Freq), p(P::RevEqB2Gain), p(P::RevEqB2Q), p(P::RevEqHighFreq), p(P::RevEqHighGain) };
+                  p(P::RevEqB2Freq), p(P::RevEqB2Gain), p(P::RevEqB2Q), p(P::RevEqHighFreq), p(P::RevEqHighGain),
+                  p(P::ReverbLowCut), p(P::RevEqLpf) };
         reverb.process(l, r, n, rs);
     }, [&] { reverb.reset(); });
 
@@ -699,6 +701,16 @@ void SynthEngine::runEffects(float* left, float* right, int n)
         valve.process(l, r, n, (ValveType) pi(P::ValveType), p(P::ValveDrive), p(P::ValveBias), p(P::ValveSag),
                       p(P::ValveWarmth), p(P::ValveMix));
     }, [&] { valve.reset(); });
+
+    // Vintage graphic EQ (console style: EQ, then the compressor).
+    runFaded(9, pb(P::GeqOn), [&](float* l, float* r) {
+        VintageGraphicEq::Settings gs;
+        for (int b = 0; b < VintageGraphicEq::kBands; ++b)
+            gs.gainDb[b] = p(P::GeqBand1 + b);
+        gs.colour = p(P::GeqColour);
+        gs.outputDb = p(P::GeqOutput);
+        graphicEq.process(l, r, n, gs);
+    }, [&] { graphicEq.reset(); });
 
     // Output compressor: the last stage before the master section.
     compGrOut.store(0.0f, std::memory_order_relaxed);

@@ -431,7 +431,7 @@ public:
         const float dampHz = 16000.0f * fastExp2(-s.damping * 4.5f) / v.dampMul;
         const float aDamp = coeffFor(dampHz);
         const float aBand = coeffFor(v.bandwidthHz);
-        const float aLow = coeffFor(std::max(s.lowCutHz, v.lowCutHz));
+        const float aLow = coeffFor(std::max(20.0f, v.lowCutHz)); // the type's own band limit; LO CUT is the EQ's HPF
         const float pre = std::max(1.0f, s.predelaySec * fs);
         const float modInc = v.modHz / fs;
         const float modDepth = 0.0006f * fs * v.mod * 2.0f * clampf(s.modulation, 0.0f, 1.0f);

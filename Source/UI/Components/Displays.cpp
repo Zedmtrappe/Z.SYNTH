@@ -2,6 +2,7 @@
 #include "Materials.h"
 
 #include "../../DSP/Effects/ParametricEq.h"
+#include "../../DSP/Effects/VintageGraphicEq.h"
 #include "../../DSP/FM/FmAlgorithms.h"
 #include "../../DSP/Wavetable/WavetableBank.h"
 
@@ -834,12 +835,30 @@ void ValveDisplay::paint(juce::Graphics& g)
 }
 
 // ======================================================= reverb EQ curve ====
-const ReverbEqCurve::Band ReverbEqCurve::bands[4] = {
+// Bands without a gain (-1) are the HPF and LPF: their nodes sit on the
+// curve and drag left/right only.
+const ReverbEqCurve::Band ReverbEqCurve::bands[kBands] = {
     { P::RevEqLowFreq, P::RevEqLowGain, -1 },
     { P::RevEqB1Freq, P::RevEqB1Gain, P::RevEqB1Q },
     { P::RevEqB2Freq, P::RevEqB2Gain, P::RevEqB2Q },
     { P::RevEqHighFreq, P::RevEqHighGain, -1 },
+    { P::ReverbLowCut, -1, -1 },
+    { P::RevEqLpf, -1, -1 },
 };
+
+dsp::EqSettings ReverbEqCurve::settings() const
+{
+    return { v(P::RevEqLowFreq), v(P::RevEqLowGain), v(P::RevEqB1Freq), v(P::RevEqB1Gain), v(P::RevEqB1Q),
+             v(P::RevEqB2Freq), v(P::RevEqB2Gain), v(P::RevEqB2Q), v(P::RevEqHighFreq), v(P::RevEqHighGain),
+             v(P::ReverbLowCut), v(P::RevEqLpf) };
+}
+
+juce::Point<float> ReverbEqCurve::nodeFor(int b) const
+{
+    const float f = v(bands[b].freq);
+    const float db = bands[b].gain >= 0 ? v(bands[b].gain) : (float) dsp::ParametricEq::magnitudeDb(settings(), f, 48000.0);
+    return { xForFreq(f), yForDb(db) };
+}
 
 ReverbEqCurve::ReverbEqCurve(ZSynthProcessor& p, bool isInteractive) : CachedDisplay(p), interactive(isInteractive)
 {
@@ -851,8 +870,9 @@ ReverbEqCurve::ReverbEqCurve(ZSynthProcessor& p, bool isInteractive) : CachedDis
 uint64_t ReverbEqCurve::stateHash() const
 {
     uint64_t h = 1469598103934665603ull;
-    for (int i = P::RevEqLowFreq; i <= P::RevEqHighGain; ++i)
+    for (int i = P::RevEqLowFreq; i <= P::RevEqLpf; ++i)
         h = mix(h, v(i));
+    h = mix(h, v(P::ReverbLowCut));
     h = mix(h, v(P::ReverbOn));
     h = mix(h, (float) (hoverBand * 7 + dragging));
     return h;
@@ -891,10 +911,9 @@ int ReverbEqCurve::bandAt(juce::Point<float> p) const
 {
     int best = -1;
     float bestD = 14.0f;
-    for (int b = 0; b < 4; ++b)
+    for (int b = 0; b < kBands; ++b)
     {
-        const juce::Point<float> node(xForFreq(v(bands[b].freq)), yForDb(v(bands[b].gain)));
-        const float d = node.getDistanceFrom(p);
+        const float d = nodeFor(b).getDistanceFrom(p);
         if (d < bestD)
         {
             bestD = d;
@@ -922,7 +941,8 @@ void ReverbEqCurve::mouseDown(const juce::MouseEvent& e)
     if (dragging >= 0)
     {
         gesture(bands[dragging].freq, true);
-        gesture(bands[dragging].gain, true);
+        if (bands[dragging].gain >= 0)
+            gesture(bands[dragging].gain, true);
     }
 }
 
@@ -931,7 +951,8 @@ void ReverbEqCurve::mouseDrag(const juce::MouseEvent& e)
     if (dragging < 0)
         return;
     setParam(bands[dragging].freq, freqForX(e.position.x));
-    setParam(bands[dragging].gain, std::round(dbForY(e.position.y) * 10.0f) / 10.0f);
+    if (bands[dragging].gain >= 0)
+        setParam(bands[dragging].gain, std::round(dbForY(e.position.y) * 10.0f) / 10.0f);
     refresh();
 }
 
@@ -940,7 +961,8 @@ void ReverbEqCurve::mouseUp(const juce::MouseEvent&)
     if (dragging >= 0)
     {
         gesture(bands[dragging].freq, false);
-        gesture(bands[dragging].gain, false);
+        if (bands[dragging].gain >= 0)
+            gesture(bands[dragging].gain, false);
     }
     dragging = -1;
     refresh();
@@ -951,9 +973,12 @@ void ReverbEqCurve::mouseDoubleClick(const juce::MouseEvent& e)
     const int b = bandAt(e.position);
     if (b < 0)
         return;
-    gesture(bands[b].gain, true);
-    setParam(bands[b].gain, 0.0f);
-    gesture(bands[b].gain, false);
+    // Flatten a band, or switch a filter off (fully out of the way).
+    const int index = bands[b].gain >= 0 ? bands[b].gain : bands[b].freq;
+    const float value = bands[b].gain >= 0 ? 0.0f : (bands[b].freq == (int) P::RevEqLpf ? 20000.0f : 20.0f);
+    gesture(index, true);
+    setParam(index, value);
+    gesture(index, false);
     refresh();
 }
 
@@ -1011,8 +1036,7 @@ void ReverbEqCurve::paint(juce::Graphics& g)
     }
 
     // The response, from the same design as the audio.
-    dsp::EqSettings s { v(P::RevEqLowFreq), v(P::RevEqLowGain), v(P::RevEqB1Freq), v(P::RevEqB1Gain), v(P::RevEqB1Q),
-                        v(P::RevEqB2Freq), v(P::RevEqB2Gain), v(P::RevEqB2Q), v(P::RevEqHighFreq), v(P::RevEqHighGain) };
+    const auto s = settings();
     juce::Path curve, fill;
     const int steps = juce::jmax(40, (int) a.getWidth() / 2);
     for (int i = 0; i <= steps; ++i)
@@ -1039,15 +1063,25 @@ void ReverbEqCurve::paint(juce::Graphics& g)
     g.strokePath(curve, juce::PathStrokeType(interactive ? 1.8f : 1.3f));
 
     // Band nodes.
-    static const char* names[4] = { "LO", "1", "2", "HI" };
-    for (int b = 0; b < 4; ++b)
+    static const char* names[kBands] = { "LO", "1", "2", "HI", "HP", "LP" };
+    for (int b = 0; b < kBands; ++b)
     {
-        const juce::Point<float> node(xForFreq(v(bands[b].freq)), yForDb(v(bands[b].gain)));
+        const bool filter = bands[b].gain < 0;
+        if (filter && ! interactive && ! (b == 4 ? s.hpfOn() : s.lpfOn()))
+            continue; // the mini curve only shows filters that are switched in
+        const auto node = nodeFor(b);
         const float rad = interactive ? (b == dragging || b == hoverBand ? 8.0f : 6.5f) : 2.5f;
+        const auto box = juce::Rectangle<float>(rad * 2.0f, rad * 2.0f).withCentre(node);
         g.setColour(juce::Colours::black.withAlpha(0.6f));
-        g.fillEllipse(juce::Rectangle<float>(rad * 2.0f + 2.0f, rad * 2.0f + 2.0f).withCentre(node));
-        g.setColour(b == dragging || b == hoverBand ? Colours::lcdText : col);
-        g.fillEllipse(juce::Rectangle<float>(rad * 2.0f, rad * 2.0f).withCentre(node));
+        if (filter)
+            g.fillRoundedRectangle(box.expanded(1.0f), 2.5f);
+        else
+            g.fillEllipse(box.expanded(1.0f));
+        g.setColour(b == dragging || b == hoverBand ? Colours::lcdText : (filter ? col.brighter(0.3f) : col));
+        if (filter)
+            g.fillRoundedRectangle(box, 2.0f);
+        else
+            g.fillEllipse(box);
         if (interactive)
         {
             g.setColour(juce::Colours::black);
@@ -1058,10 +1092,98 @@ void ReverbEqCurve::paint(juce::Graphics& g)
     if (interactive && (dragging >= 0 || hoverBand >= 0))
     {
         const auto& bd = bands[dragging >= 0 ? dragging : hoverBand];
-        juce::String t = formatValue(bd.freq, v(bd.freq)) + "   " + formatValue(bd.gain, v(bd.gain));
+        juce::String t = formatValue(bd.freq, v(bd.freq));
+        if (bd.gain >= 0)
+            t += "   " + formatValue(bd.gain, v(bd.gain));
+        else
+            t = (bd.freq == (int) P::RevEqLpf ? "LPF " : "HPF ") + t;
         if (bd.q >= 0)
             t += "   " + formatValue(bd.q, v(bd.q));
         drawLcdText(g, t, a.withHeight(14.0f).toNearestInt(), 11.0f, Colours::lcdText, juce::Justification::centredRight);
+    }
+}
+
+// ========================================================= graphic EQ ====
+GraphicEqDisplay::GraphicEqDisplay(ZSynthProcessor& p, bool isMini) : CachedDisplay(p), mini(isMini)
+{
+    setInterceptsMouseClicks(mini, false);
+    if (mini)
+    {
+        setTooltip("Graphic EQ: click to open");
+        setMouseCursor(juce::MouseCursor::PointingHandCursor);
+    }
+}
+
+uint64_t GraphicEqDisplay::stateHash() const
+{
+    uint64_t h = 1469598103934665603ull;
+    for (int i = P::GeqOn; i <= P::GeqOutput; ++i)
+        h = mix(h, v(i));
+    return h;
+}
+
+void GraphicEqDisplay::paint(juce::Graphics& g)
+{
+    const auto r = getLocalBounds().toFloat();
+    fillPanelInset(g, r);
+    const auto a = r.reduced(mini ? 3.0f : 10.0f, mini ? 2.0f : 10.0f);
+    dsp::VintageGraphicEq::Settings s;
+    for (int b = 0; b < dsp::VintageGraphicEq::kBands; ++b)
+        s.gainDb[b] = v(P::GeqBand1 + b);
+    s.outputDb = 0.0f;
+    const bool on = v(P::GeqOn) >= 0.5f;
+    const bool active = on && ! s.isFlat();
+    const auto brass = juce::Colour(0xffe8c26a);
+    const auto col = active ? brass : brass.withSaturation(0.15f).withAlpha(0.55f);
+
+    auto xFor = [&](double f) { return a.getX() + a.getWidth() * (float) (std::log(f / 20.0) / std::log(1000.0)); };
+    auto yFor = [&](double db) { return a.getCentreY() - (float) juce::jlimit(-15.0, 15.0, db) / 15.0f * a.getHeight() * 0.5f; };
+
+    if (! mini)
+    {
+        g.setColour(Colours::lcdDim.withAlpha(0.35f));
+        for (float db : { -12.0f, -6.0f, 6.0f, 12.0f })
+            g.drawHorizontalLine(juce::roundToInt(yFor(db)), a.getX(), a.getRight());
+        g.setFont(lcdFont(9.0f));
+        g.setColour(Colours::lcdDim.brighter(0.5f));
+        g.drawText("+12", juce::Rectangle<float>(a.getX() + 2.0f, yFor(12.0) - 11.0f, 30.0f, 10.0f).toNearestInt(), juce::Justification::centredLeft, false);
+        g.drawText("-12", juce::Rectangle<float>(a.getX() + 2.0f, yFor(-12.0) + 1.0f, 30.0f, 10.0f).toNearestInt(), juce::Justification::centredLeft, false);
+    }
+    g.setColour(Colours::lcdDim.withAlpha(0.8f));
+    g.drawHorizontalLine(juce::roundToInt(yFor(0.0)), a.getX(), a.getRight());
+
+    // A bar per band, like the LED columns of a console graphic.
+    for (int b = 0; b < dsp::VintageGraphicEq::kBands; ++b)
+    {
+        const float x = xFor(dsp::VintageGraphicEq::kFreqs[b]);
+        const float y0 = yFor(0.0), y1 = yFor(s.gainDb[b]);
+        const float w = mini ? 3.0f : 10.0f;
+        g.setColour(col.withAlpha(active ? 0.45f : 0.3f));
+        g.fillRect(juce::Rectangle<float>(x - w * 0.5f, std::min(y0, y1), w, std::max(1.0f, std::abs(y1 - y0))));
+    }
+
+    // The combined response.
+    juce::Path curve;
+    const int steps = juce::jmax(30, (int) a.getWidth() / 2);
+    for (int i = 0; i <= steps; ++i)
+    {
+        const double f = 20.0 * std::pow(1000.0, (double) i / steps);
+        const float x = a.getX() + a.getWidth() * (float) i / (float) steps;
+        const float y = yFor(on ? dsp::VintageGraphicEq::magnitudeDb(s, f, 48000.0) : 0.0);
+        if (i == 0)
+            curve.startNewSubPath(x, y);
+        else
+            curve.lineTo(x, y);
+    }
+    g.setColour(col.withAlpha(0.35f));
+    g.strokePath(curve, juce::PathStrokeType(mini ? 2.5f : 4.0f));
+    g.setColour(col);
+    g.strokePath(curve, juce::PathStrokeType(mini ? 1.1f : 1.8f));
+    if (! mini)
+    {
+        g.setFont(lcdFont(10.0f));
+        g.setColour(Colours::lcdText.withAlpha(0.8f));
+        g.drawText(! on ? "OUT" : (active ? "IN" : "FLAT = DRY"), a.withHeight(14.0f).toNearestInt(), juce::Justification::centredRight, false);
     }
 }
 

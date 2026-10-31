@@ -588,7 +588,7 @@ ZS_TEST(layout_controls_inside_sections_and_not_overlapping)
                             || id == "fx.rev.mod" || id == "fx.rev.early" || id == "fx.rev.width"
                             || id == "comp.ratio" || id == "comp.attack" || id == "comp.release" || id == "comp.autorel"
                             || id == "comp.knee" || id == "comp.schpf" || id == "comp.emph" || id == "comp.color"
-                            || id.startsWith("fx.rev.eq.");
+                            || id.startsWith("fx.rev.eq.") || id.startsWith("geq.");
         ZS_CHECK(advanced == (c.page != ui::kMainPage));
     }
 }
@@ -617,6 +617,15 @@ ZS_TEST(fx_presets_parse_and_cover_every_type)
         ZS_CHECK(juce::StringArray::fromTokens(ZS_CH_DELAY_TYPE, "|", "").contains(g));
     for (const auto& g : reverbGroups)
         ZS_CHECK(juce::StringArray::fromTokens(ZS_CH_REVERB_TYPE, "|", "").contains(g));
+}
+
+ZS_TEST(new_instance_starts_on_the_startup_preset)
+{
+    ProcessorFixture f("startup");
+    ZS_CHECK(f.processor.getPresets().getCurrentName() == "OB-Xa - Jump");
+    // The sound, not the globals: master volume stays at its default.
+    ZS_CHECK_NEAR(f.processor.getValue(P::MasterVolume), paramDef(P::MasterVolume).def, 1e-4);
+    ZS_CHECK(f.processor.getValue(P::Osc2Fine) > 0.0f); // the detuned second saw
 }
 
 ZS_TEST(audition_builtin_clips_load)

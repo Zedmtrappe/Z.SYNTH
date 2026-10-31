@@ -23,6 +23,9 @@ Activity activityFor(int i, const float* v, bool hostTempo)
     if (inRange(i, P::ValveType, P::ValveMix) && ! on(v, P::ValveOn))
         return inactive("The valve stage is off. Switch VALVE on.");
 
+    if (inRange(i, P::GeqBand1, P::GeqOutput) && ! on(v, P::GeqOn))
+        return inactive("The graphic EQ is switched out. Switch it ON.");
+
     if (inRange(i, P::CompModel, P::CompColour))
     {
         if (! on(v, P::CompOn))
@@ -168,7 +171,7 @@ Activity activityFor(int i, const float* v, bool hostTempo)
                              { P::PhaserOn, P::PhaserRate, P::PhaserMix, "Phaser" },
                              { P::FlangerOn, P::FlangerRate, P::FlangerMix, "Flanger" },
                              { P::DelayOn, P::DelaySync, P::DelayDuck, "Delay" },
-                             { P::ReverbOn, P::ReverbSize, P::RevEqHighGain, "Reverb" } };
+                             { P::ReverbOn, P::ReverbSize, P::RevEqLpf, "Reverb" } };
     for (const auto& f : fx)
         if (inRange(i, f.first, f.last) && ! on(v, f.on))
             return inactive(juce::String(f.name) + " is switched off.");

@@ -10,6 +10,8 @@ namespace zsynth
 namespace
 {
     constexpr int kStateVersion = 1;
+    // The sound a new instance (and a first launch of the app) starts with.
+    constexpr const char* kStartupPreset = "OB-Xa - Jump";
 
     std::vector<PresetManager::Bank> factoryBanks()
     {
@@ -31,9 +33,14 @@ ZSynthProcessor::ZSynthProcessor(juce::File userPresetDir)
     events.reserve(kMaxEventsPerBlock);
     presets = std::make_unique<PresetManager>(apvts, factoryBanks(), userPresetDir);
 
-    // Start on a playable factory sound rather than a bare init patch.
-    if (! presets->getEntries().empty())
-        presets->load(0);
+    // Start on the chosen factory sound (falling back to the first preset).
+    const auto& entries = presets->getEntries();
+    int startup = entries.empty() ? -1 : 0;
+    for (int i = 0; i < (int) entries.size(); ++i)
+        if (entries[(size_t) i].factory && entries[(size_t) i].name == kStartupPreset)
+            startup = i;
+    if (startup >= 0)
+        presets->load(startup);
     loadBuiltInClip(0);
 
     startTimerHz(30);

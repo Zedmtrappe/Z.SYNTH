@@ -12,9 +12,9 @@ advanced sections.
 |---|---|
 | Formats | Standalone app, VST3 and Audio Unit (macOS universal builds from CI, AU checked with auval) |
 | Engine | JUCE-free C++17 library, usable without any GUI |
-| Parameters | 356, all host-automatable, one authoritative table |
-| Factory library | 227 presets: *ZYNTH Originals* (160, 15 categories) and *Classic Machines* (67 sounds in 20 instrument folders), level-matched by measurement |
-| Tests | 43 DSP tests, 22 state/preset/layout/editor tests, a VST3 host test |
+| Parameters | 370, all host-automatable, one authoritative table |
+| Factory library | 228 presets: *ZYNTH Originals* (160, 15 categories) and *Classic Machines* (68 sounds in 20 instrument folders), level-matched by measurement |
+| Tests | 44 DSP tests, 23 state/preset/layout/editor tests, a VST3 host test |
 | Tested on | Ubuntu 24.04, x86-64, GCC 13.3, CMake 3.28, JUCE 8.0.9 |
 
 ## What it does
@@ -51,6 +51,9 @@ advanced sections.
   12AU7, EL84 push-pull and 6L6 models with bias, supply sag, output-transformer
   warmth and mix. Gentle by design: warmth and soft peak compression through
   most of the DRIVE travel, audible distortion from about 90 %.
+* **Vintage graphic EQ** — a 10-band output EQ voiced after the API 560
+  (proportional Q, output transformer); flat = completely dry. A tiny live
+  curve in the OUTPUT title bar opens it.
 * **Output compressor** — LA-2A-style opto leveller, SSL-style VCA bus
   compressor, 1176-style FET limiter (with all-buttons mode) and
   Fairchild-style variable-mu, with an analogue gain-reduction VU meter on the
@@ -61,8 +64,8 @@ advanced sections.
 * **Reverb** — nine algorithms: Hall, Room, EMT 140 Plate, Echo Chamber,
   Spring, Lexicon 224, Lexicon 480L, Bricasti M7 and Shimmer (original
   algorithms voiced after those units), with decay, low cut, diffusion,
-  modulation, early/late and width, plus a four-band parametric EQ on the
-  reverb (drag the nodes on its curve); delay and reverb each have a menu of
+  modulation, early/late and width, plus a parametric EQ on the reverb
+  (HPF, low shelf, two bells, high shelf, LPF; drag the nodes on its curve); delay and reverb each have a menu of
   factory presets.
 * **Musical typing** — a floating Mac-keyboard window (TYPING button): play
   from the computer keyboard with Logic's layout, octave/velocity keys,
@@ -196,7 +199,7 @@ These are honest gaps in the current version, not hidden features:
   circuits or copies of their factory patches. Instrument names are trademarks
   of their owners, used descriptively; ZYNTH is not affiliated with them.
 * The VST3 exposes JUCE's 2048 hidden MIDI-CC proxy parameters in addition to
-  the 356 synth parameters (needed for controller input in VST3 hosts).
+  the 370 synth parameters (needed for controller input in VST3 hosts).
 
 ## Licence
 

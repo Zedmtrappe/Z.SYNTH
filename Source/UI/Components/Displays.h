@@ -6,6 +6,7 @@
 
 #include "../../Plugin/ZSynthProcessor.h"
 #include "Theme.h"
+#include "../../DSP/Effects/ParametricEq.h"
 
 namespace zsynth::ui
 {
@@ -133,7 +134,10 @@ protected:
     uint64_t stateHash() const override;
 private:
     struct Band { int freq, gain, q; };
-    static const Band bands[4];
+    static constexpr int kBands = 6;
+    static const Band bands[kBands];
+    dsp::EqSettings settings() const;
+    juce::Point<float> nodeFor(int band) const;
     juce::Rectangle<float> plotArea() const;
     float xForFreq(float f) const;
     float freqForX(float x) const;
@@ -144,6 +148,21 @@ private:
     void gesture(int index, bool begin);
     bool interactive;
     int dragging = -1, hoverBand = -1;
+};
+
+/** The vintage graphic EQ: its response with a bar per band. The mini
+    version (OUTPUT title bar) is clickable and opens the EQ. */
+class GraphicEqDisplay : public CachedDisplay, public juce::SettableTooltipClient
+{
+public:
+    GraphicEqDisplay(ZSynthProcessor& p, bool isMini);
+    void paint(juce::Graphics&) override;
+    void mouseUp(const juce::MouseEvent&) override { if (onClick) onClick(); }
+    std::function<void()> onClick;
+protected:
+    uint64_t stateHash() const override;
+private:
+    bool mini;
 };
 
 /** Analogue VU meter showing the output compressor's gain reduction. */

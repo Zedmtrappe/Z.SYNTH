@@ -208,7 +208,7 @@ X(ReverbPredelay,"fx.rev.pre",     "Pre-Delay",     "Effects", Float, 0.f, 200.f
 X(ReverbMix,     "fx.rev.mix",     "Reverb Mix",    "Effects", Float, 0.f, 1.f, 0.25f, LIN, "", nullptr, "Reverb wet/dry balance.") \
 X(ReverbType,    "fx.rev.type",    "Reverb Type",   "Effects", Choice, 0, 0, 0.f, LIN, "", ZS_CH_REVERB_TYPE, "Reverb algorithm and character.") \
 X(ReverbDecay,   "fx.rev.decay",   "Reverb Decay",  "Effects", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Decay time trim (0.5 = as set by SIZE; x0.35 .. x2.8).") \
-X(ReverbLowCut,  "fx.rev.lowcut",  "Reverb Low Cut","Effects", Float, 20.f, 1000.f, 20.f, LOG, "Hz", nullptr, "High-pass on the reverb (keeps the low end clear).") \
+X(ReverbLowCut,  "fx.rev.lowcut",  "Reverb Low Cut","Effects", Float, 20.f, 1000.f, 20.f, LOG, "Hz", nullptr, "Reverb EQ high-pass, 12 dB/oct: keeps the low end clear (fully left = off).") \
 X(ReverbDiff,    "fx.rev.diff",    "Reverb Diffusion","Effects", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Echo density: low is grainier, high is smoother.") \
 X(ReverbMod,     "fx.rev.mod",     "Reverb Modulation","Effects", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Chorusing of the tail (0.5 = the type's natural amount).") \
 X(ReverbEarly,   "fx.rev.early",   "Reverb Early/Late","Effects", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Balance of early reflections (left) and tail (right).") \
@@ -223,6 +223,7 @@ X(RevEqB2Gain,   "fx.rev.eq.p2g",  "Reverb EQ Bell 2 Gain","Effects", Float, -15
 X(RevEqB2Q,      "fx.rev.eq.p2q",  "Reverb EQ Bell 2 Q",  "Effects", Float, 0.3f, 8.f, 1.f, LOG, "Q", nullptr, "Reverb EQ bell 2 bandwidth (higher Q = narrower).") \
 X(RevEqHighFreq, "fx.rev.eq.hsf",  "Reverb EQ High Freq", "Effects", Float, 1500.f, 16000.f, 8000.f, LOG, "Hz", nullptr, "Reverb EQ high-shelf frequency.") \
 X(RevEqHighGain, "fx.rev.eq.hsg",  "Reverb EQ High Gain", "Effects", Float, -15.f, 15.f, 0.f, LIN, "dB", nullptr, "Reverb EQ high-shelf gain (wet signal only).") \
+X(RevEqLpf,      "fx.rev.eq.lpf",  "Reverb EQ LPF",       "Effects", Float, 1000.f, 20000.f, 20000.f, LOG, "Hz", nullptr, "Reverb EQ low-pass, 12 dB/oct (fully right = off).") \
 /* ----------------------------------------------------------------- Output */ \
 X(Width,         "out.width",      "Stereo Width",  "Output", Float, 0.f, 2.f, 1.f, LIN, "", nullptr, "Mid/side stereo width (0 = mono, 1 = unchanged, 2 = wide).") \
 X(Character,     "out.character",  "Character",     "Output", Float, 0.f, 1.f, 0.1f, LIN, "", nullptr, "Analogue-style output stage saturation and warmth.") \
@@ -247,7 +248,20 @@ X(CompAutoRel,   "comp.autorel",   "Comp Auto Release","Output", Bool, 0.f, 1.f,
 X(CompKnee,      "comp.knee",      "Comp Knee",     "Output", Float, 0.f, 1.f, 0.3f, LIN, "", nullptr, "Knee softness (SSL).") \
 X(CompScHpf,     "comp.schpf",     "Comp SC HPF",   "Output", Float, 20.f, 500.f, 20.f, LOG, "Hz", nullptr, "Side-chain high-pass: stops the low end pumping the compressor.") \
 X(CompEmph,      "comp.emph",      "Comp Emphasis", "Output", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "LA-2A side-chain HF emphasis: reacts more to bright sounds.") \
-X(CompColour,    "comp.color",     "Comp Colour",   "Output", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Analogue colour of the model (valve / FET / VCA saturation); 0.5 = as voiced.")
+X(CompColour,    "comp.color",     "Comp Colour",   "Output", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Analogue colour of the model (valve / FET / VCA saturation); 0.5 = as voiced.") \
+X(GeqOn,         "geq.on",         "Graphic EQ On", "Output", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "Vintage graphic EQ in/out (with all bands at 0 dB it is bypassed anyway).") \
+X(GeqBand1,     "geq.b1",        "Graphic EQ 31 Hz", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ band at 31 Hz (proportional Q: narrower as it is pushed).") \
+X(GeqBand2,     "geq.b2",        "Graphic EQ 63 Hz", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ band at 63 Hz (proportional Q: narrower as it is pushed).") \
+X(GeqBand3,     "geq.b3",        "Graphic EQ 125 Hz", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ band at 125 Hz (proportional Q: narrower as it is pushed).") \
+X(GeqBand4,     "geq.b4",        "Graphic EQ 250 Hz", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ band at 250 Hz (proportional Q: narrower as it is pushed).") \
+X(GeqBand5,     "geq.b5",        "Graphic EQ 500 Hz", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ band at 500 Hz (proportional Q: narrower as it is pushed).") \
+X(GeqBand6,     "geq.b6",        "Graphic EQ 1 kHz", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ band at 1 kHz (proportional Q: narrower as it is pushed).") \
+X(GeqBand7,     "geq.b7",        "Graphic EQ 2 kHz", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ band at 2 kHz (proportional Q: narrower as it is pushed).") \
+X(GeqBand8,     "geq.b8",        "Graphic EQ 4 kHz", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ band at 4 kHz (proportional Q: narrower as it is pushed).") \
+X(GeqBand9,     "geq.b9",        "Graphic EQ 8 kHz", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ band at 8 kHz (proportional Q: narrower as it is pushed).") \
+X(GeqBand10,     "geq.b10",        "Graphic EQ 16 kHz", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ band at 16 kHz (proportional Q: narrower as it is pushed).") \
+X(GeqColour,     "geq.color",      "Graphic EQ Transformer", "Output", Float, 0.f, 1.f, 0.3f, LIN, "", nullptr, "Output transformer colour (saturation and low-end weight) while the EQ is in use.") \
+X(GeqOutput,     "geq.out",        "Graphic EQ Output", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ output trim.")
 
 #define ZS_LFO_PARAMS(X, n, unused) \
 X(Lfo##n##Wave,  "lfo" #n ".wave",  "LFO " #n " Wave",  "LFO", Choice, 0, 0, 0.f, LIN, "", ZS_CH_LFO_WAVE, "LFO waveform.") \

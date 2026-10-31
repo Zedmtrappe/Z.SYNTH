@@ -21,6 +21,7 @@
 #include "../Common/HalfBand.h"
 #include "../Effects/Compressor.h"
 #include "../Effects/DriveAndOutput.h"
+#include "../Effects/VintageGraphicEq.h"
 #include "../Effects/ModulationEffects.h"
 #include "../Effects/TimeEffects.h"
 #include "../Performance/Arpeggiator.h"
@@ -138,9 +139,10 @@ private:
     Reverb reverb;
     ValveStage valve;
     OutputCompressor compressor;
+    VintageGraphicEq graphicEq;
     OutputStage output;
     // Each effect fades in/out over 20 ms when switched, so toggling never clicks.
-    float fades[9] {};
+    float fades[10] {};
     std::vector<float> fxTempL, fxTempR;
 
     std::atomic<bool> panicRequested { false };

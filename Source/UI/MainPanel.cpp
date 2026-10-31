@@ -21,6 +21,7 @@ namespace
         if (section.startsWith("fm") || section.startsWith("op"))   return juce::Colour(0xff7fd36b); // green
         if (section == "perf" || section.startsWith("seq"))         return juce::Colour(0xffe9d35a); // yellow
         if (section.startsWith("fx"))                               return juce::Colour(0xfff08fb0); // pink
+        if (section.startsWith("geq"))                              return juce::Colour(0xffe8c26a); // brass
         if (section.startsWith("comp"))                             return juce::Colour(0xff78d4e6); // cyan
         if (section.startsWith("delay") || section.startsWith("reverb")) return juce::Colour(0xfff08fb0); // pink (effects)
         if (section.startsWith("valve"))                                     return juce::Colour(0xffff8c3a); // valve orange
@@ -280,15 +281,26 @@ void MainPanel::buildUtilities()
         showMusicalTyping(! isMusicalTypingVisible()); });
     button("openComp", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Compressor ratio, attack, release, knee, side-chain and colour", [this] {
         showPage(getVisiblePage() == "comp" ? juce::String() : juce::String("comp")); });
-    button("reverbEqFlat", "FLAT", "Reset the reverb EQ to flat", [this] {
+    auto setValue = [this](int index, float value) {
+        if (auto* param = processor.getState().getParameter(paramDef(index).id))
+        {
+            param->beginChangeGesture();
+            param->setValueNotifyingHost(param->convertTo0to1(value));
+            param->endChangeGesture();
+        }
+    };
+    button("reverbEqFlat", "FLAT", "Reset the reverb EQ to flat (bands to 0 dB, HPF and LPF off)", [setValue] {
         for (int i : { (int) P::RevEqLowGain, (int) P::RevEqB1Gain, (int) P::RevEqB2Gain, (int) P::RevEqHighGain })
-            if (auto* param = processor.getState().getParameter(paramDef(i).id))
-            {
-                param->beginChangeGesture();
-                param->setValueNotifyingHost(param->convertTo0to1(0.0f));
-                param->endChangeGesture();
-            }
+            setValue(i, 0.0f);
+        setValue(P::ReverbLowCut, 20.0f);
+        setValue(P::RevEqLpf, 20000.0f);
     });
+    button("geqFlat", "FLAT", "Set all ten bands to 0 dB (flat = bypassed, completely dry)", [setValue] {
+        for (int i = P::GeqBand1; i <= P::GeqBand10; ++i)
+            setValue(i, 0.0f);
+    });
+    button("openGeq", juce::String::fromUTF8("GRAPHIC EQ \xe2\x96\xb8"), "Vintage 10-band graphic EQ on the output (flat = dry)", [this] {
+        showPage(getVisiblePage() == "geq" ? juce::String() : juce::String("geq")); });
     button("openValve", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Valve type, bias, sag, warmth and mix", [this] {
         showPage(getVisiblePage() == "valve" ? juce::String() : juce::String("valve")); });
 
@@ -313,6 +325,10 @@ void MainPanel::buildUtilities()
     displays.push_back(&addUtility<ValveDisplay>("valveDisplay", processor));
     displays.push_back(&addUtility<CompMeter>("compMeter", processor));
     displays.push_back(&addUtility<ReverbEqCurve>("reverbEqCurve", processor, false));
+    displays.push_back(&addUtility<GraphicEqDisplay>("geqCurve", processor, false));
+    auto& geqMini = addUtility<GraphicEqDisplay>("geqMini", processor, true);
+    geqMini.onClick = [this] { showPage(getVisiblePage() == "geq" ? juce::String() : juce::String("geq")); };
+    displays.push_back(&geqMini);
     displays.push_back(&addUtility<ReverbEqCurve>("reverbEqCurveBig", processor, true));
     displays.push_back(&addUtility<CompMeter>("compMeterBig", processor));
     displays.push_back(&addUtility<OutputMeter>("meter", processor));
