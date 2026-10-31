@@ -257,7 +257,7 @@ sits after the valve and before the compressor, as on a console.
 
 **OUTPUT COMP** (right end of the effects row) is the last stage before the
 master section. On the panel: **ON**, a gain-reduction VU meter, **THRESH**,
-**MAKEUP**, **MIX** (parallel compression) and **MODEL**; **ADVANCED ▸** opens
+**MIX** (parallel compression), **MAKEUP** (output gain) and **MODEL**; **ADVANCED ▸** opens
 the full set. Controls that a model does not have are dimmed.
 
 | Model | Character | Controls |

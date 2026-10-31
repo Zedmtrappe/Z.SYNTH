@@ -353,8 +353,8 @@ PanelLayout::PanelLayout()
     compact("comp.on", cx + cw - 42, 789, "ON");
     utilityAt("compMeter", cx + 8, 808, 184, 144);
     shortFader("comp.thresh", cx + 200, 810, "THRESH");
-    shortFader("comp.makeup", cx + 236, 810, "MAKEUP");
-    shortFader("comp.mix",    cx + 272, 810, "MIX");
+    shortFader("comp.mix",    cx + 236, 810, "MIX");
+    shortFader("comp.makeup", cx + 272, 810, "MAKEUP"); // output gain last, as on the hardware
     add("comp.model", K::Selector, cx + 310, 812, "MODEL", cw - 318);
     utilityAt("openComp", cx + 310, 862, cw - 318, 24);
 
