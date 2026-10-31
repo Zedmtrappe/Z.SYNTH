@@ -5,6 +5,7 @@
 
 #include "DSP/Common/HalfBand.h"
 #include "DSP/Envelopes/Envelope.h"
+#include "DSP/Effects/Compressor.h"
 #include "DSP/Effects/DriveAndOutput.h"
 #include "DSP/Effects/TimeEffects.h"
 #include "DSP/FM/FmAlgorithms.h"
@@ -644,6 +645,67 @@ ZS_TEST(engine_effects_stability_max_feedback)
     std::printf("    peak with all FX at max feedback: %.2f\n", peakOf(x));
 }
 
+ZS_TEST(compressor_models_reduce_and_recover)
+{
+    const float fs = 48000.0f;
+    for (int m = 0; m < (int) CompModel::Count; ++m)
+    {
+        OutputCompressor comp;
+        comp.prepare(fs);
+        CompSettings s;
+        s.model = (CompModel) m;
+        s.thresholdDb = -24.0f;
+        s.ratioIndex = 3;      // 4:1
+        s.attackMs = 1.0f;
+        s.releaseMs = 200.0f;
+        const int n = (int) fs * 2;
+        std::vector<float> l((size_t) n), r((size_t) n);
+        for (int i = 0; i < n; ++i)
+            l[(size_t) i] = r[(size_t) i] = i < n / 2 ? 0.5f * std::sin(kTwoPi * 330.0f * (float) i / fs) : 0.0f;
+        float grLoud = 0.0f;
+        for (int i = 0; i < n; i += 256)
+        {
+            comp.process(l.data() + i, r.data() + i, std::min(256, n - i), s);
+            const float gr = comp.takeGainReduction();
+            if (i > n / 4 && i < n / 2)
+                grLoud = std::max(grLoud, gr);
+        }
+        ZS_CHECK(allFinite(l));
+        // -6 dBFS against a -24 dB threshold: clear, but not absurd, reduction.
+        ZS_CHECK_GT(grLoud, 4.0f);
+        ZS_CHECK_LT(grLoud, 24.0f);
+        ZS_CHECK_LT(rmsOf(l, (size_t) n / 4, (size_t) n / 2), 0.5 / std::sqrt(2.0) * 0.7);
+        // After 1 s of silence the gain has recovered (feed a quiet probe). The
+        // LA-2A's optical cell remembers heavy compression for several seconds,
+        // as the real one does: give it 4 s more.
+        if ((CompModel) m == CompModel::LA2A)
+        {
+            std::vector<float> zl((size_t) fs * 4, 0.0f), zr((size_t) fs * 4, 0.0f);
+            for (size_t i = 0; i < zl.size(); i += 256)
+                comp.process(zl.data() + i, zr.data() + i, 256, s);
+            comp.takeGainReduction();
+        }
+        std::vector<float> pl(4096), pr(4096);
+        for (size_t i = 0; i < pl.size(); ++i)
+            pl[i] = pr[i] = 0.001f * std::sin(kTwoPi * 330.0f * (float) i / fs);
+        comp.process(pl.data(), pr.data(), (int) pl.size(), s);
+        ZS_CHECK_LT(comp.takeGainReduction(), 3.0f);
+    }
+    // Mix 0 passes the dry signal unchanged.
+    OutputCompressor comp;
+    comp.prepare(fs);
+    CompSettings s;
+    s.mix = 0.0f;
+    s.thresholdDb = -40.0f;
+    std::vector<float> l(512), r(512);
+    for (size_t i = 0; i < l.size(); ++i)
+        l[i] = r[i] = 0.7f * std::sin((float) i * 0.1f);
+    const auto ref = l;
+    comp.process(l.data(), r.data(), 512, s);
+    for (size_t i = 0; i < l.size(); ++i)
+        ZS_CHECK_NEAR(l[i], ref[i], 1e-6);
+}
+
 ZS_TEST(delay_types_stable_and_decaying)
 {
     // Every delay character at maximum feedback and wear: bounded, finite, and
@@ -885,36 +947,50 @@ ZS_TEST(fm_operator_velocity_and_key_scaling)
 
 ZS_TEST(valve_stage_warms_without_level_jumps)
 {
+    // A hot -6 dBFS sine through every valve type: low and middle DRIVE only
+    // warm (well under 1 % THD), audible distortion starts near the top, and
+    // the level stays steady throughout.
     const float fs = 48000.0f;
-    for (int t = 0; t < (int) ValveType::Count; ++t)
-    {
+    auto run = [&](int type, float drive, double& thdPercent, double& levelDb) {
         ValveStage valve;
         valve.prepare(fs);
         const int n = 48000;
         std::vector<float> l((size_t) n), r((size_t) n);
         for (int i = 0; i < n; ++i)
-            l[(size_t) i] = r[(size_t) i] = 0.25f * std::sin(kTwoPi * 220.0f * (float) i / fs); // -12 dBFS peak
+            l[(size_t) i] = r[(size_t) i] = 0.5f * std::sin(kTwoPi * 220.0f * (float) i / fs);
         const auto inRms = rmsOf(l, 0);
         for (int i = 0; i < n; i += 256)
-            valve.process(l.data() + i, r.data() + i, std::min(256, n - i), (ValveType) t, 0.7f, 0.7f, 0.5f, 0.5f, 1.0f);
+            valve.process(l.data() + i, r.data() + i, std::min(256, n - i), (ValveType) type, drive, 0.5f, 0.3f, 0.5f, 1.0f);
         for (float x : l)
-            ZS_CHECK(std::isfinite(x) && std::abs(x) < 1.0f);
-        // Level-compensated: within a few dB of the input.
-        ZS_CHECK_NEAR(20.0 * std::log10(rmsOf(l, 4800) / inRms), 0.0, 4.0);
-        // And it adds harmonics (single-ended types: 2nd; all types: 3rd or 2nd above -60 dB).
+            ZS_CHECK(std::isfinite(x) && std::abs(x) < 1.5f);
         auto amp = [&](double f) {
             double c = 0.0, sn = 0.0;
-            for (int i = 9600; i < 9600 + 48000 / 2; ++i)
+            for (int i = 9600; i < 9600 + 24000; ++i)
             {
                 c += l[(size_t) i] * std::cos(2.0 * 3.14159265358979 * f * i / fs);
                 sn += l[(size_t) i] * std::sin(2.0 * 3.14159265358979 * f * i / fs);
             }
             return std::sqrt(c * c + sn * sn);
         };
-        const double h1 = amp(220.0), h2 = amp(440.0), h3 = amp(660.0);
-        ZS_CHECK_GT(20.0 * std::log10(std::max(h2, h3) / h1), -60.0);
-        if (t <= (int) ValveType::Clean12AU7)
-            ZS_CHECK_GT(20.0 * std::log10(h2 / h1), -60.0);
+        const double h1 = amp(220.0);
+        double h = 0.0;
+        for (int k = 2; k <= 5; ++k)
+            h += amp(220.0 * k) * amp(220.0 * k);
+        thdPercent = 100.0 * std::sqrt(h) / h1;
+        levelDb = 20.0 * std::log10(rmsOf(l, 4800) / inRms);
+    };
+    for (int t = 0; t < (int) ValveType::Count; ++t)
+    {
+        double thd = 0.0, level = 0.0;
+        run(t, 0.5f, thd, level);
+        ZS_CHECK_LT(thd, 1.0);
+        ZS_CHECK_GT(thd, 0.05); // it still colours
+        ZS_CHECK_NEAR(level, 0.0, 1.5);
+        run(t, 0.8f, thd, level);
+        ZS_CHECK_LT(thd, 2.5);
+        run(t, 1.0f, thd, level);
+        ZS_CHECK_GT(thd, 10.0);
+        ZS_CHECK_NEAR(level, 0.0, 6.0);
     }
 }
 

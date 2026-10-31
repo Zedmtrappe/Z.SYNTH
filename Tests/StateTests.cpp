@@ -585,7 +585,9 @@ ZS_TEST(layout_controls_inside_sections_and_not_overlapping)
                             || (id.startsWith("out.valve.") && id != "out.valve.drive" && id != "out.valve.on")
                             || id == "fx.dly.wow" || id == "fx.dly.flutter" || id == "fx.dly.age" || id == "fx.dly.spread"
                             || id == "fx.dly.duck" || id == "fx.rev.decay" || id == "fx.rev.lowcut" || id == "fx.rev.diff"
-                            || id == "fx.rev.mod" || id == "fx.rev.early" || id == "fx.rev.width";
+                            || id == "fx.rev.mod" || id == "fx.rev.early" || id == "fx.rev.width"
+                            || id == "comp.ratio" || id == "comp.attack" || id == "comp.release" || id == "comp.autorel"
+                            || id == "comp.knee" || id == "comp.schpf" || id == "comp.emph" || id == "comp.color";
         ZS_CHECK(advanced == (c.page != ui::kMainPage));
     }
 }

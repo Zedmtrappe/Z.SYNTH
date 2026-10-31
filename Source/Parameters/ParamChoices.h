@@ -99,6 +99,10 @@ enum class DelayType : int { Digital, TapeRE201, TapeEP3, AnalogDM2, Diffuse, Lo
 #define ZS_CH_REVERB_TYPE "Hall|Room|EMT 140 Plate|Echo Chamber|Spring|Lexicon 224|Lexicon 480L|Bricasti M7|Shimmer"
 enum class ReverbType : int { Hall, Room, Plate, Chamber, Spring, Lex224, Lex480, BricastiM7, Shimmer, Count };
 
+#define ZS_CH_COMP_MODEL "LA-2A Opto|SSL Bus|1176 FET|Fairchild 670"
+enum class CompModel : int { LA2A, SSLBus, FET1176, Fairchild, Count };
+#define ZS_CH_COMP_RATIO "1.5:1|2:1|3:1|4:1|8:1|12:1|20:1|All"
+
 #define ZS_CH_VALVE_TYPE "12AX7 Preamp|12AU7 Clean|EL84 Push-Pull|6L6 Power"
 enum class ValveType : int { Preamp12AX7, Clean12AU7, PushPullEL84, Power6L6, Count };
 

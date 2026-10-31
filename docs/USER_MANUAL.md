@@ -242,14 +242,30 @@ Each module has an **ON** switch and fades in/out smoothly.
 | REVERB | SIZE, DAMP, PRE-DLY, MIX, TYPE; **ADVANCED ▸** for the rest |
 | STEREO | WIDTH (0 = mono, 100 % = unchanged, 200 % = wide), CHAR (output warmth) |
 
+### Output compressor
+
+**OUTPUT COMP** (right end of the effects row) is the last stage before the
+master section. On the panel: **ON**, a gain-reduction VU meter, **THRESH**,
+**MAKEUP**, **MIX** (parallel compression) and **MODEL**; **ADVANCED ▸** opens
+the full set. Controls that a model does not have are dimmed.
+
+| Model | Character | Controls |
+|---|---|---|
+| LA-2A Opto | Optical leveller: smooth, program-dependent two-stage release | THRESH = peak reduction, MAKEUP = gain, RATIO up to 4:1 = COMPRESS / 8:1+ = LIMIT, EMPH (side-chain HF emphasis), SC HPF, COLOUR |
+| SSL Bus | VCA bus compressor for glue; very clean | RATIO, ATTACK 0.1-30 ms, RELEASE 0.1-1.2 s or AUTO REL, KNEE, SC HPF, COLOUR |
+| 1176 FET | Fast FET limiter | THRESH = input, RATIO 4/8/12/20:1 or All (all buttons: harder, overshooting, grittier), ATTACK 20-800 us, RELEASE 50 ms-1.1 s, COLOUR |
+| Fairchild 670 | Variable-mu valve: very soft knee, the ratio rises with level | THRESH, ATTACK 0.2-2 ms, RELEASE 0.3-3 s, COLOUR |
+
+These are ZYNTH's own models voiced after those units, not circuit emulations.
+
 ### Delay types and advanced controls
 
 | Type | Character |
 |---|---|
 | Digital | Clean repeats; TONE shapes the feedback only (the original ZYNTH delay) |
-| Tape RE-201 | Roland Space Echo style: tape saturation, head-gap top-end loss, wow and flutter, a little hiss |
-| Tape EP-3 | Echoplex style: warmer and darker than the RE-201, with more wow and drive |
-| Analog DM-2 | Boss DM-2 style bucket-brigade: dark two-pole roll-off, soft saturation, chorus-like clock wobble, clock hiss |
+| Tape RE-201 | Roland Space Echo style: each repeat thinner and darker (head-gap losses), tape saturation, clear wow and flutter, hiss |
+| Tape EP-3 | Echoplex style: darker and crunchier than the RE-201, with slow, deep wow |
+| Analog DM-2 | Boss DM-2 style bucket-brigade: very dark two-pole roll-off, murky soft saturation, stereo chorus wobble, clock noise |
 | Diffuse | Each repeat passes through all-pass diffusers and smears into the next |
 | Lo-Fi | Sample-rate and bit reduction with a telephone band |
 
@@ -288,8 +304,10 @@ shows CPU load, voices, peak level and limiter gain reduction (or, in red, the
 output guard's count of automatic recoveries from invalid audio).
 
 **VALVE** — a valve stage after the effects, seen through a window in the
-panel. **ON** switches it in, **DRIVE** sets how hard the valve is pushed
-(level-compensated, so it changes colour more than loudness) and the heaters
+panel. **ON** switches it in, **DRIVE** sets how hard the valve is pushed:
+up to about 80 % it only warms and gently rounds peaks (well under 2 %
+distortion even on loud material), and audible distortion starts at about
+90 %. The level stays steady and the heaters
 glow brighter as you turn it up. **ADVANCED ▸** opens the rest:
 
 | Control | What it does |

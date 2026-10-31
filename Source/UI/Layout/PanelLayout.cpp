@@ -276,14 +276,18 @@ PanelLayout::PanelLayout()
     struct Module { const char* id; const char* title; };
     const Module modules[7] = { { "fxDrive", "DRIVE" }, { "fxChorus", "CHORUS" }, { "fxEns", "ENSEMBLE" }, { "fxPhaser", "PHASER" },
                                 { "fxFlanger", "FLANGER" }, { "fxDelay", "DELAY" }, { "fxReverb", "REVERB" } };
+    // Module widths follow their contents; the space saved on the small
+    // modulation effects makes room for the output compressor at the end.
+    const int mw[7] = { 236, 160, 160, 176, 176, 264, 264 };
     int mx[7];
-    for (int i = 0; i < 7; ++i)
+    for (int i = 0, x = 18; i < 7; ++i)
     {
-        mx[i] = 18 + i * 270;
-        sectionAt(modules[i].id, modules[i].title, mx[i], 788, 264, 170, true);
+        mx[i] = x;
+        sectionAt(modules[i].id, modules[i].title, mx[i], 788, mw[i], 170, true);
+        x += mw[i] + 6;
     }
     auto fxFader = [&](int m, int k, const char* id, const char* label) { shortFader(id, mx[m] + 8 + k * 36, 810, label); };
-    auto fxOn = [&](int m, const char* id) { compact(id, mx[m] + 222, 789, "ON"); };
+    auto fxOn = [&](int m, const char* id) { compact(id, mx[m] + mw[m] - 42, 789, "ON"); };
 
     inSection("fxDrive");
     fxOn(0, "fx.drive.on");
@@ -338,6 +342,17 @@ PanelLayout::PanelLayout()
     fxFader(6, 3, "fx.rev.mix", "MIX");
     add("fx.rev.type", K::Selector, mx[6] + 158, 812, "TYPE", 100);
     utilityAt("openReverb", mx[6] + 158, 862, 100, 24);
+
+    // Output compressor: model, the gain-reduction VU and the everyday controls.
+    const int cx = mx[6] + mw[6] + 6, cw = 1902 - cx;
+    sectionAt("compModule", "OUTPUT COMP", cx, 788, cw, 170, true);
+    compact("comp.on", cx + cw - 42, 789, "ON");
+    utilityAt("compMeter", cx + 8, 808, 184, 144);
+    shortFader("comp.thresh", cx + 200, 810, "THRESH");
+    shortFader("comp.makeup", cx + 236, 810, "MAKEUP");
+    shortFader("comp.mix",    cx + 272, 810, "MIX");
+    add("comp.model", K::Selector, cx + 310, 812, "MODEL", cw - 318);
+    utilityAt("openComp", cx + 310, 862, cw - 318, 24);
 
     // ----------------------------------------------------------- keyboard
     sectionAt("wheels", "", 10, 972, 150, 218);
@@ -459,6 +474,30 @@ PanelLayout::PanelLayout()
         text(reverbTypes[k], 340, 68 + k * 26, 410, 22, juce::Justification::centredLeft);
     text("DECAY trims SIZE's decay time.  DIFF = echo density.  MOD = tail chorusing.  E / L = early reflections vs tail.",
          340, 308, 410, 48, juce::Justification::topLeft);
+
+    // ------------------------------------------------------- comp advanced
+    pageList.push_back({ "comp", "OUTPUT COMP", { 1050, 300, 850, 380 } });
+    page("comp");
+    sectionAt("compPage", "OUTPUT COMP  -  ADVANCED", 0, 0, 850, 380);
+    utilityAt("compClose", 810, 3, 34, 20);
+    utilityAt("compMeterBig", 20, 44, 260, 190);
+    add("comp.ratio", K::Selector, 300, 48, "RATIO", 120);
+    add("comp.autorel", K::Switch, 430, 48, "AUTO REL", 70);
+    const std::pair<const char*, const char*> compFaders[6] = { { "comp.attack", "ATTACK" }, { "comp.release", "RELEASE" },
+        { "comp.knee", "KNEE" }, { "comp.schpf", "SC HPF" }, { "comp.emph", "EMPH" }, { "comp.color", "COLOUR" } };
+    for (int k = 0; k < 6; ++k)
+        fader(compFaders[k].first, 300 + k * 46, 110, compFaders[k].second);
+    heading("MODELS (MODEL on the panel)", 590, 44, 250);
+    const char* compNotes[4] = {
+        "LA-2A OPTO   Optical leveller: smooth, program-dependent two-stage release. THRESH = peak reduction; ratio up to 4:1 = COMPRESS, 8:1+ = LIMIT; EMPH = HF emphasis.",
+        "SSL BUS      VCA bus compressor for glue: ratio, attack 0.1-30 ms, release 0.1-1.2 s or AUTO, side-chain HPF. Very clean.",
+        "1176 FET     Fast FET limiter: attack 20-800 us, release 50 ms-1.1 s, 4/8/12/20:1 or ALL buttons (aggressive, gritty).",
+        "FAIRCHILD    Variable-mu valve: very soft knee, ratio rises with level, slow and smooth; rich valve colour." };
+    for (int k = 0; k < 4; ++k)
+        text(compNotes[k], 590, 66 + k * 70, 250, 66, juce::Justification::topLeft);
+    text("GAIN REDUCTION", 20, 240, 260, 16, juce::Justification::centred, true);
+    text("COLOUR adds the model's valve / FET / VCA saturation (0.5 = as voiced).  MIX on the panel blends in the dry signal for parallel compression.",
+         20, 262, 260, 70, juce::Justification::topLeft);
 
     // ------------------------------------------------------- sequencer steps
     pageList.push_back({ "seq", "STEP SEQUENCER", { 400, 300, 1120, 340 } });

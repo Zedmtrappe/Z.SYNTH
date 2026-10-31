@@ -59,6 +59,7 @@ void SynthEngine::prepare(double sampleRate, int maxBlockSize)
     delay.prepare(fs);
     reverb.prepare(fs);
     valve.prepare(fs);
+    compressor.prepare(fs);
     output.prepare(fs);
     for (auto& f : fades)
         f = 0.0f;
@@ -101,7 +102,7 @@ void SynthEngine::process(float* left, float* right, int numSamples,
         arp.reset();
         seq.reset();
         drive.reset(); phaser.reset(); flanger.reset(); chorus.reset();
-        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset();
+        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset(); compressor.reset();
         for (auto& ch : playedNote)
             for (auto& n : ch)
                 n = -1;
@@ -212,7 +213,7 @@ void SynthEngine::processChunk(float* left, float* right, int n, const MidiEvent
         badBlocks.fetch_add(1, std::memory_order_relaxed);
         voices.killAll();
         drive.reset(); phaser.reset(); flanger.reset(); chorus.reset();
-        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset();
+        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset(); compressor.reset();
     }
 
     activeVoices.store(voices.activeVoiceCount(), std::memory_order_relaxed);
@@ -696,6 +697,26 @@ void SynthEngine::runEffects(float* left, float* right, int n)
         valve.process(l, r, n, (ValveType) pi(P::ValveType), p(P::ValveDrive), p(P::ValveBias), p(P::ValveSag),
                       p(P::ValveWarmth), p(P::ValveMix));
     }, [&] { valve.reset(); });
+
+    // Output compressor: the last stage before the master section.
+    compGrOut.store(0.0f, std::memory_order_relaxed);
+    runFaded(8, pb(P::CompOn), [&](float* l, float* r) {
+        CompSettings cs;
+        cs.model = (CompModel) pi(P::CompModel);
+        cs.thresholdDb = p(P::CompThresh);
+        cs.makeupDb = p(P::CompMakeup);
+        cs.mix = p(P::CompMix);
+        cs.ratioIndex = pi(P::CompRatio);
+        cs.attackMs = p(P::CompAttack);
+        cs.releaseMs = p(P::CompRelease);
+        cs.autoRelease = pb(P::CompAutoRel);
+        cs.knee = p(P::CompKnee);
+        cs.scHpfHz = p(P::CompScHpf);
+        cs.emphasis = p(P::CompEmph);
+        cs.colour = p(P::CompColour);
+        compressor.process(l, r, n, cs);
+        compGrOut.store(compressor.takeGainReduction(), std::memory_order_relaxed);
+    }, [&] { compressor.reset(); });
 }
 
 } // namespace zsynth::dsp

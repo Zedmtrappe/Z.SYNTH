@@ -19,6 +19,7 @@
 #include "../../Parameters/ParamTable.h"
 #include "../Common/DspCommon.h"
 #include "../Common/HalfBand.h"
+#include "../Effects/Compressor.h"
 #include "../Effects/DriveAndOutput.h"
 #include "../Effects/ModulationEffects.h"
 #include "../Effects/TimeEffects.h"
@@ -73,6 +74,8 @@ public:
     /** 0 = notes go straight to the voices, 1 = arpeggiator, 2 = sequencer. */
     int getNoteRoute() const         { return routeOut.load(std::memory_order_relaxed); }
     float getLimiterGain() const     { return limiterGainOut.load(std::memory_order_relaxed); }
+    /** Output compressor gain reduction in the last block (positive dB). */
+    float getCompGainReduction() const { return compGrOut.load(std::memory_order_relaxed); }
 
 private:
     void configureOversampling(int factor);
@@ -134,9 +137,10 @@ private:
     StereoDelay delay;
     Reverb reverb;
     ValveStage valve;
+    OutputCompressor compressor;
     OutputStage output;
     // Each effect fades in/out over 20 ms when switched, so toggling never clicks.
-    float fades[8] {};
+    float fades[9] {};
     std::vector<float> fxTempL, fxTempR;
 
     std::atomic<bool> panicRequested { false };
@@ -146,7 +150,7 @@ private:
     std::atomic<uint32_t> midiCounter { 0 };
     std::atomic<uint32_t> badBlocks { 0 };
     std::atomic<uint32_t> voiceMask { 0 };
-    std::atomic<float> modWheelOut { 0.0f }, pitchBendOut { 0.0f }, limiterGainOut { 1.0f };
+    std::atomic<float> modWheelOut { 0.0f }, pitchBendOut { 0.0f }, limiterGainOut { 1.0f }, compGrOut { 0.0f };
     std::atomic<double> tempoOut { 120.0 };
     std::atomic<bool> hostTempoOut { false };
     std::atomic<int> routeOut { 0 };

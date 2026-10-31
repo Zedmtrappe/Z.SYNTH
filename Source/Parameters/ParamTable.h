@@ -220,11 +220,24 @@ X(Macro,         "out.macro",      "Macro",         "Output", Float, 0.f, 1.f, 0
 X(Limiter,       "out.limiter",    "Limiter",       "Output", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "Output safety limiter (keeps peaks below 0 dBFS).") \
 X(ValveOn,       "out.valve.on",   "Valve On",      "Output", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "Valve output stage (oversampled triode / power-valve saturation).") \
 X(ValveType,     "out.valve.type", "Valve Type",    "Output", Choice, 0, 0, 0.f, LIN, "", ZS_CH_VALVE_TYPE, "12AX7: high-gain preamp triode (even harmonics). 12AU7: low-gain, clean warmth. EL84: push-pull power pair (odd harmonics, early compression). 6L6: big, smooth power valve with more headroom.") \
-X(ValveDrive,    "out.valve.drive","Valve Drive",   "Output", Float, 0.f, 1.f, 0.3f, LIN, "", nullptr, "How hard the valve is driven (level-compensated).") \
+X(ValveDrive,    "out.valve.drive","Valve Drive",   "Output", Float, 0.f, 1.f, 0.3f, LIN, "", nullptr, "How hard the valve is driven: warmth and gentle peak compression up to about 80 %, audible distortion from about 90 %.") \
 X(ValveBias,     "out.valve.bias", "Valve Bias",    "Output", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Operating point: cold (low) is cleaner and more symmetric, hot (high) adds even harmonics and grit.") \
 X(ValveSag,      "out.valve.sag",  "Valve Sag",     "Output", Float, 0.f, 1.f, 0.3f, LIN, "", nullptr, "Power-supply sag: the valve compresses and blooms on loud notes.") \
 X(ValveWarmth,   "out.valve.warmth","Valve Warmth", "Output", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Output transformer: rounds off the top end and adds low-end weight.") \
-X(ValveMix,      "out.valve.mix",  "Valve Mix",     "Output", Float, 0.f, 1.f, 1.f, LIN, "", nullptr, "Dry/valve blend.")
+X(ValveMix,      "out.valve.mix",  "Valve Mix",     "Output", Float, 0.f, 1.f, 1.f, LIN, "", nullptr, "Dry/valve blend.") \
+X(CompOn,        "comp.on",        "Comp On",       "Output", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "Output compressor (after the valve stage, before the master).") \
+X(CompModel,     "comp.model",     "Comp Model",    "Output", Choice, 0, 0, 1.f, LIN, "", ZS_CH_COMP_MODEL, "LA-2A optical leveller, SSL-style VCA bus compressor, 1176-style FET limiter or Fairchild-style variable-mu.") \
+X(CompThresh,    "comp.thresh",    "Comp Threshold","Output", Float, -40.f, 0.f, -12.f, LIN, "dB", nullptr, "Level where compression starts (on the LA-2A this is PEAK REDUCTION, on the 1176 the INPUT drive).") \
+X(CompMakeup,    "comp.makeup",    "Comp Makeup",   "Output", Float, 0.f, 24.f, 0.f, LIN, "dB", nullptr, "Output gain after compression (the LA-2A's GAIN, the 1176's OUTPUT).") \
+X(CompMix,       "comp.mix",       "Comp Mix",      "Output", Float, 0.f, 1.f, 1.f, LIN, "", nullptr, "Parallel (New York) compression: blends the dry signal back in.") \
+X(CompRatio,     "comp.ratio",     "Comp Ratio",    "Output", Choice, 0, 0, 3.f, LIN, "", ZS_CH_COMP_RATIO, "Compression ratio. LA-2A: up to 4:1 = COMPRESS, 8:1 and above = LIMIT. 1176: All = all buttons in.") \
+X(CompAttack,    "comp.attack",    "Comp Attack",   "Output", Float, 0.02f, 100.f, 10.f, LOG, "ms", nullptr, "Attack time (SSL 0.1-30 ms, 1176 0.02-0.8 ms, Fairchild 0.2-2 ms; the LA-2A sets its own).") \
+X(CompRelease,   "comp.release",   "Comp Release",  "Output", Float, 50.f, 3000.f, 300.f, LOG, "ms", nullptr, "Release time (SSL 0.1-1.2 s, 1176 50-1100 ms, Fairchild 0.3-3 s; the LA-2A's is program dependent).") \
+X(CompAutoRel,   "comp.autorel",   "Comp Auto Release","Output", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "SSL AUTO release: fast after transients, slow after sustained compression.") \
+X(CompKnee,      "comp.knee",      "Comp Knee",     "Output", Float, 0.f, 1.f, 0.3f, LIN, "", nullptr, "Knee softness (SSL).") \
+X(CompScHpf,     "comp.schpf",     "Comp SC HPF",   "Output", Float, 20.f, 500.f, 20.f, LOG, "Hz", nullptr, "Side-chain high-pass: stops the low end pumping the compressor.") \
+X(CompEmph,      "comp.emph",      "Comp Emphasis", "Output", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "LA-2A side-chain HF emphasis: reacts more to bright sounds.") \
+X(CompColour,    "comp.color",     "Comp Colour",   "Output", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Analogue colour of the model (valve / FET / VCA saturation); 0.5 = as voiced.")
 
 #define ZS_LFO_PARAMS(X, n, unused) \
 X(Lfo##n##Wave,  "lfo" #n ".wave",  "LFO " #n " Wave",  "LFO", Choice, 0, 0, 0.f, LIN, "", ZS_CH_LFO_WAVE, "LFO waveform.") \

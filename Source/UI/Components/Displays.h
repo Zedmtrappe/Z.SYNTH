@@ -114,6 +114,18 @@ protected:
     uint64_t stateHash() const override;
 };
 
+/** Analogue VU meter showing the output compressor's gain reduction. */
+class CompMeter : public Display
+{
+public:
+    using Display::Display;
+    void refresh() override;
+    void paint(juce::Graphics&) override;
+private:
+    float needle = 0.0f, shown = -1.0f;
+    bool lit = false;
+};
+
 class OutputMeter : public Display
 {
 public:

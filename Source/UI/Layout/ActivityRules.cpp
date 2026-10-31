@@ -23,6 +23,23 @@ Activity activityFor(int i, const float* v, bool hostTempo)
     if (inRange(i, P::ValveType, P::ValveMix) && ! on(v, P::ValveOn))
         return inactive("The valve stage is off. Switch VALVE on.");
 
+    if (inRange(i, P::CompModel, P::CompColour))
+    {
+        if (! on(v, P::CompOn))
+            return inactive("The output compressor is off. Switch COMP on.");
+        const auto model = (CompModel) choice(v, P::CompModel);
+        if (model == CompModel::LA2A && (i == P::CompAttack || i == P::CompRelease || i == P::CompAutoRel || i == P::CompKnee))
+            return inactive("The LA-2A's optical cell sets its own attack and two-stage release.");
+        if (model == CompModel::Fairchild && (i == P::CompRatio || i == P::CompKnee || i == P::CompAutoRel))
+            return inactive("Variable-mu: the ratio rises smoothly with level.");
+        if (model == CompModel::FET1176 && (i == P::CompKnee || i == P::CompAutoRel))
+            return inactive("The 1176 has a fixed knee and manual release.");
+        if (i == P::CompEmph && model != CompModel::LA2A)
+            return inactive("HF emphasis is an LA-2A control.");
+        if (i == P::CompRelease && model == CompModel::SSLBus && on(v, P::CompAutoRel))
+            return inactive("AUTO release is on.");
+    }
+
     const bool analogOff = engine == EngineMode::FM;
     if ((inRange(i, P::Osc1On, P::Osc3Xmod) || i == P::SubLevel || i == P::SubWave || inRange(i, P::WtTable, P::WtSpread)) && analogOff)
         return inactive("Analog oscillators are off in FM engine mode. Set ENGINE to ANALOG or HYBRID.");

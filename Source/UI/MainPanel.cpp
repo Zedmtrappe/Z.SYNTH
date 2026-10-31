@@ -21,6 +21,7 @@ namespace
         if (section.startsWith("fm") || section.startsWith("op"))   return juce::Colour(0xff7fd36b); // green
         if (section == "perf" || section.startsWith("seq"))         return juce::Colour(0xffe9d35a); // yellow
         if (section.startsWith("fx"))                               return juce::Colour(0xfff08fb0); // pink
+        if (section.startsWith("comp"))                             return juce::Colour(0xff78d4e6); // cyan
         if (section.startsWith("delay") || section.startsWith("reverb")) return juce::Colour(0xfff08fb0); // pink (effects)
         if (section.startsWith("valve"))                                     return juce::Colour(0xffff8c3a); // valve orange
         if (section == "output")                                    return juce::Colour(0xffffffff);
@@ -277,6 +278,8 @@ void MainPanel::buildUtilities()
         showFxPresetMenu(reverbPresets(), "reverbPresets", P::ReverbOn); });
     typingButton = &button("musicalTyping", "TYPING", "Musical typing: play ZYNTH from your computer keyboard (floating window)", [this] {
         showMusicalTyping(! isMusicalTypingVisible()); });
+    button("openComp", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Compressor ratio, attack, release, knee, side-chain and colour", [this] {
+        showPage(getVisiblePage() == "comp" ? juce::String() : juce::String("comp")); });
     button("openValve", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Valve type, bias, sag, warmth and mix", [this] {
         showPage(getVisiblePage() == "valve" ? juce::String() : juce::String("valve")); });
 
@@ -299,6 +302,8 @@ void MainPanel::buildUtilities()
     displays.push_back(&addUtility<VoiceLeds>("voiceLeds", processor));
     displays.push_back(&addUtility<OutputInfo>("outputInfo", processor));
     displays.push_back(&addUtility<ValveDisplay>("valveDisplay", processor));
+    displays.push_back(&addUtility<CompMeter>("compMeter", processor));
+    displays.push_back(&addUtility<CompMeter>("compMeterBig", processor));
     displays.push_back(&addUtility<OutputMeter>("meter", processor));
     for (int op = 0; op < kNumOperators; ++op)
         displays.push_back(&addUtility<EnvelopeDisplay>("op" + juce::String(op + 1) + "EnvDisplay", processor,

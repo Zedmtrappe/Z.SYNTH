@@ -95,8 +95,8 @@ private:
     an earlier, harder limit on the negative (cut-off) side. The asymmetry is
     what produces the even harmonics of single-ended stages; a push-pull pair
     subtracts two mirrored halves, cancelling even harmonics unless the bias
-    unbalances them. Level is compensated at about -12 dBFS so DRIVE changes
-    colour more than loudness. */
+    unbalances them. The stage has unity gain for small signals, so DRIVE
+    changes colour (and peak compression) rather than loudness. */
 class ValveStage
 {
 public:
@@ -113,10 +113,12 @@ public:
     static const Model& model(ValveType t)
     {
         static const Model models[(int) ValveType::Count] = {
-            { 0.0f, 30.0f, 0.6f, false, 0.5f, 9000.0f, 2.5f },  // 12AX7 preamp triode
-            { 0.0f, 18.0f, 0.3f, false, 0.3f, 14000.0f, 2.0f }, // 12AU7 low-mu triode
-            { 3.0f, 26.0f, 0.5f, true,  0.9f, 7500.0f, 3.0f },  // EL84 push-pull pentodes
-            { 0.0f, 20.0f, 0.4f, true,  0.6f, 6500.0f, 4.0f },  // 6L6 power pair
+            // Gains are relative to unity small-signal level: at -12 dB nothing
+            // saturates, so low DRIVE settings only warm and gently round peaks.
+            { -12.0f, 15.0f, 0.6f, false, 0.5f, 9000.0f, 2.5f },  // 12AX7 preamp triode
+            { -12.0f, 11.0f, 0.3f, false, 0.3f, 14000.0f, 2.0f }, // 12AU7 low-mu triode
+            { -10.0f, 13.0f, 0.5f, true,  0.8f, 7500.0f, 3.0f },  // EL84 push-pull pentodes
+            { -12.0f, 12.0f, 0.4f, true,  0.6f, 6500.0f, 4.0f },  // 6L6 power pair
         };
         return models[std::clamp((int) t, 0, (int) ValveType::Count - 1)];
     }
@@ -151,7 +153,11 @@ public:
     void process(float* L, float* R, int n, ValveType type, float drive, float bias, float sag, float warmth, float mix)
     {
         const Model& m = model(type);
-        const float gain = dbToGain(m.minGainDb + clampf(drive, 0.0f, 1.0f) * (m.maxGainDb - m.minGainDb));
+        // DRIVE taper: most of the travel is warmth and soft peak compression;
+        // the gain rises steeply only near the top, so obvious distortion
+        // starts at around 90 %.
+        const float d = clampf(drive, 0.0f, 1.0f);
+        const float gain = dbToGain(m.minGainDb + std::pow(d, 5.0f) * (m.maxGainDb - m.minGainDb));
         if (lastGain < 0.0f)
             lastGain = gain;
         const float gainStep = (gain - lastGain) / (float) std::max(1, n);
@@ -159,7 +165,7 @@ public:
         const float b = clampf(bias, 0.0f, 1.0f) - 0.5f;
         const float asymA = m.pushPull ? m.asym * (1.0f + 1.6f * b) : m.asym * (1.0f + 3.2f * b);
         const float asymB = m.pushPull ? m.asym * (1.0f - 1.6f * b) : asymA;
-        const float sagAmt = clampf(sag, 0.0f, 1.0f) * m.sagDepth * 3.0f;
+        const float sagAmt = clampf(sag, 0.0f, 1.0f) * m.sagDepth * 1.2f;
 
         const float w = clampf(warmth, 0.0f, 1.0f);
         const float lpHz = std::min(20000.0f * std::pow(m.transformerHz / 20000.0f, w), 0.45f * fs);
@@ -177,7 +183,9 @@ public:
             g += gainStep;
             // Sag: the effective drive drops as the supply is loaded, then recovers.
             const float gEff = g / (1.0f + sagAmt * env);
-            const float makeup = 0.25f / std::max(1.0e-4f, fastTanh(0.25f * gEff));
+            // Unity small-signal gain: the stage never just gets louder.
+            // Above unity drive, part of the level lost to saturation is made up.
+            const float makeup = gEff > 1.0f ? std::pow(gEff, -0.8f) : 1.0f / std::max(1.0e-4f, gEff);
             float* ch[2] = { L + i, R + i };
             float peak = 0.0f;
             for (int c = 0; c < 2; ++c)

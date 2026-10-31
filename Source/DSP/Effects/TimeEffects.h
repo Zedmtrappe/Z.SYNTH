@@ -108,17 +108,21 @@ public:
         float drive;                // feedback-path saturation
         float hiss;                 // noise floor added per pass (linear)
         bool twoPole;               // BBD-style steeper roll-off
+        float lowHz;                // head-gap / coupling low cut of each repeat
     };
 
     static const Voicing& voicing(DelayType t)
     {
         static const Voicing v[(int) DelayType::Count] = {
-            { 0.0f, 0.5f, 0.0f, 6.0f, 20000.0f, 0.0f, 0.0f, false },     // Digital
-            { 1.6f, 0.55f, 0.18f, 7.3f, 7500.0f, 0.9f, 0.0004f, false }, // Tape RE-201
-            { 2.6f, 0.4f, 0.12f, 5.1f, 5200.0f, 1.4f, 0.0003f, false },  // Tape EP-3
-            { 0.9f, 0.25f, 0.0f, 6.0f, 3800.0f, 0.6f, 0.0006f, true },   // Analog DM-2
-            { 0.5f, 0.3f, 0.0f, 6.0f, 9000.0f, 0.3f, 0.0f, false },      // Diffuse
-            { 0.3f, 0.7f, 0.05f, 9.0f, 3400.0f, 1.0f, 0.0008f, true },   // Lo-Fi
+            // Each type is voiced to be unmistakable at its natural settings
+            // (WOW / FLUTTER / AGE at 0.5): every repeat passes these stages again,
+            // so the character builds up audibly from the first echo onwards.
+            { 0.0f, 0.5f, 0.0f, 6.0f, 20000.0f, 0.0f, 0.0f, false, 20.0f },       // Digital
+            { 2.2f, 0.5f, 0.35f, 6.8f, 4200.0f, 1.8f, 0.0012f, false, 140.0f },   // Tape RE-201: thin, dark, wobbly
+            { 3.6f, 0.33f, 0.22f, 4.6f, 3100.0f, 2.8f, 0.0008f, false, 90.0f },   // Tape EP-3: darker, crunchier, seasick
+            { 1.4f, 0.45f, 0.0f, 6.0f, 2600.0f, 1.2f, 0.0015f, true, 70.0f },     // Analog DM-2: murky, chorused
+            { 0.6f, 0.3f, 0.0f, 6.0f, 7000.0f, 0.4f, 0.0f, false, 60.0f },        // Diffuse
+            { 0.3f, 0.7f, 0.05f, 9.0f, 3400.0f, 1.0f, 0.0008f, true, 20.0f },     // Lo-Fi
         };
         return v[std::clamp((int) t, 0, (int) DelayType::Count - 1)];
     }
@@ -149,7 +153,7 @@ public:
             for (auto& d : row)
                 d.reset();
         for (int c = 0; c < 2; ++c)
-            lp[c] = hp[c] = top[c] = top2[c] = held[c] = holdPhase[c] = 0.0f;
+            lp[c] = hp[c] = low[c] = top[c] = top2[c] = held[c] = holdPhase[c] = 0.0f;
         smoothedDelay = -1.0f;
         wowPhase = flutterPhase = 0.0f;
         drift = driftTarget = 0.0f;
@@ -172,6 +176,7 @@ public:
 
         const float age = 2.0f * clampf(s.age, 0.0f, 1.0f);           // 1 = as voiced
         const float aTop = coeffFor(v.topHz * fastExp2(-(age - 1.0f) * 1.2f));
+        aLow = coeffFor(v.lowHz);
         const float drive = v.drive * age;
         const float driveNorm = 1.0f / (1.0f + drive); // unity small-signal gain: never raises the loop gain
         const float hiss = v.hiss * age;
@@ -266,7 +271,7 @@ private:
         }
         if (type == DelayType::Diffuse)
         {
-            constexpr float g = 0.6f;
+            constexpr float g = 0.7f;
             for (int k = 0; k < 3; ++k)
             {
                 const float d = diffusers[c][k].readInt(diffLen[c][k]);
@@ -279,6 +284,8 @@ private:
             x = fastTanh(x * (1.0f + drive)) * driveNorm;
         top[c] += aTop * (x - top[c]);
         x = top[c];
+        low[c] += aLow * (x - low[c]);
+        x -= low[c];
         if (v.twoPole)
         {
             top2[c] += aTop * (x - top2[c]);
@@ -293,7 +300,8 @@ private:
     DelayLine lines[2];
     DelayLine diffusers[2][3];
     int diffLen[2][3] {};
-    float lp[2] {}, hp[2] {}, top[2] {}, top2[2] {}, held[2] {}, holdPhase[2] {};
+    float aLow = 0.0f;
+    float lp[2] {}, hp[2] {}, low[2] {}, top[2] {}, top2[2] {}, held[2] {}, holdPhase[2] {};
     float smoothedDelay = -1.0f;
     float wowPhase = 0.0f, flutterPhase = 0.0f, drift = 0.0f, driftTarget = 0.0f, aDrift = 0.0f;
     float duckEnv = 0.0f, aDuckAttack = 0.0f, aDuckRelease = 0.0f;
@@ -354,10 +362,10 @@ public:
             { 0.55f, 0.9f, 0.78f, 0.8f, 1.1f, 20000.0f, 0.55f, 0.0f, 1.0f, 60.0f, false, false, false, false },// EMT 140 Plate
             { 0.50f, 0.7f, 0.66f, 0.6f, 0.8f, 12000.0f, 1.3f, 0.7f, 0.7f, 0.0f, false, false, false, false },  // Echo Chamber
             { 0.28f, 0.6f, 0.50f, 0.4f, 1.3f, 4800.0f, 1.0f, 0.0f, 1.0f, 150.0f, false, true, false, false },  // Spring
-            { 1.10f, 1.1f, 0.50f, 3.0f, 1.4f, 12000.0f, 0.9f, 0.3f, 1.0f, 0.0f, true, false, false, true },    // Lexicon 224
-            { 1.25f, 1.1f, 0.66f, 2.2f, 0.9f, 15000.0f, 0.8f, 0.35f, 1.1f, 0.0f, true, false, false, false },  // Lexicon 480L
+            { 1.10f, 1.1f, 0.50f, 0.85f, 0.75f, 12000.0f, 0.9f, 0.3f, 1.0f, 0.0f, true, false, false, true },  // Lexicon 224
+            { 1.25f, 1.1f, 0.66f, 0.9f, 0.6f, 15000.0f, 0.8f, 0.35f, 1.1f, 0.0f, true, false, false, false },  // Lexicon 480L
             { 1.20f, 1.0f, 0.74f, 0.5f, 0.5f, 20000.0f, 0.75f, 0.6f, 1.2f, 0.0f, false, false, false, false }, // Bricasti M7
-            { 1.20f, 1.4f, 0.70f, 1.2f, 0.6f, 16000.0f, 0.7f, 0.0f, 1.0f, 0.0f, false, false, true, false },   // Shimmer
+            { 1.20f, 1.4f, 0.70f, 0.9f, 0.6f, 16000.0f, 0.7f, 0.0f, 1.0f, 0.0f, false, false, true, false },   // Shimmer
         };
         return v[std::clamp((int) t, 0, (int) ReverbType::Count - 1)];
     }
@@ -491,7 +499,7 @@ public:
                 lengths[k] += (target[k] - lengths[k]) * lenSmooth;
                 float len = lengths[k];
                 if (k < 4 || v.allLinesMod)
-                    len += modDepth * (fastSin(modPhase + (float) k * 0.125f) + (v.allLinesMod ? 0.5f * drift : 0.0f));
+                    len += modDepth * (fastSin(modPhase + (float) k * 0.125f) + (v.allLinesMod ? 0.3f * drift : 0.0f));
                 y[k] = lines[k].read(len + modDepth * 1.6f + 2.0f);
                 damp[k] += aDamp * (y[k] - damp[k]);
                 y[k] = undenormalise(damp[k]) * gains[k];
@@ -509,10 +517,11 @@ public:
                 shimmerOut = shimmerGain * fastTanh(pitchUpOctave(0.5f * (wl + wr)));
             if (v.grainy)
             {
-                // 12-bit-style converters: audible grain as the tail decays.
-                constexpr float q = 2048.0f;
-                wl = std::round(wl * q) / q;
-                wr = std::round(wr * q) / q;
+                // 12-bit-style converters: a dithered noise floor under the tail
+                // (dither keeps the decay smooth instead of stepping/gating).
+                constexpr float q = 4096.0f;
+                wl = std::round(wl * q + 0.5f * (rng.unipolar() - rng.unipolar())) / q;
+                wr = std::round(wr * q + 0.5f * (rng.unipolar() - rng.unipolar())) / q;
             }
 
             wl = wl * lateGain + erL * earlyGain;

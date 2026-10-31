@@ -832,6 +832,100 @@ void ValveDisplay::paint(juce::Graphics& g)
     g.drawImage(front, r);
 }
 
+// =========================================================== comp meter ====
+void CompMeter::refresh()
+{
+    const bool on = v(P::CompOn) >= 0.5f;
+    const float target = on ? processor.getEngine().getCompGainReduction() : 0.0f;
+    // VU ballistics: about 300 ms to settle, evaluated at the panel frame rate.
+    needle += (target - needle) * 0.32f;
+    if (std::abs(needle - shown) > 0.03f || on != lit)
+    {
+        shown = needle;
+        lit = on;
+        repaint();
+    }
+}
+
+void CompMeter::paint(juce::Graphics& g)
+{
+    namespace m = material;
+    const auto r = getLocalBounds().toFloat();
+    // Housing: a black bezel set into the panel.
+    m::castShadow(g, r.reduced(2.0f), 5.0f, 5.0f, { 1, 3 }, 0.7f);
+    juce::ColourGradient housing(juce::Colour(0xff2b2c30), 0.0f, r.getY(), juce::Colour(0xff0d0d0f), 0.0f, r.getBottom(), false);
+    g.setGradientFill(housing);
+    g.fillRoundedRectangle(r, 6.0f);
+    m::raisedEdge(g, r, 6.0f, 0.9f);
+
+    // The face, lit from behind by a warm lamp (dim when the compressor is off).
+    const auto face = r.reduced(7.0f);
+    juce::Path facePath;
+    facePath.addRoundedRectangle(face, 3.0f);
+    const auto lampCentre = juce::Colour(lit ? 0xfffff1cc : 0xff8d8572);
+    const auto lampEdge = juce::Colour(lit ? 0xffd9bd7c : 0xff5e5747);
+    juce::ColourGradient paper(lampCentre, face.getCentreX(), face.getBottom(), lampEdge, face.getX(), face.getY(), true);
+    g.setGradientFill(paper);
+    g.fillPath(facePath);
+
+    g.saveState();
+    g.reduceClipRegion(facePath);
+    const juce::Point<float> pivot(face.getCentreX(), face.getBottom() + face.getHeight() * 0.32f);
+    const float radius = face.getHeight() * 1.02f;
+    constexpr float span = 0.72f;
+    auto angleFor = [&](float gr) {
+        const float t = std::log10(1.0f + juce::jlimit(0.0f, 20.0f, gr)) / std::log10(21.0f);
+        return span - 2.0f * span * t; // 0 dB GR at the right, 20 dB at the left
+    };
+    auto polar = [&](float a, float rad) { return juce::Point<float>(pivot.x + std::sin(a) * rad, pivot.y - std::cos(a) * rad); };
+
+    // Scale arc, red heavy-compression zone, ticks and numbers.
+    const auto ink = juce::Colour(0xff1d1a14);
+    juce::Path arc;
+    arc.addCentredArc(pivot.x, pivot.y, radius * 0.8f, radius * 0.8f, 0.0f, -span, span, true);
+    g.setColour(ink);
+    g.strokePath(arc, juce::PathStrokeType(1.2f));
+    juce::Path red;
+    red.addCentredArc(pivot.x, pivot.y, radius * 0.83f, radius * 0.83f, 0.0f, -span, angleFor(10.0f), true);
+    g.setColour(juce::Colour(0xffc0392b));
+    g.strokePath(red, juce::PathStrokeType(3.0f));
+    const float fontSize = juce::jlimit(8.0f, 11.0f, face.getHeight() * 0.085f);
+    g.setFont(labelFont(fontSize));
+    for (float gr : { 0.0f, 1.0f, 2.0f, 3.0f, 5.0f, 7.0f, 10.0f, 15.0f, 20.0f })
+    {
+        const float a = angleFor(gr);
+        g.setColour(gr >= 10.0f ? juce::Colour(0xffa93226) : ink);
+        g.drawLine({ polar(a, radius * 0.8f), polar(a, radius * 0.88f) }, 1.1f);
+        const auto c = polar(a, radius * 0.96f);
+        g.drawText(juce::String((int) gr), juce::Rectangle<float>(22.0f, 12.0f).withCentre(c).toNearestInt(), juce::Justification::centred, false);
+    }
+    g.setColour(ink.withAlpha(0.8f));
+    g.setFont(labelFont(fontSize * 0.95f));
+    g.drawText("GAIN REDUCTION  dB", face.withTrimmedTop(face.getHeight() * 0.62f).withHeight(14.0f).toNearestInt(), juce::Justification::centred, false);
+    static const char* badge[4] = { "OPTO", "VCA", "FET", "VARI-MU" };
+    g.setFont(titleFont(fontSize * 1.05f));
+    g.drawText(badge[juce::jlimit(0, 3, iv(P::CompModel))], face.withTrimmedTop(face.getHeight() * 0.74f).withHeight(14.0f).toNearestInt(),
+               juce::Justification::centred, false);
+
+    // Needle with a soft shadow on the face.
+    const float a = angleFor(needle);
+    const auto tip = polar(a, radius * 0.93f);
+    const auto base = polar(a, radius * 0.38f);
+    g.setColour(juce::Colours::black.withAlpha(0.18f));
+    g.drawLine({ base.translated(2.0f, 2.5f), tip.translated(2.0f, 2.5f) }, 2.0f);
+    g.setColour(juce::Colour(0xff111111));
+    g.drawLine({ base, tip }, 1.4f);
+    g.restoreState();
+
+    // Pivot cover and glass.
+    juce::ColourGradient cover(juce::Colour(0xff3a3b40), 0.0f, face.getBottom() - 16.0f, juce::Colour(0xff111113), 0.0f, face.getBottom(), false);
+    g.setGradientFill(cover);
+    g.fillRect(face.withTop(face.getBottom() - 12.0f));
+    m::glassSheen(g, face, 3.0f, 1.2f);
+    g.setColour(juce::Colours::black.withAlpha(0.7f));
+    g.drawRoundedRectangle(face, 3.0f, 1.2f);
+}
+
 // ============================================================ voice LEDs ====
 void VoiceLeds::refresh()
 {
