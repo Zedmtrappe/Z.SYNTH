@@ -1,5 +1,7 @@
 #include "AuditionPlayer.h"
 
+#include <algorithm>
+
 namespace zsynth
 {
 
@@ -17,6 +19,7 @@ std::unique_ptr<AuditionPlayer::Clip> AuditionPlayer::parse(const void* data, si
     auto clip = std::make_unique<Clip>();
     clip->name = name;
     double end = 0.0;
+    std::vector<std::pair<double, double>> tempi; // (seconds, BPM)
     for (int t = 0; t < file.getNumTracks(); ++t)
     {
         const auto* track = file.getTrack(t);
@@ -24,8 +27,8 @@ std::unique_ptr<AuditionPlayer::Clip> AuditionPlayer::parse(const void* data, si
         {
             const auto& m = holder->message;
             end = std::max(end, m.getTimeStamp());
-            if (m.isTempoMetaEvent() && clip->bpm == 120.0 && m.getTimeStamp() <= 0.0)
-                clip->bpm = 60.0 / std::max(1.0e-6, m.getTempoSecondsPerQuarterNote());
+            if (m.isTempoMetaEvent())
+                tempi.emplace_back(m.getTimeStamp(), 60.0 / std::max(1.0e-6, m.getTempoSecondsPerQuarterNote()));
             const bool keep = m.isNoteOnOrOff() || m.isPitchWheel() || m.isSustainPedalOn() || m.isSustainPedalOff()
                            || (m.isController() && (m.getControllerNumber() == 1 || m.getControllerNumber() == 11));
             if (! keep || m.getRawDataSize() > 3)
@@ -50,7 +53,41 @@ std::unique_ptr<AuditionPlayer::Clip> AuditionPlayer::parse(const void* data, si
             return a.seconds < b.seconds;
         return (a.status == 0x80) && (b.status != 0x80);
     });
-    clip->lengthSeconds = std::max(end, clip->events.back().seconds + 0.05);
+    // Trim to the music. Exported files usually start at bar 1 even when the
+    // part comes in later, and often run on long after it ends; playing that
+    // silence looks like playback with no sound. Start at the bar holding the
+    // first note and end at the bar after the last note ends (whole bars, so
+    // the loop keeps its groove). Controller state before the start is kept.
+    double firstNote = 1.0e9, lastNoteEnd = 0.0;
+    for (const auto& e : clip->events)
+    {
+        if (e.status == 0x90)
+            firstNote = std::min(firstNote, e.seconds);
+        if (e.status == 0x80 || e.status == 0x90)
+            lastNoteEnd = std::max(lastNoteEnd, e.seconds);
+    }
+    // The tempo in force when the music starts (exports often place the tempo
+    // with the first note rather than at zero).
+    std::sort(tempi.begin(), tempi.end());
+    for (const auto& [when, bpm] : tempi)
+        if (when <= firstNote + 1.0e-6 || clip->bpm == 120.0)
+            clip->bpm = bpm;
+    const double bar = 4.0 * 60.0 / std::max(1.0, clip->bpm);
+    const double start = std::floor(firstNote / bar + 1.0e-6) * bar;
+    // A note ending just past a bar line (legato overlaps) does not add a bar.
+    const double stop = std::max(start + bar, std::ceil((lastNoteEnd - start) / bar - 0.05) * bar + start);
+    clip->trimmedSeconds = start;
+    const double loop = stop - start;
+    for (auto& e : clip->events)
+    {
+        e.seconds = std::max(0.0, e.seconds - start);
+        if (e.status == 0x80 && e.seconds > loop)
+            e.seconds = loop; // never drop a note-off: it would leave a note hanging
+    }
+    clip->events.erase(std::remove_if(clip->events.begin(), clip->events.end(),
+                                      [&](const Event& e) { return e.seconds > loop + 1.0e-9; }),
+                       clip->events.end());
+    clip->lengthSeconds = loop; // whole bars from the first note's bar to the last note's
     return clip;
 }
 
@@ -60,6 +97,7 @@ void AuditionPlayer::setClip(std::unique_ptr<Clip> clip)
     clipName = clip != nullptr ? clip->name : juce::String();
     clipBpm = clip != nullptr ? clip->bpm : 0.0;
     clipLength = clip != nullptr ? clip->lengthSeconds : 0.0;
+    clipNotes = clip != nullptr ? clip->notes : 0;
     incoming = std::move(clip);
 }
 
@@ -82,6 +120,12 @@ double AuditionPlayer::getClipBpm() const
 {
     const juce::SpinLock::ScopedLockType sl(lock);
     return clipBpm;
+}
+
+int AuditionPlayer::getClipNotes() const
+{
+    const juce::SpinLock::ScopedLockType sl(lock);
+    return clipNotes;
 }
 
 double AuditionPlayer::getClipLength() const

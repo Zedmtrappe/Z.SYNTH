@@ -632,6 +632,94 @@ ZS_TEST(audition_builtin_clips_load)
     ZS_CHECK(! f.processor.loadBuiltInClip(names.size()));
 }
 
+ZS_TEST(audition_external_midi_file_makes_sound)
+{
+    // A typical DAW export: type 1, a tempo track, then a note track on
+    // channel 2 with a program change, volume and a few chords.
+    juce::MidiMessageSequence tempo, notes;
+    tempo.addEvent(juce::MidiMessage::textMetaEvent(3, "Tempo"), 0.0);
+    tempo.addEvent(juce::MidiMessage::tempoMetaEvent(600000), 0.0);
+    tempo.addEvent(juce::MidiMessage::timeSignatureMetaEvent(4, 4), 0.0);
+    tempo.addEvent(juce::MidiMessage::endOfTrack(), 3840.0);
+    notes.addEvent(juce::MidiMessage::textMetaEvent(3, "Piano"), 0.0);
+    notes.addEvent(juce::MidiMessage::programChange(2, 4), 0.0);
+    notes.addEvent(juce::MidiMessage::controllerEvent(2, 7, 100), 0.0);
+    for (int bar = 0; bar < 2; ++bar)
+        for (int n : { 60, 64, 67 })
+        {
+            notes.addEvent(juce::MidiMessage::noteOn(2, n, (uint8_t) 96), bar * 1920.0);
+            notes.addEvent(juce::MidiMessage::noteOff(2, n), bar * 1920.0 + 1800.0);
+        }
+    notes.addEvent(juce::MidiMessage::endOfTrack(), 3840.0);
+    notes.updateMatchedPairs();
+    juce::MidiFile file;
+    file.setTicksPerQuarterNote(480);
+    file.addTrack(tempo);
+    file.addTrack(notes);
+
+    ProcessorFixture f("external-midi");
+    const auto midiFile = f.dir.getChildFile("export.mid");
+    {
+        juce::FileOutputStream out(midiFile);
+        ZS_CHECK(out.openedOk() && file.writeTo(out, 1));
+    }
+    ZS_CHECK(f.processor.loadAuditionFile(midiFile).wasOk());
+
+    f.processor.prepareToPlay(48000.0, 512);
+    f.processor.getAudition().play();
+    juce::AudioBuffer<float> buffer(2, 512);
+    double energy = 0.0;
+    int noteOnsSeen = 0;
+    for (int b = 0; b < 200; ++b)
+    {
+        buffer.clear();
+        juce::MidiBuffer midi;
+        f.processor.processBlock(buffer, midi);
+        for (const auto m : midi)
+            noteOnsSeen += m.getMessage().isNoteOn() ? 1 : 0;
+        energy += buffer.getRMSLevel(0, 0, 512);
+    }
+    std::printf("    external file: %d note-ons in the buffer, mean RMS %.4f\n", noteOnsSeen, energy / 200.0);
+    ZS_CHECK_GT(energy / 200.0, 0.005);
+}
+
+ZS_TEST(audition_trims_silent_intro_and_tail)
+{
+    // Notes start at bar 5 and the file runs on to bar 40 (a typical export).
+    juce::MidiMessageSequence track;
+    track.addEvent(juce::MidiMessage::tempoMetaEvent(500000), 0.0);
+    track.addEvent(juce::MidiMessage::controllerEvent(1, 1, 64), 0.0);
+    track.addEvent(juce::MidiMessage::noteOn(1, 60, (uint8_t) 100), 4 * 1920.0);
+    track.addEvent(juce::MidiMessage::noteOff(1, 60), 4 * 1920.0 + 960.0);
+    track.addEvent(juce::MidiMessage::noteOn(1, 62, (uint8_t) 100), 5 * 1920.0);
+    track.addEvent(juce::MidiMessage::noteOff(1, 62), 5 * 1920.0 + 1940.0); // overhangs the bar line slightly
+    track.addEvent(juce::MidiMessage::endOfTrack(), 40 * 1920.0);
+    juce::MidiFile file;
+    file.setTicksPerQuarterNote(480);
+    file.addTrack(track);
+    juce::MemoryOutputStream out;
+    ZS_CHECK(file.writeTo(out));
+    juce::String error;
+    auto clip = AuditionPlayer::parse(out.getData(), out.getDataSize(), "late", error);
+    ZS_CHECK(clip != nullptr);
+    if (clip == nullptr)
+        return;
+    ZS_CHECK_NEAR(clip->trimmedSeconds, 8.0, 1e-6);     // four 2 s bars of silence removed
+    ZS_CHECK_NEAR(clip->lengthSeconds, 4.0, 1e-6);      // two bars of music, not 36
+    bool firstNoteAtZero = false, offInside = true;
+    for (const auto& e : clip->events)
+    {
+        firstNoteAtZero = firstNoteAtZero || (e.status == 0x90 && e.data1 == 60 && e.seconds == 0.0);
+        offInside = offInside && e.seconds <= clip->lengthSeconds;
+    }
+    ZS_CHECK(firstNoteAtZero);
+    ZS_CHECK(offInside);
+    int offs = 0;
+    for (const auto& e : clip->events)
+        offs += e.status == 0x80 ? 1 : 0;
+    ZS_CHECK(offs == 2); // the overhanging note-off was kept (moved to the loop end)
+}
+
 ZS_TEST(audition_player_timing_loop_and_release)
 {
     // Two quarter notes at 120 BPM in a one-bar (2 s) file.
@@ -907,8 +995,54 @@ static int presetReport(const juce::File& wavDir)
     return errors.isEmpty() ? 0 : 1;
 }
 
+/** Diagnostic:  ZSynthStateTests --audition-file song.mid
+    Loads a MIDI file into the audition player, plays 8 s through the synth and
+    reports what happened (notes parsed, notes played, output level). */
+static int auditionFileReport(const juce::File& file)
+{
+    {
+        juce::FileInputStream in(file);
+        juce::MidiFile mf;
+        const bool ok = mf.readFrom(in, true);
+        std::printf("raw: read %s, %d tracks, time format %d\n", ok ? "ok" : "FAILED", mf.getNumTracks(), (int) mf.getTimeFormat());
+        mf.convertTimestampTicksToSeconds();
+        for (int t = 0; t < mf.getNumTracks(); ++t)
+        {
+            int shown = 0;
+            for (const auto* h : *mf.getTrack(t))
+                if (shown++ < 14)
+                    std::printf("  t%d %8.3f s  %s\n", t, h->message.getTimeStamp(), h->message.getDescription().toRawUTF8());
+        }
+    }
+    ZSynthProcessor processor(juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("zynth-audition-diag"));
+    const auto result = processor.loadAuditionFile(file);
+    std::printf("load: %s\n", result.wasOk() ? "ok" : result.getErrorMessage().toRawUTF8());
+    if (result.failed())
+        return 1;
+    processor.prepareToPlay(48000.0, 512);
+    processor.getAudition().play();
+    juce::AudioBuffer<float> buffer(2, 512);
+    float peak = 0.0f;
+    double sum = 0.0;
+    const int blocks = 48000 * 8 / 512;
+    for (int b = 0; b < blocks; ++b)
+    {
+        buffer.clear();
+        juce::MidiBuffer midi;
+        processor.processBlock(buffer, midi);
+        peak = std::max(peak, buffer.getMagnitude(0, 512));
+        sum += buffer.getRMSLevel(0, 0, 512);
+    }
+    std::printf("clip: '%s'  %.1f s at %.1f BPM\n", processor.getAudition().getClipName().toRawUTF8(),
+                processor.getAudition().getClipLength(), processor.getAudition().getClipBpm());
+    std::printf("engine: %u MIDI events received, peak %.4f, mean RMS %.4f\n", processor.getEngine().getMidiActivity(), peak, sum / blocks);
+    return 0;
+}
+
 int main(int argc, char** argv)
 {
+    if (argc > 2 && juce::String(argv[1]) == "--audition-file")
+        return auditionFileReport(juce::File(juce::String(argv[2])));
     if (argc > 1 && juce::String(argv[1]) == "--preset-report")
         return presetReport(argc > 2 ? juce::File(juce::String(argv[2])) : juce::File());
     return zstest::runAll(argc, argv);

@@ -39,6 +39,7 @@ public:
         double lengthSeconds = 0.0; // loop length (end of the longest track)
         double bpm = 120.0;
         int notes = 0;
+        double trimmedSeconds = 0.0; // silence removed from the start
     };
 
     /** Parses a standard MIDI file. Returns nullptr (and an error) if it holds no notes. */
@@ -60,6 +61,7 @@ public:
     juce::String getClipName() const;
     double getClipBpm() const;
     double getClipLength() const;
+    int getClipNotes() const;
 
     /** Audio thread: adds this block's events to `midi`. `channel` is 1..16. */
     void render(juce::MidiBuffer& midi, int numSamples, double sampleRate, int channel);
@@ -71,6 +73,7 @@ private:
     std::unique_ptr<Clip> incoming, active, retired;
     juce::String clipName;
     double clipBpm = 0.0, clipLength = 0.0;
+    int clipNotes = 0;
 
     std::atomic<bool> playing { false }, looping { true }, restartRequested { false };
     std::atomic<float> position { 0.0f };

@@ -188,7 +188,9 @@ void AuditionBar::paint(juce::Graphics& g)
     }
 
     // Clip info on the right.
-    juce::String info = bpm > 0.0 ? juce::String(bpm, 0) + " BPM   " + juce::String(length, 1) + " s" : juce::String();
+    juce::String info = bpm > 0.0 ? juce::String(a.getClipNotes()) + " notes   " + juce::String(bpm, 0) + " BPM   "
+                                      + juce::String(length, 1) + " s"
+                                  : juce::String();
     info += a.isPlaying() ? "   PLAYING" : "";
     hint.draw(g, info.isNotEmpty() ? info : juce::String("load a clip"),
               juce::Rectangle<float>(bar.getRight() + 10.0f, 0.0f, r.getWidth() - bar.getRight() - 14.0f, r.getHeight()),
