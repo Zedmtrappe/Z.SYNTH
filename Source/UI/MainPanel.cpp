@@ -21,6 +21,7 @@ namespace
         if (section.startsWith("fm") || section.startsWith("op"))   return juce::Colour(0xff7fd36b); // green
         if (section == "perf" || section.startsWith("seq"))         return juce::Colour(0xffe9d35a); // yellow
         if (section.startsWith("fx"))                               return juce::Colour(0xfff08fb0); // pink
+        if (section.startsWith("smooth"))                           return juce::Colour(0xff8fd6c4); // teal
         if (section.startsWith("geq"))                              return juce::Colour(0xffe8c26a); // brass
         if (section.startsWith("comp"))                             return juce::Colour(0xff78d4e6); // cyan
         if (section.startsWith("delay") || section.startsWith("reverb")) return juce::Colour(0xfff08fb0); // pink (effects)
@@ -328,7 +329,7 @@ void MainPanel::buildUtilities()
         showFxPresetMenu(delayPresets(), "delayPresets", P::DelayOn); });
     button("reverbPresets", juce::String::fromUTF8("REVERB PRESETS \xe2\x96\xbe"), "Load a reverb starting point (sets only the reverb)", [this] {
         showFxPresetMenu(reverbPresets(), "reverbPresets", P::ReverbOn); });
-    typingButton = &button("musicalTyping", "TYPING", "Musical typing: play ZYNTH from your computer keyboard (floating window)", [this] {
+    typingButton = &button("musicalTyping", "QWERTY", "QWERTY keyboard: play ZYNTH from your computer keyboard (floating window)", [this] {
         showMusicalTyping(! isMusicalTypingVisible()); });
     button("openComp", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Compressor ratio, attack, release, knee, side-chain and colour", [this] {
         showPage(getVisiblePage() == "comp" ? juce::String() : juce::String("comp")); });
@@ -373,6 +374,7 @@ void MainPanel::buildUtilities()
     displays.push_back(&addUtility<LfoShapeDisplay>("lfo2Display", processor, 1));
     displays.push_back(&addUtility<VoiceLeds>("voiceLeds", processor));
     displays.push_back(&addUtility<SmoothMeter>("smoothMeter", processor));
+    displays.push_back(&addUtility<OutputInfo>("outputInfo", processor));
     auto& geqCurve = addUtility<GraphicEqDisplay>("geqCurve", processor, true);
     geqCurve.onClick = [this] { showPage(getVisiblePage() == "geq" ? juce::String() : juce::String("geq")); };
     displays.push_back(&geqCurve);

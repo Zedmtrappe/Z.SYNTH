@@ -661,6 +661,31 @@ void SynthEngine::runEffects(float* left, float* right, int n)
         ensemble.process(l, r, n, p(P::EnsRate), p(P::EnsDepth), p(P::EnsMix));
     }, [&] { ensemble.reset(); });
 
+    // Output compressor: at the end (whole mix) or, with PRE FX, before the
+    // delay and reverb so only the dry synth is compressed.
+    auto runCompressor = [&] {
+        runFaded(8, pb(P::CompOn), [&](float* l, float* r) {
+            CompSettings cs;
+            cs.model = (CompModel) pi(P::CompModel);
+            cs.thresholdDb = p(P::CompThresh);
+            cs.makeupDb = p(P::CompMakeup);
+            cs.mix = p(P::CompMix);
+            cs.ratioIndex = pi(P::CompRatio);
+            cs.attackMs = p(P::CompAttack);
+            cs.releaseMs = p(P::CompRelease);
+            cs.autoRelease = pb(P::CompAutoRel);
+            cs.knee = p(P::CompKnee);
+            cs.emphasis = p(P::CompEmph);
+            cs.colour = p(P::CompColour);
+            compressor.process(l, r, n, cs);
+            compGrOut.store(compressor.takeGainReduction(), std::memory_order_relaxed);
+        }, [&] { compressor.reset(); });
+    };
+    const bool compPre = pb(P::CompPre);
+    compGrOut.store(0.0f, std::memory_order_relaxed);
+    if (compPre)
+        runCompressor();
+
     runFaded(5, pb(P::DelayOn), [&](float* l, float* r) {
         const float seconds = pb(P::DelaySync) ? (float) (divisionBeats(pi(P::DelayDiv)) * 60.0 / bpm) : p(P::DelayTime) * 0.001f;
         DelaySettings ds;
@@ -713,28 +738,13 @@ void SynthEngine::runEffects(float* left, float* right, int n)
         graphicEq.process(l, r, n, gs);
     }, [&] { graphicEq.reset(); });
 
-    // Output compressor: the last stage before the master section.
-    compGrOut.store(0.0f, std::memory_order_relaxed);
-    runFaded(8, pb(P::CompOn), [&](float* l, float* r) {
-        CompSettings cs;
-        cs.model = (CompModel) pi(P::CompModel);
-        cs.thresholdDb = p(P::CompThresh);
-        cs.makeupDb = p(P::CompMakeup);
-        cs.mix = p(P::CompMix);
-        cs.ratioIndex = pi(P::CompRatio);
-        cs.attackMs = p(P::CompAttack);
-        cs.releaseMs = p(P::CompRelease);
-        cs.autoRelease = pb(P::CompAutoRel);
-        cs.knee = p(P::CompKnee);
-        cs.emphasis = p(P::CompEmph);
-        cs.colour = p(P::CompColour);
-        compressor.process(l, r, n, cs);
-        compGrOut.store(compressor.takeGainReduction(), std::memory_order_relaxed);
-    }, [&] { compressor.reset(); });
 
-    // SMOOTH: the last tonal stage, on the finished mix (bypassed at 0).
+    // SMOOTH: tames the 2.2 kHz presence band before the compressor (bypassed at 0).
     smooth.process(left, right, n, p(P::Smooth));
     smoothGrOut.store(smooth.takeGainReduction(), std::memory_order_relaxed);
+
+    if (! compPre)
+        runCompressor();
 }
 
 } // namespace zsynth::dsp

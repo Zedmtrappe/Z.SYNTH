@@ -329,6 +329,13 @@ private:
       Bricasti M7   dense, natural: high diffusion, subtle modulation,
                     realistic early reflections, slightly longer low end
       Shimmer       hall with an octave-up pitch shifter in the feedback
+      AMS Nonlin    the 80s gated reverb: a dense burst (RMX16 "Nonlin") that
+                    stops dead; SIZE = gate time, DECAY tilts the envelope
+      AMS Reverse   a reverse burst that swells into the note and stops dead
+      Yamaha REV7   bright, slightly metallic 80s digital hall/plate
+      Eventide SP2016  very dense, smooth rooms and plates
+      Quantec QRS   rich, natural room simulator with strong early reflections
+      Lexicon PCM70 lush, richly modulated hall, the 480L's smaller sibling
 
     These are original algorithms voiced after those classics, not emulations. */
 struct ReverbSettings
@@ -354,6 +361,7 @@ public:
         float earlyLevel, earlyScale;
         float lowCutHz;     // fixed band-limit at the bottom
         bool allLinesMod, spring, shimmer, grainy;
+        int burst = 0;      // 1 = gated (non-linear) burst, 2 = reverse burst: multi-tap, no tank
     };
 
     static const Voicing& voicing(ReverbType t)
@@ -368,6 +376,12 @@ public:
             { 1.25f, 1.1f, 0.66f, 0.9f, 0.6f, 15000.0f, 0.8f, 0.35f, 1.1f, 0.0f, true, false, false, false },  // Lexicon 480L
             { 1.20f, 1.0f, 0.74f, 0.5f, 0.5f, 20000.0f, 0.75f, 0.6f, 1.2f, 0.0f, false, false, false, false }, // Bricasti M7
             { 1.20f, 1.4f, 0.70f, 0.9f, 0.6f, 16000.0f, 0.7f, 0.0f, 1.0f, 0.0f, false, false, true, false },   // Shimmer
+            { 0.60f, 1.0f, 0.75f, 0.0f, 0.5f, 14000.0f, 1.0f, 0.0f, 1.0f, 60.0f, false, false, false, false, 1 }, // AMS Nonlin
+            { 0.60f, 1.0f, 0.75f, 0.0f, 0.5f, 12000.0f, 1.0f, 0.0f, 1.0f, 80.0f, false, false, false, false, 2 }, // AMS Reverse
+            { 0.90f, 1.0f, 0.52f, 0.5f, 0.9f, 15000.0f, 0.6f, 0.4f, 0.9f, 0.0f, false, false, false, false },     // Yamaha REV7
+            { 1.00f, 1.0f, 0.78f, 0.7f, 0.6f, 18000.0f, 0.9f, 0.5f, 0.8f, 0.0f, false, false, false, false },     // Eventide SP2016
+            { 0.80f, 0.9f, 0.70f, 0.5f, 0.5f, 16000.0f, 1.1f, 0.8f, 0.7f, 0.0f, false, false, false, false },     // Quantec QRS
+            { 1.15f, 1.1f, 0.62f, 0.9f, 0.7f, 14000.0f, 0.85f, 0.35f, 1.0f, 0.0f, true, false, false, false },    // Lexicon PCM70
         };
         return v[std::clamp((int) t, 0, (int) ReverbType::Count - 1)];
     }
@@ -390,6 +404,12 @@ public:
             diffusers[i].prepare(diffLen[i] + 4);
         }
         predelay.prepare((int) (0.36f * fs));
+        burstLine.prepare((int) (1.4f * fs));
+        // Burst tap times: evenly spread with a fixed jitter, so the pattern is
+        // dense but not periodic (no flutter echo).
+        Random jitter { 0xa115u };
+        for (int k = 0; k < kBurstTaps; ++k)
+            burstPos[k] = ((float) k + 0.5f + 0.4f * jitter.bipolar()) / (float) kBurstTaps;
         shimmerLine.prepare(kShimmerWindow * 2 + 8);
         eq.prepare(fs);
         aDrift = 1.0f - std::exp(-kTwoPi * 0.5f / fs);
@@ -402,6 +422,7 @@ public:
         for (auto& d : diffusers) d.reset();
         predelay.reset();
         shimmerLine.reset();
+        burstLine.reset();
         eq.reset();
         for (auto& d : damp) d = 0.0f;
         for (auto& a : springState) a = 0.0f;
@@ -451,6 +472,27 @@ public:
             gMean += g * 0.125f;
         const float shimmerGain = clampf(2.0f * (1.0f - gMean), 0.0f, 0.3f);
 
+        // Gated / reverse bursts: tap gains follow the envelope. Gated: DECAY
+        // tilts it (0.5 = flat, the classic non-linear; lower falls, higher
+        // rises) and SIZE sets the gate time. Reverse: a swell that stops dead.
+        float burstLen = 0.0f;
+        if (v.burst != 0)
+        {
+            const float seconds = v.burst == 1 ? 0.08f + 0.5f * s.size : 0.2f + 1.0f * s.size;
+            burstLen = std::min(seconds * fs, 1.35f * fs);
+            const float tilt = (clampf(s.decay, 0.0f, 1.0f) - 0.5f) * 1.6f;
+            float energy = 0.0f;
+            for (int k = 0; k < kBurstTaps; ++k)
+            {
+                const float t = burstPos[k];
+                burstGain[k] = v.burst == 1 ? std::max(0.05f, 1.0f + tilt * (t - 0.5f)) : std::pow(t, 1.6f);
+                energy += burstGain[k] * burstGain[k];
+            }
+            const float norm = 1.2f / std::sqrt(std::max(1.0e-6f, energy * 0.5f));
+            for (auto& g : burstGain)
+                g *= norm;
+        }
+
         for (int i = 0; i < n; ++i)
         {
             predelay.push(0.5f * (L[i] + R[i]));
@@ -493,33 +535,56 @@ public:
                 x = delayed - w * diffGain;
             }
 
-            modPhase = wrapPhase(modPhase + modInc);
-            if (v.allLinesMod && (counter++ & 511) == 0)
-                driftTarget = rng.bipolar();
-            drift += aDrift * (driftTarget - drift);
-
-            float y[8];
-            for (int k = 0; k < 8; ++k)
+            float wl = 0.0f, wr = 0.0f;
+            if (v.burst != 0)
             {
-                lengths[k] += (target[k] - lengths[k]) * lenSmooth;
-                float len = lengths[k];
-                if (k < 4 || v.allLinesMod)
-                    len += modDepth * (fastSin(modPhase + (float) k * 0.125f) + (v.allLinesMod ? 0.3f * drift : 0.0f));
-                y[k] = lines[k].read(len + modDepth * 1.6f + 2.0f);
-                damp[k] += aDamp * (y[k] - damp[k]);
-                y[k] = undenormalise(damp[k]) * gains[k];
+                // A dense multi-tap burst after the diffusers, alternating sides.
+                burstLine.push(x);
+                for (int k = 0; k < kBurstTaps; ++k)
+                {
+                    const float tap = burstLine.readInt(1 + (int) (burstPos[k] * burstLen)) * burstGain[k];
+                    if (k & 1)
+                    {
+                        wr += tap;
+                        wl += 0.3f * tap;
+                    }
+                    else
+                    {
+                        wl += tap;
+                        wr += 0.3f * tap;
+                    }
+                }
             }
+            else
+            {
+                modPhase = wrapPhase(modPhase + modInc);
+                if (v.allLinesMod && (counter++ & 511) == 0)
+                    driftTarget = rng.bipolar();
+                drift += aDrift * (driftTarget - drift);
 
-            hadamard8(y);
+                float y[8];
+                for (int k = 0; k < 8; ++k)
+                {
+                    lengths[k] += (target[k] - lengths[k]) * lenSmooth;
+                    float len = lengths[k];
+                    if (k < 4 || v.allLinesMod)
+                        len += modDepth * (fastSin(modPhase + (float) k * 0.125f) + (v.allLinesMod ? 0.3f * drift : 0.0f));
+                    y[k] = lines[k].read(len + modDepth * 1.6f + 2.0f);
+                    damp[k] += aDamp * (y[k] - damp[k]);
+                    y[k] = undenormalise(damp[k]) * gains[k];
+                }
 
-            for (int k = 0; k < 8; ++k)
-                lines[k].push(y[k] + x * 0.35f);
+                hadamard8(y);
 
-            float wl = (y[0] - y[1] + y[2] - y[3] + y[4] - y[5]) * 0.5f;
-            float wr = (y[1] + y[2] - y[4] - y[6] + y[7] - y[3]) * 0.5f;
+                for (int k = 0; k < 8; ++k)
+                    lines[k].push(y[k] + x * 0.35f);
 
-            if (v.shimmer)
-                shimmerOut = shimmerGain * fastTanh(pitchUpOctave(0.5f * (wl + wr)));
+                wl = (y[0] - y[1] + y[2] - y[3] + y[4] - y[5]) * 0.5f;
+                wr = (y[1] + y[2] - y[4] - y[6] + y[7] - y[3]) * 0.5f;
+
+                if (v.shimmer)
+                    shimmerOut = shimmerGain * fastTanh(pitchUpOctave(0.5f * (wl + wr)));
+            }
             if (v.grainy)
             {
                 // 12-bit-style converters: a dithered noise floor under the tail
@@ -558,6 +623,7 @@ private:
     static constexpr float kEarlyMs[8] = { 4.3f, 7.9f, 11.7f, 17.3f, 23.1f, 29.9f, 37.7f, 46.1f };
     static constexpr float kEarlyGain[8] = { 0.8f, 0.72f, 0.62f, 0.55f, 0.46f, 0.4f, 0.33f, 0.28f };
     static constexpr int kShimmerWindow = 2048;
+    static constexpr int kBurstTaps = 32;
 
     float coeffFor(float hz) const { return 1.0f - std::exp(-kTwoPi * std::min(hz, 0.45f * fs) / fs); }
 
@@ -605,6 +671,8 @@ private:
     int diffLen[4] {};
     DelayLine predelay;
     DelayLine shimmerLine;
+    DelayLine burstLine;
+    float burstPos[kBurstTaps] {}, burstGain[kBurstTaps] {};
     ParametricEq eq;
     float damp[8] {};
     float springState[24] {};

@@ -122,8 +122,8 @@ PanelLayout::PanelLayout()
     utilityAt("voiceCount", 1570, 20, 100, 54);
     add("master.volume", K::Knob, 1680, 16, "MASTER");
     utilityAt("panic", 1744, 32, 84, 34);
-    utilityAt("musicalTyping", 1838, 14, 72, 32);
-    utilityAt("version", 1836, 58, 74, 22);
+    utilityAt("musicalTyping", 1836, 32, 74, 34); // in line with PANIC
+    utilityAt("version", 1836, 70, 74, 18);
 
     // -------------------------------------------------------- oscillators
     sectionAt("osc", "OSCILLATORS", 10, 104, 980, 320);
@@ -260,10 +260,7 @@ PanelLayout::PanelLayout()
     // ------------------------------------------------------------- output
     sectionAt("output", "OUTPUT", 1538, 432, 372, 320);
     compact("out.limiter", 1546, 462, "LIMITER", 106);
-    // SMOOTH: fixed 2.2 kHz dynamic compressor; AMOUNT and its GR ladder.
-    text("SMOOTH", 1546, 478, 60, 12, juce::Justification::centredLeft, true);
-    add("out.smooth", K::Knob, 1548, 492, "AMOUNT");
-    utilityAt("smoothMeter", 1608, 480, 40, 76);
+    utilityAt("outputInfo", 1546, 482, 106, 74);
     fader("out.macro",     1546, 562, "MACRO");
     fader("out.width",     1582, 562, "WIDTH");
     fader("out.character", 1618, 562, "CHAR");
@@ -278,15 +275,21 @@ PanelLayout::PanelLayout()
 
     // ------------------------------------------------------------ effects
     sectionAt("fx", "EFFECTS", 10, 760, 1900, 204);
-    // Order follows the signal: drive, modulation, delay, reverb, graphic EQ, compressor.
+    // Order follows the signal: drive, modulation, delay, reverb, graphic EQ,
+    // SMOOTH, compressor (PRE FX moves the compressor before delay/reverb).
     struct Module { const char* id; const char* title; int width; };
-    const Module modules[6] = { { "fxDrive", "DRIVE", 236 }, { "fxMod", "MODULATION", 264 }, { "fxDelay", "DELAY", 264 },
-                                { "fxReverb", "REVERB", 264 }, { "geqModule", "GRAPHIC EQ", 232 }, { "compModule", "OUTPUT COMP", 0 } };
-    int mx[6], mw[6];
-    for (int i = 0, x = 18; i < 6; ++i)
+    const Module modules[7] = { { "fxDrive", "DRIVE", 236 }, { "fxMod", "MODULATION", 264 }, { "fxDelay", "DELAY", 264 },
+                                { "fxReverb", "REVERB", 264 }, { "geqModule", "GRAPHIC EQ", 0 }, { "smoothModule", "SMOOTH", 108 },
+                                { "compModule", "OUTPUT COMP", 418 } };
+    int fixedWidth = 0;
+    for (const auto& m : modules)
+        fixedWidth += m.width;
+    const int geqWidth = 1884 - 6 * 6 - fixedWidth; // the graphic EQ takes what is left
+    int mx[7], mw[7];
+    for (int i = 0, x = 18; i < 7; ++i)
     {
         mx[i] = x;
-        mw[i] = modules[i].width > 0 ? modules[i].width : 1902 - x;
+        mw[i] = modules[i].width > 0 ? modules[i].width : geqWidth;
         sectionAt(modules[i].id, modules[i].title, mx[i], 788, mw[i], 170, true);
         x += mw[i] + 6;
     }
@@ -347,16 +350,22 @@ PanelLayout::PanelLayout()
     utilityAt("geqCurve", mx[4] + 8, 808, mw[4] - 16, 112);
     utilityAt("openGeq", mx[4] + 8, 926, mw[4] - 16, 24);
 
+    // SMOOTH: fixed 2.2 kHz dynamic compressor; AMOUNT and its GR ladder.
+    inSection("smoothModule");
+    add("out.smooth", K::Knob, mx[5] + 6, 840, "AMOUNT");
+    utilityAt("smoothMeter", mx[5] + 64, 808, 36, 144);
+
     // Output compressor: model, the gain-reduction VU and the everyday controls.
-    const int cx = mx[5], cw = mw[5];
+    const int cx = mx[6], cw = mw[6];
     inSection("compModule");
     compact("comp.on", cx + cw - 42, 789, "ON");
-    utilityAt("compMeter", cx + 8, 808, 300, 144);
-    shortFader("comp.thresh", cx + 318, 810, "THRESH");
-    shortFader("comp.mix",    cx + 354, 810, "MIX");
-    shortFader("comp.makeup", cx + 390, 810, "MAKEUP"); // output gain last, as on the hardware
-    add("comp.model", K::Selector, cx + 432, 812, "MODEL", cw - 440);
-    utilityAt("openComp", cx + 432, 862, cw - 440, 24);
+    compact("comp.pre", cx + cw - 96, 789, "PRE FX", 50);
+    utilityAt("compMeter", cx + 8, 808, 176, 144);
+    shortFader("comp.thresh", cx + 192, 810, "THRESH");
+    shortFader("comp.mix",    cx + 228, 810, "MIX");
+    shortFader("comp.makeup", cx + 264, 810, "MAKEUP"); // output gain last, as on the hardware
+    add("comp.model", K::Selector, cx + 306, 812, "MODEL", cw - 314);
+    utilityAt("openComp", cx + 306, 862, cw - 314, 24);
 
     // ----------------------------------------------------------- keyboard
     sectionAt("wheels", "", 10, 972, 150, 218);
@@ -464,20 +473,18 @@ PanelLayout::PanelLayout()
     for (int k = 0; k < 5; ++k)
         fader(reverbFaders[k].first, 24 + k * 50, 100, reverbFaders[k].second);
     heading("REVERB TYPES (TYPE on the panel)", 340, 44, 400);
-    const char* reverbTypes[9] = {
-        "HALL          The original ZYNTH hall.",
-        "ROOM          Small space, strong early reflections.",
-        "EMT 140       Dense, bright plate; instant build-up.",
-        "CHAMBER       Darker echo chamber with clear reflections.",
-        "SPRING        Dispersive spring tank: the classic boing.",
-        "LEXICON 224   Grainy, chorused 80s digital hall.",
-        "LEXICON 480L  Larger, smoother, richly modulated.",
-        "BRICASTI M7   Dense, natural, realistic reflections.",
-        "SHIMMER       Hall with an octave-up feedback loop." };
-    for (int k = 0; k < 9; ++k)
-        text(reverbTypes[k], 340, 68 + k * 26, 410, 22, juce::Justification::centredLeft);
-    text("DECAY trims SIZE's decay time.  DIFF = echo density.  MOD = tail chorusing.  E / L = early reflections vs tail.  HPF / LPF are in the EQ below.",
-         340, 308, 410, 48, juce::Justification::topLeft);
+    // Two columns of short notes, one per type.
+    const char* reverbTypes[15] = {
+        "HALL       original ZYNTH hall", "ROOM       small, strong reflections", "EMT 140    dense, bright plate",
+        "CHAMBER    darker echo chamber", "SPRING     the classic boing", "LEX 224    grainy 80s digital hall",
+        "LEX 480L   large, richly modulated", "BRICASTI   dense and natural", "SHIMMER    octave-up feedback",
+        "NONLIN     AMS gated burst", "REVERSE    AMS reverse swell", "REV7       bright 80s digital",
+        "SP2016     very dense rooms/plates", "QRS        rich room simulator", "PCM70      lush Lexicon hall" };
+    for (int k = 0; k < 15; ++k)
+        text(reverbTypes[k], k < 8 ? 340 : 548, 68 + (k % 8) * 26, 204, 22, juce::Justification::centredLeft);
+    text("DECAY trims SIZE's decay time (on NONLIN it tilts the gate: low = falling, high = rising).  DIFF = density.  "
+         "MOD = tail chorusing.  E / L = early reflections vs tail.  HPF / LPF are in the EQ below.",
+         340, 280, 410, 80, juce::Justification::topLeft);
 
     // Parametric EQ on the wet signal: drag the nodes, or use the knobs.
     sectionAt("reverbEq", "REVERB EQ  (wet signal only)", 16, 366, 728, 220, true);

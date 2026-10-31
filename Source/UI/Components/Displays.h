@@ -190,6 +190,19 @@ private:
     int tooltipCounter = 0;
 };
 
+/** CPU load, voices, peak level and limiter / guard status. */
+class OutputInfo : public Display
+{
+public:
+    using Display::Display;
+    void refresh() override;
+    void paint(juce::Graphics&) override;
+private:
+    juce::String lines[4];
+    bool warn[4] {};
+    float cpu = 0.0f;
+};
+
 /** LED ladder showing SMOOTH's gain reduction. */
 class SmoothMeter : public Display
 {

@@ -48,9 +48,9 @@ close with their **x** button or **Esc**:
 | ADV | Delay module | delay presets, wow, flutter, age, spread, ducking |
 | ADVANCED | Reverb module | reverb presets, decay, low cut, diffusion, modulation, early/late, width |
 
-## Musical typing
+## QWERTY keyboard (musical typing)
 
-**TYPING** (top right of the header) opens a floating window showing a Mac
+**QWERTY** (top right of the header) opens a floating window showing a Mac
 keyboard. While it is open, the computer keyboard plays ZYNTH (the layout
 Logic Pro uses), whether the floating window or the main panel has focus:
 
@@ -66,7 +66,7 @@ Logic Pro uses), whether the floating window or the main panel has focus:
 
 Pressed keys light on the drawing and on the panel keyboard; you can also
 click the drawn keys. Shortcuts with Cmd, Ctrl or Option are left alone.
-Closing the window (or the TYPING button) releases any held notes.
+Closing the window (or the QWERTY button) releases any held notes.
 
 ## Audition
 
@@ -257,8 +257,10 @@ sits after the valve and before the compressor, as on a console.
 
 ### Output compressor
 
-**OUTPUT COMP** (right end of the effects row) is the last dynamics stage
-before the master section. On the panel: **ON**, a gain-reduction VU meter,
+**OUTPUT COMP** (right end of the effects row) is normally the last dynamics
+stage before the master section; **PRE FX** moves it in front of the delay and
+reverb, so only the dry synth is compressed and echoes and tails are left
+alone. On the panel: **ON**, **PRE FX**, a gain-reduction VU meter,
 **THRESH**, **MIX** (parallel compression), **MAKEUP** (output gain) and
 **MODEL**; **COLOUR** in the advanced popup adds the model's analogue
 saturation (gentle at 0.5, clearly driven at full); **ADVANCED ▸** opens
@@ -304,6 +306,12 @@ the gaps.
 | Lexicon 480L | Larger and smoother than the 224, richly modulated |
 | Bricasti M7 | Dense and natural, realistic early reflections |
 | Shimmer | Hall with an octave-up pitch shifter in the feedback loop |
+| AMS Nonlin | The 80s gated reverb (AMS RMX16 "Nonlin"): a dense burst that stops dead. SIZE sets the gate time; DECAY tilts the envelope (0.5 = flat, lower = falling, higher = rising) |
+| AMS Reverse | Reverse reverb that swells into the note and stops dead; SIZE sets its length |
+| Yamaha REV7 | Bright, slightly metallic 80s digital halls and plates (REV7 / SPX90 era) |
+| Eventide SP2016 | Very dense, smooth rooms and plates ("Stereo Room", "Hi-Density Plate") |
+| Quantec QRS | Rich, natural room simulator with strong early reflections |
+| Lexicon PCM70 | Lush, richly modulated hall and plate, the 480L's smaller sibling |
 
 **Reverb EQ.** A parametric EQ on the reverb's wet signal only (the dry sound
 is untouched): a 12 dB/oct high-pass (HPF), low shelf, two bells (frequency,
@@ -314,7 +322,7 @@ change its width, double-click a node to flatten it, or use the knobs; FLAT
 resets all four. A small live curve sits under the reverb's ADVANCED button.
 
 These are ZYNTH's own algorithms voiced after those units, not emulations of
-them. In the advanced popup: **REVERB PRESETS ▾** (two or three per type),
+them. In the advanced popup: **REVERB PRESETS ▾** (two or three classic settings per type),
 **DECAY** (trims SIZE's decay time x0.35 to x2.8), **LO CUT**, **DIFF** (echo
 density: low = grainier), **MOD** (tail chorusing), **E / L** (early
 reflections vs tail) and **WIDTH**.
@@ -322,12 +330,13 @@ reflections vs tail) and **WIDTH**.
 ## Output
 
 **MACRO** is a performance control available as a matrix source (one knob can
-move several things). **LIMITER** keeps peaks below 0 dBFS. Hover over the
-output meter for CPU load, voices and peak level (and the output guard's count
-of automatic recoveries from invalid audio, if any).
+move several things). **LIMITER** keeps peaks below 0 dBFS. The small display
+shows CPU load, voices, peak level and limiter gain reduction (or, in red, the
+output guard's count of automatic recoveries from invalid audio).
 
-**SMOOTH** — a fixed 2.2 kHz dynamic compressor (4:1) on the finished mix. It
-turns the presence band down only when it gets loud, so harsh notes and
+**SMOOTH** — its own block in the effects row, between the graphic EQ and the
+compressor: a fixed 2.2 kHz dynamic compressor (4:1). It turns the presence
+band down only when it gets loud, so harsh notes and
 resonances are tamed while the rest of the sound is untouched. **AMOUNT**
 lowers its threshold (0 = off, exactly bypassed); the LED ladder beside it
 shows the gain reduction (0.5 to 12 dB).

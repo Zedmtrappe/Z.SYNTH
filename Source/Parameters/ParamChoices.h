@@ -96,8 +96,9 @@ enum class SeqMode : int { Off, Mod, Note, Count };
 #define ZS_CH_DELAY_TYPE "Digital|Tape RE-201|Tape EP-3|Analog DM-2|Diffuse|Lo-Fi"
 enum class DelayType : int { Digital, TapeRE201, TapeEP3, AnalogDM2, Diffuse, LoFi, Count };
 
-#define ZS_CH_REVERB_TYPE "Hall|Room|EMT 140 Plate|Echo Chamber|Spring|Lexicon 224|Lexicon 480L|Bricasti M7|Shimmer"
-enum class ReverbType : int { Hall, Room, Plate, Chamber, Spring, Lex224, Lex480, BricastiM7, Shimmer, Count };
+#define ZS_CH_REVERB_TYPE "Hall|Room|EMT 140 Plate|Echo Chamber|Spring|Lexicon 224|Lexicon 480L|Bricasti M7|Shimmer|AMS Nonlin|AMS Reverse|Yamaha REV7|Eventide SP2016|Quantec QRS|Lexicon PCM70"
+enum class ReverbType : int { Hall, Room, Plate, Chamber, Spring, Lex224, Lex480, BricastiM7, Shimmer,
+                              AmsNonlin, AmsReverse, YamahaRev7, EventideSP2016, QuantecQRS, LexPCM70, Count };
 
 #define ZS_CH_COMP_MODEL "LA-2A Opto|SSL Bus|1176 FET|Fairchild 670"
 enum class CompModel : int { LA2A, SSLBus, FET1176, Fairchild, Count };

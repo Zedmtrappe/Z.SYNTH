@@ -26,6 +26,8 @@ Activity activityFor(int i, const float* v, bool hostTempo)
     if (inRange(i, P::GeqBand1, P::GeqOutput) && ! on(v, P::GeqOn))
         return inactive("The graphic EQ is switched out. Switch it ON.");
 
+    if (i == P::CompPre && ! on(v, P::CompOn))
+        return inactive("The output compressor is off. Switch COMP on.");
     if (inRange(i, P::CompModel, P::CompColour))
     {
         if (! on(v, P::CompOn))

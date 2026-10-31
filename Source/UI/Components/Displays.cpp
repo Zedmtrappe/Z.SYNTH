@@ -505,6 +505,32 @@ void OutputMeter::paint(juce::Graphics& g)
     }
 }
 
+void OutputInfo::refresh()
+{
+    const auto& e = processor.getEngine();
+    cpu = processor.getCpuLoad();
+    const float peak = juce::jmax(e.getPeak(0), e.getPeak(1));
+    const float gr = 20.0f * std::log10(juce::jmax(1.0e-4f, e.getLimiterGain()));
+    lines[0] = "CPU   " + juce::String(juce::roundToInt(cpu * 100.0f)) + "%";
+    lines[1] = "VOICE " + juce::String(e.getActiveVoices()) + "/" + juce::String(processor.getValue(P::Polyphony), 0);
+    lines[2] = "PEAK  " + (peak > 1.0e-5f ? juce::String(20.0f * std::log10(peak), 1) : juce::String("-inf"));
+    lines[3] = e.getBadSampleEvents() > 0 ? "GUARD " + juce::String((int) e.getBadSampleEvents())
+             : "LIMIT " + (processor.getValue(P::Limiter) >= 0.5f ? juce::String(gr, 1) : juce::String("off"));
+    warn[0] = cpu > 0.8f;
+    warn[3] = e.getBadSampleEvents() > 0;
+    repaint();
+}
+
+void OutputInfo::paint(juce::Graphics& g)
+{
+    const auto r = getLocalBounds().toFloat();
+    fillPanelInset(g, r);
+    auto inner = r.reduced(6.0f, 4.0f).toNearestInt();
+    const int lineH = inner.getHeight() / 4;
+    for (int i = 0; i < 4; ++i)
+        drawLcdText(g, lines[i], inner.removeFromTop(lineH), 11.0f, warn[i] ? Colours::red : Colours::lcdText);
+}
+
 // ========================================================== smooth meter ====
 void SmoothMeter::refresh()
 {

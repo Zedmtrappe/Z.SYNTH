@@ -235,7 +235,7 @@ void MusicalTypingComponent::paint(juce::Graphics& g)
     const auto dark = juce::Colour(0xff2b2c30);
     g.setColour(dark);
     g.setFont(titleFont(13.0f));
-    g.drawText("MUSICAL TYPING", 26, 18, 220, 20, juce::Justification::centredLeft, false);
+    g.drawText("QWERTY KEYBOARD", 26, 18, 220, 20, juce::Justification::centredLeft, false);
     g.setFont(labelFont(11.0f));
     g.setColour(dark.withAlpha(0.7f));
     g.drawText("Play with your computer keyboard  -  Z/X octave, C/V velocity, Tab sustain, 1/2 bend, 3-8 mod",
@@ -371,7 +371,7 @@ void MusicalTypingComponent::focusLost(FocusChangeType)
 
 // ====================================================================== window
 MusicalTypingWindow::MusicalTypingWindow(MusicalTyping& t)
-    : juce::DocumentWindow("ZYNTH - Musical Typing", juce::Colour(0xffcfd1d6), juce::DocumentWindow::closeButton), typing(t)
+    : juce::DocumentWindow("ZYNTH - QWERTY Keyboard", juce::Colour(0xffcfd1d6), juce::DocumentWindow::closeButton), typing(t)
 {
     setUsingNativeTitleBar(true);
     setContentOwned(new MusicalTypingComponent(t), true);

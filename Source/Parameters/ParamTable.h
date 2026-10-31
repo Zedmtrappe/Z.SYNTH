@@ -238,6 +238,7 @@ X(ValveSag,      "out.valve.sag",  "Valve Sag",     "Output", Float, 0.f, 1.f, 0
 X(ValveWarmth,   "out.valve.warmth","Valve Warmth", "Output", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Output transformer: rounds off the top end and adds low-end weight.") \
 X(ValveMix,      "out.valve.mix",  "Valve Mix",     "Output", Float, 0.f, 1.f, 1.f, LIN, "", nullptr, "Dry/valve blend.") \
 X(CompOn,        "comp.on",        "Comp On",       "Output", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "Output compressor (after the valve stage, before the master).") \
+X(CompPre,       "comp.pre",       "Comp Pre FX",   "Output", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "PRE FX: compress before the delay and reverb (the dry synth only), instead of the whole mix at the end.") \
 X(CompModel,     "comp.model",     "Comp Model",    "Output", Choice, 0, 0, 1.f, LIN, "", ZS_CH_COMP_MODEL, "LA-2A optical leveller, SSL-style VCA bus compressor, 1176-style FET limiter or Fairchild-style variable-mu.") \
 X(CompThresh,    "comp.thresh",    "Comp Threshold","Output", Float, -40.f, 0.f, -12.f, LIN, "dB", nullptr, "Level where compression starts (on the LA-2A this is PEAK REDUCTION, on the 1176 the INPUT drive).") \
 X(CompMakeup,    "comp.makeup",    "Comp Makeup",   "Output", Float, 0.f, 24.f, 0.f, LIN, "dB", nullptr, "Output gain after compression (the LA-2A's GAIN, the 1176's OUTPUT).") \
