@@ -342,6 +342,7 @@ PanelLayout::PanelLayout()
     fxFader(6, 3, "fx.rev.mix", "MIX");
     add("fx.rev.type", K::Selector, mx[6] + 158, 812, "TYPE", 100);
     utilityAt("openReverb", mx[6] + 158, 862, 100, 24);
+    utilityAt("reverbEqCurve", mx[6] + 158, 892, 100, 58);
 
     // Output compressor: model, the gain-reduction VU and the everyday controls.
     const int cx = mx[6] + mw[6] + 6, cw = 1902 - cx;
@@ -450,9 +451,9 @@ PanelLayout::PanelLayout()
          300, 232, 350, 60, juce::Justification::topLeft);
 
     // ------------------------------------------------------ reverb advanced
-    pageList.push_back({ "reverb", "REVERB", { 780, 300, 760, 370 } });
+    pageList.push_back({ "reverb", "REVERB", { 780, 250, 760, 600 } });
     page("reverb");
-    sectionAt("reverbPage", "REVERB  -  ADVANCED", 0, 0, 760, 370);
+    sectionAt("reverbPage", "REVERB  -  ADVANCED", 0, 0, 760, 600);
     utilityAt("reverbClose", 720, 3, 34, 20);
     utilityAt("reverbPresets", 20, 44, 300, 26);
     const std::pair<const char*, const char*> reverbFaders[6] = { { "fx.rev.decay", "DECAY" }, { "fx.rev.lowcut", "LO CUT" },
@@ -474,6 +475,25 @@ PanelLayout::PanelLayout()
         text(reverbTypes[k], 340, 68 + k * 26, 410, 22, juce::Justification::centredLeft);
     text("DECAY trims SIZE's decay time.  DIFF = echo density.  MOD = tail chorusing.  E / L = early reflections vs tail.",
          340, 308, 410, 48, juce::Justification::topLeft);
+
+    // Parametric EQ on the wet signal: drag the nodes, or use the knobs.
+    sectionAt("reverbEq", "REVERB EQ  (wet signal only)", 16, 366, 728, 220, true);
+    utilityAt("reverbEqFlat", 668, 368, 70, 16);
+    utilityAt("reverbEqCurveBig", 28, 390, 300, 186);
+    struct EqCol { const char* title; const char* f; const char* gn; const char* q; };
+    const EqCol eqCols[4] = { { "LOW SHELF", "fx.rev.eq.lsf", "fx.rev.eq.lsg", nullptr },
+                              { "BELL 1", "fx.rev.eq.p1f", "fx.rev.eq.p1g", "fx.rev.eq.p1q" },
+                              { "BELL 2", "fx.rev.eq.p2f", "fx.rev.eq.p2g", "fx.rev.eq.p2q" },
+                              { "HIGH SHELF", "fx.rev.eq.hsf", "fx.rev.eq.hsg", nullptr } };
+    for (int k = 0; k < 4; ++k)
+    {
+        const int x = 340 + k * 100;
+        heading(eqCols[k].title, x, 392, 96);
+        add(eqCols[k].f, K::Knob, x - 2, 414, "FREQ", 48);
+        add(eqCols[k].gn, K::Knob, x + 46, 414, "GAIN", 48);
+        if (eqCols[k].q != nullptr)
+            add(eqCols[k].q, K::Knob, x + 22, 500, "Q", 48);
+    }
 
     // ------------------------------------------------------- comp advanced
     pageList.push_back({ "comp", "OUTPUT COMP", { 1050, 300, 850, 380 } });

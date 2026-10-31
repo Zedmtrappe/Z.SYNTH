@@ -4,6 +4,7 @@
 
 #include "../../Parameters/ParamChoices.h"
 #include "DelayLine.h"
+#include "ParametricEq.h"
 
 #include <array>
 
@@ -335,6 +336,7 @@ struct ReverbSettings
     ReverbType type = ReverbType::Hall;
     float size = 0.6f, damping = 0.4f, predelaySec = 0.02f, mix = 0.25f;
     float decay = 0.5f, lowCutHz = 20.0f, diffusion = 0.5f, modulation = 0.5f, early = 0.5f, width = 0.5f;
+    EqSettings eq;          // parametric EQ on the wet signal
 };
 
 class Reverb
@@ -389,6 +391,7 @@ public:
         }
         predelay.prepare((int) (0.36f * fs));
         shimmerLine.prepare(kShimmerWindow * 2 + 8);
+        eq.prepare(fs);
         aDrift = 1.0f - std::exp(-kTwoPi * 0.5f / fs);
         reset();
     }
@@ -399,6 +402,7 @@ public:
         for (auto& d : diffusers) d.reset();
         predelay.reset();
         shimmerLine.reset();
+        eq.reset();
         for (auto& d : damp) d = 0.0f;
         for (auto& a : springState) a = 0.0f;
         bandIn = bandL = bandR = lowL = lowR = 0.0f;
@@ -439,6 +443,7 @@ public:
         const float erScale = v.earlyScale * (0.5f + s.size) * 0.001f * fs;
         const float dryGain = wetDryDry(s.mix), wetGain = wetDryWet(s.mix);
         const bool band = v.bandwidthHz < 19000.0f;
+        eq.setSettings(s.eq);
         // Shimmer feedback shrinks as the tank's own decay lengthens, so the
         // octave-up loop never sustains itself.
         float gMean = 0.0f;
@@ -538,6 +543,8 @@ public:
             wl -= lowL;
             wr -= lowR;
 
+            eq.process(wl, wr);
+
             const float mid = 0.5f * (wl + wr), side = 0.5f * (wl - wr) * width;
             L[i] = L[i] * dryGain + (mid + side) * wetGain;
             R[i] = R[i] * dryGain + (mid - side) * wetGain;
@@ -598,6 +605,7 @@ private:
     int diffLen[4] {};
     DelayLine predelay;
     DelayLine shimmerLine;
+    ParametricEq eq;
     float damp[8] {};
     float springState[24] {};
     float bandIn = 0.0f, bandL = 0.0f, bandR = 0.0f, lowL = 0.0f, lowR = 0.0f;

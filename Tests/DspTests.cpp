@@ -706,6 +706,46 @@ ZS_TEST(compressor_models_reduce_and_recover)
         ZS_CHECK_NEAR(l[i], ref[i], 1e-6);
 }
 
+ZS_TEST(reverb_parametric_eq)
+{
+    // Flat settings are an exact bypass; each band does what it says.
+    EqSettings flat;
+    ZS_CHECK(flat.isFlat());
+    for (double f : { 50.0, 500.0, 5000.0 })
+        ZS_CHECK_NEAR(ParametricEq::magnitudeDb(flat, f, 48000.0), 0.0, 1e-6);
+    EqSettings s;
+    s.bell1Freq = 1000.0f;
+    s.bell1Gain = 9.0f;
+    s.bell1Q = 2.0f;
+    ZS_CHECK_NEAR(ParametricEq::magnitudeDb(s, 1000.0, 48000.0), 9.0, 0.05);
+    ZS_CHECK_LT(std::abs(ParametricEq::magnitudeDb(s, 100.0, 48000.0)), 0.5);
+    EqSettings shelf;
+    shelf.lowGain = -12.0f;
+    shelf.lowFreq = 200.0f;
+    shelf.highGain = 6.0f;
+    shelf.highFreq = 4000.0f;
+    ZS_CHECK_NEAR(ParametricEq::magnitudeDb(shelf, 30.0, 48000.0), -12.0, 0.6);
+    ZS_CHECK_NEAR(ParametricEq::magnitudeDb(shelf, 18000.0, 48000.0), 6.0, 0.6);
+
+    // The processed signal matches the analytic response.
+    ParametricEq eq;
+    eq.prepare(48000.0f);
+    eq.setSettings(s);
+    double in = 0.0, out = 0.0;
+    for (int i = 0; i < 48000; ++i)
+    {
+        float l = std::sin(kTwoPi * 1000.0f * (float) i / 48000.0f), r = l;
+        const float x = l;
+        eq.process(l, r);
+        if (i > 4800)
+        {
+            in += (double) x * x;
+            out += (double) l * l;
+        }
+    }
+    ZS_CHECK_NEAR(10.0 * std::log10(out / in), 9.0, 0.1);
+}
+
 ZS_TEST(delay_types_stable_and_decaying)
 {
     // Every delay character at maximum feedback and wear: bounded, finite, and

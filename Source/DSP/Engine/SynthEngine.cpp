@@ -689,6 +689,8 @@ void SynthEngine::runEffects(float* left, float* right, int n)
         rs.modulation = p(P::ReverbMod);
         rs.early = p(P::ReverbEarly);
         rs.width = p(P::ReverbWidth);
+        rs.eq = { p(P::RevEqLowFreq), p(P::RevEqLowGain), p(P::RevEqB1Freq), p(P::RevEqB1Gain), p(P::RevEqB1Q),
+                  p(P::RevEqB2Freq), p(P::RevEqB2Gain), p(P::RevEqB2Q), p(P::RevEqHighFreq), p(P::RevEqHighGain) };
         reverb.process(l, r, n, rs);
     }, [&] { reverb.reset(); });
 

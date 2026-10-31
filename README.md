@@ -12,9 +12,9 @@ advanced sections.
 |---|---|
 | Formats | Standalone app, VST3 and Audio Unit (macOS universal builds from CI, AU checked with auval) |
 | Engine | JUCE-free C++17 library, usable without any GUI |
-| Parameters | 346, all host-automatable, one authoritative table |
+| Parameters | 356, all host-automatable, one authoritative table |
 | Factory library | 227 presets: *ZYNTH Originals* (160, 15 categories) and *Classic Machines* (67 sounds in 20 instrument folders), level-matched by measurement |
-| Tests | 42 DSP tests, 20 state/preset/layout/editor tests, a VST3 host test |
+| Tests | 43 DSP tests, 22 state/preset/layout/editor tests, a VST3 host test |
 | Tested on | Ubuntu 24.04, x86-64, GCC 13.3, CMake 3.28, JUCE 8.0.9 |
 
 ## What it does
@@ -61,7 +61,8 @@ advanced sections.
 * **Reverb** — nine algorithms: Hall, Room, EMT 140 Plate, Echo Chamber,
   Spring, Lexicon 224, Lexicon 480L, Bricasti M7 and Shimmer (original
   algorithms voiced after those units), with decay, low cut, diffusion,
-  modulation, early/late and width; delay and reverb each have a menu of
+  modulation, early/late and width, plus a four-band parametric EQ on the
+  reverb (drag the nodes on its curve); delay and reverb each have a menu of
   factory presets.
 * **Musical typing** — a floating Mac-keyboard window (TYPING button): play
   from the computer keyboard with Logic's layout, octave/velocity keys,
@@ -195,7 +196,7 @@ These are honest gaps in the current version, not hidden features:
   circuits or copies of their factory patches. Instrument names are trademarks
   of their owners, used descriptively; ZYNTH is not affiliated with them.
 * The VST3 exposes JUCE's 2048 hidden MIDI-CC proxy parameters in addition to
-  the 346 synth parameters (needed for controller input in VST3 hosts).
+  the 356 synth parameters (needed for controller input in VST3 hosts).
 
 ## Licence
 

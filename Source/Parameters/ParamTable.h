@@ -213,6 +213,16 @@ X(ReverbDiff,    "fx.rev.diff",    "Reverb Diffusion","Effects", Float, 0.f, 1.f
 X(ReverbMod,     "fx.rev.mod",     "Reverb Modulation","Effects", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Chorusing of the tail (0.5 = the type's natural amount).") \
 X(ReverbEarly,   "fx.rev.early",   "Reverb Early/Late","Effects", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Balance of early reflections (left) and tail (right).") \
 X(ReverbWidth,   "fx.rev.width",   "Reverb Width",  "Effects", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Stereo width of the reverb (0.5 = natural, 1 = extra wide).") \
+X(RevEqLowFreq,  "fx.rev.eq.lsf",  "Reverb EQ Low Freq",  "Effects", Float, 30.f, 500.f, 120.f, LOG, "Hz", nullptr, "Reverb EQ low-shelf frequency.") \
+X(RevEqLowGain,  "fx.rev.eq.lsg",  "Reverb EQ Low Gain",  "Effects", Float, -15.f, 15.f, 0.f, LIN, "dB", nullptr, "Reverb EQ low-shelf gain (wet signal only).") \
+X(RevEqB1Freq,   "fx.rev.eq.p1f",  "Reverb EQ Bell 1 Freq","Effects", Float, 80.f, 2000.f, 400.f, LOG, "Hz", nullptr, "Reverb EQ bell 1 frequency.") \
+X(RevEqB1Gain,   "fx.rev.eq.p1g",  "Reverb EQ Bell 1 Gain","Effects", Float, -15.f, 15.f, 0.f, LIN, "dB", nullptr, "Reverb EQ bell 1 gain.") \
+X(RevEqB1Q,      "fx.rev.eq.p1q",  "Reverb EQ Bell 1 Q",  "Effects", Float, 0.3f, 8.f, 1.f, LOG, "Q", nullptr, "Reverb EQ bell 1 bandwidth (higher Q = narrower).") \
+X(RevEqB2Freq,   "fx.rev.eq.p2f",  "Reverb EQ Bell 2 Freq","Effects", Float, 500.f, 12000.f, 2500.f, LOG, "Hz", nullptr, "Reverb EQ bell 2 frequency.") \
+X(RevEqB2Gain,   "fx.rev.eq.p2g",  "Reverb EQ Bell 2 Gain","Effects", Float, -15.f, 15.f, 0.f, LIN, "dB", nullptr, "Reverb EQ bell 2 gain.") \
+X(RevEqB2Q,      "fx.rev.eq.p2q",  "Reverb EQ Bell 2 Q",  "Effects", Float, 0.3f, 8.f, 1.f, LOG, "Q", nullptr, "Reverb EQ bell 2 bandwidth (higher Q = narrower).") \
+X(RevEqHighFreq, "fx.rev.eq.hsf",  "Reverb EQ High Freq", "Effects", Float, 1500.f, 16000.f, 8000.f, LOG, "Hz", nullptr, "Reverb EQ high-shelf frequency.") \
+X(RevEqHighGain, "fx.rev.eq.hsg",  "Reverb EQ High Gain", "Effects", Float, -15.f, 15.f, 0.f, LIN, "dB", nullptr, "Reverb EQ high-shelf gain (wet signal only).") \
 /* ----------------------------------------------------------------- Output */ \
 X(Width,         "out.width",      "Stereo Width",  "Output", Float, 0.f, 2.f, 1.f, LIN, "", nullptr, "Mid/side stereo width (0 = mono, 1 = unchanged, 2 = wide).") \
 X(Character,     "out.character",  "Character",     "Output", Float, 0.f, 1.f, 0.1f, LIN, "", nullptr, "Analogue-style output stage saturation and warmth.") \

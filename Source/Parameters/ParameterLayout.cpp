@@ -96,6 +96,7 @@ juce::String formatValue(int index, float v)
     if (unit == "%")   return juce::String(v, 0) + "%";
     if (unit == "deg") return juce::String(v, 0) + juce::String::fromUTF8("\xc2\xb0");
     if (unit == "BPM") return juce::String(v, 1) + " BPM";
+    if (unit == "Q")   return "Q " + juce::String(v, v < 1.0f ? 2 : 1);
     if (unit == "x")   return "x" + juce::String(v, v < 1.0f ? 2 : 0);
 
     if (index == P::Width)

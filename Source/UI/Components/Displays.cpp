@@ -1,6 +1,7 @@
 #include "Displays.h"
 #include "Materials.h"
 
+#include "../../DSP/Effects/ParametricEq.h"
 #include "../../DSP/FM/FmAlgorithms.h"
 #include "../../DSP/Wavetable/WavetableBank.h"
 
@@ -830,6 +831,238 @@ void ValveDisplay::paint(juce::Graphics& g)
     g.restoreState();
 
     g.drawImage(front, r);
+}
+
+// ======================================================= reverb EQ curve ====
+const ReverbEqCurve::Band ReverbEqCurve::bands[4] = {
+    { P::RevEqLowFreq, P::RevEqLowGain, -1 },
+    { P::RevEqB1Freq, P::RevEqB1Gain, P::RevEqB1Q },
+    { P::RevEqB2Freq, P::RevEqB2Gain, P::RevEqB2Q },
+    { P::RevEqHighFreq, P::RevEqHighGain, -1 },
+};
+
+ReverbEqCurve::ReverbEqCurve(ZSynthProcessor& p, bool isInteractive) : CachedDisplay(p), interactive(isInteractive)
+{
+    setInterceptsMouseClicks(interactive, false);
+    if (interactive)
+        setTooltip("Drag a node: left/right = frequency, up/down = gain. Mouse wheel = width (Q) of a bell. Double-click = flat.");
+}
+
+uint64_t ReverbEqCurve::stateHash() const
+{
+    uint64_t h = 1469598103934665603ull;
+    for (int i = P::RevEqLowFreq; i <= P::RevEqHighGain; ++i)
+        h = mix(h, v(i));
+    h = mix(h, v(P::ReverbOn));
+    h = mix(h, (float) (hoverBand * 7 + dragging));
+    return h;
+}
+
+juce::Rectangle<float> ReverbEqCurve::plotArea() const
+{
+    return getLocalBounds().toFloat().reduced(interactive ? 10.0f : 4.0f, interactive ? 10.0f : 4.0f);
+}
+
+float ReverbEqCurve::xForFreq(float f) const
+{
+    const auto a = plotArea();
+    return a.getX() + a.getWidth() * std::log(juce::jlimit(20.0f, 20000.0f, f) / 20.0f) / std::log(1000.0f);
+}
+
+float ReverbEqCurve::freqForX(float x) const
+{
+    const auto a = plotArea();
+    return 20.0f * std::pow(1000.0f, juce::jlimit(0.0f, 1.0f, (x - a.getX()) / a.getWidth()));
+}
+
+float ReverbEqCurve::yForDb(float db) const
+{
+    const auto a = plotArea();
+    return a.getCentreY() - juce::jlimit(-18.0f, 18.0f, db) / 18.0f * a.getHeight() * 0.5f;
+}
+
+float ReverbEqCurve::dbForY(float y) const
+{
+    const auto a = plotArea();
+    return (a.getCentreY() - y) / (a.getHeight() * 0.5f) * 18.0f;
+}
+
+int ReverbEqCurve::bandAt(juce::Point<float> p) const
+{
+    int best = -1;
+    float bestD = 14.0f;
+    for (int b = 0; b < 4; ++b)
+    {
+        const juce::Point<float> node(xForFreq(v(bands[b].freq)), yForDb(v(bands[b].gain)));
+        const float d = node.getDistanceFrom(p);
+        if (d < bestD)
+        {
+            bestD = d;
+            best = b;
+        }
+    }
+    return best;
+}
+
+void ReverbEqCurve::gesture(int index, bool begin)
+{
+    if (auto* param = processor.getState().getParameter(paramDef(index).id))
+        begin ? param->beginChangeGesture() : param->endChangeGesture();
+}
+
+void ReverbEqCurve::setParam(int index, float value)
+{
+    if (auto* param = processor.getState().getParameter(paramDef(index).id))
+        param->setValueNotifyingHost(param->convertTo0to1(juce::jlimit(paramDef(index).min, paramDef(index).max, value)));
+}
+
+void ReverbEqCurve::mouseDown(const juce::MouseEvent& e)
+{
+    dragging = bandAt(e.position);
+    if (dragging >= 0)
+    {
+        gesture(bands[dragging].freq, true);
+        gesture(bands[dragging].gain, true);
+    }
+}
+
+void ReverbEqCurve::mouseDrag(const juce::MouseEvent& e)
+{
+    if (dragging < 0)
+        return;
+    setParam(bands[dragging].freq, freqForX(e.position.x));
+    setParam(bands[dragging].gain, std::round(dbForY(e.position.y) * 10.0f) / 10.0f);
+    refresh();
+}
+
+void ReverbEqCurve::mouseUp(const juce::MouseEvent&)
+{
+    if (dragging >= 0)
+    {
+        gesture(bands[dragging].freq, false);
+        gesture(bands[dragging].gain, false);
+    }
+    dragging = -1;
+    refresh();
+}
+
+void ReverbEqCurve::mouseDoubleClick(const juce::MouseEvent& e)
+{
+    const int b = bandAt(e.position);
+    if (b < 0)
+        return;
+    gesture(bands[b].gain, true);
+    setParam(bands[b].gain, 0.0f);
+    gesture(bands[b].gain, false);
+    refresh();
+}
+
+void ReverbEqCurve::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& w)
+{
+    const int b = bandAt(e.position);
+    if (b < 0 || bands[b].q < 0)
+        return;
+    const float q = v(bands[b].q) * std::pow(2.0f, (w.deltaY != 0.0f ? w.deltaY : w.deltaX) * 2.0f);
+    gesture(bands[b].q, true);
+    setParam(bands[b].q, q);
+    gesture(bands[b].q, false);
+    refresh();
+}
+
+void ReverbEqCurve::mouseMove(const juce::MouseEvent& e)
+{
+    hoverBand = bandAt(e.position);
+    setMouseCursor(hoverBand >= 0 ? juce::MouseCursor::DraggingHandCursor : juce::MouseCursor::NormalCursor);
+    refresh();
+}
+
+void ReverbEqCurve::mouseExit(const juce::MouseEvent&)
+{
+    hoverBand = -1;
+    refresh();
+}
+
+void ReverbEqCurve::paint(juce::Graphics& g)
+{
+    const auto r = getLocalBounds().toFloat();
+    fillPanelInset(g, r);
+    const auto a = plotArea();
+    const bool on = v(P::ReverbOn) >= 0.5f;
+    const auto curveColour = juce::Colour(0xfff08fb0); // effects pink
+
+    // Grid: octave-ish frequency lines and 6 dB steps.
+    g.setColour(Colours::lcdDim.withAlpha(0.35f));
+    for (float f : { 50.0f, 100.0f, 200.0f, 500.0f, 1000.0f, 2000.0f, 5000.0f, 10000.0f })
+        g.drawVerticalLine(juce::roundToInt(xForFreq(f)), a.getY(), a.getBottom());
+    for (float db : { -12.0f, -6.0f, 6.0f, 12.0f })
+        g.drawHorizontalLine(juce::roundToInt(yForDb(db)), a.getX(), a.getRight());
+    g.setColour(Colours::lcdDim.withAlpha(0.8f));
+    g.drawHorizontalLine(juce::roundToInt(yForDb(0.0f)), a.getX(), a.getRight());
+    if (interactive)
+    {
+        g.setFont(lcdFont(9.0f));
+        g.setColour(Colours::lcdDim.brighter(0.5f));
+        for (auto [f, t] : { std::pair<float, const char*>(100.0f, "100"), { 1000.0f, "1k" }, { 10000.0f, "10k" } })
+            g.drawText(t, juce::Rectangle<float>(xForFreq(f) + 2.0f, a.getBottom() - 11.0f, 30.0f, 10.0f).toNearestInt(),
+                       juce::Justification::centredLeft, false);
+        for (auto [db, t] : { std::pair<float, const char*>(12.0f, "+12"), { -12.0f, "-12" } })
+            g.drawText(t, juce::Rectangle<float>(a.getX() + 2.0f, yForDb(db) - 11.0f, 30.0f, 10.0f).toNearestInt(),
+                       juce::Justification::centredLeft, false);
+    }
+
+    // The response, from the same design as the audio.
+    dsp::EqSettings s { v(P::RevEqLowFreq), v(P::RevEqLowGain), v(P::RevEqB1Freq), v(P::RevEqB1Gain), v(P::RevEqB1Q),
+                        v(P::RevEqB2Freq), v(P::RevEqB2Gain), v(P::RevEqB2Q), v(P::RevEqHighFreq), v(P::RevEqHighGain) };
+    juce::Path curve, fill;
+    const int steps = juce::jmax(40, (int) a.getWidth() / 2);
+    for (int i = 0; i <= steps; ++i)
+    {
+        const float x = a.getX() + a.getWidth() * (float) i / (float) steps;
+        const float y = yForDb((float) dsp::ParametricEq::magnitudeDb(s, freqForX(x), 48000.0));
+        if (i == 0)
+        {
+            curve.startNewSubPath(x, y);
+            fill.startNewSubPath(x, yForDb(0.0f));
+        }
+        else
+            curve.lineTo(x, y);
+        fill.lineTo(x, y);
+    }
+    fill.lineTo(a.getRight(), yForDb(0.0f));
+    fill.closeSubPath();
+    const auto col = on ? curveColour : curveColour.withSaturation(0.2f).withAlpha(0.6f);
+    g.setColour(col.withAlpha(0.18f));
+    g.fillPath(fill);
+    g.setColour(col.withAlpha(0.35f));
+    g.strokePath(curve, juce::PathStrokeType(interactive ? 4.0f : 3.0f));
+    g.setColour(col);
+    g.strokePath(curve, juce::PathStrokeType(interactive ? 1.8f : 1.3f));
+
+    // Band nodes.
+    static const char* names[4] = { "LO", "1", "2", "HI" };
+    for (int b = 0; b < 4; ++b)
+    {
+        const juce::Point<float> node(xForFreq(v(bands[b].freq)), yForDb(v(bands[b].gain)));
+        const float rad = interactive ? (b == dragging || b == hoverBand ? 8.0f : 6.5f) : 2.5f;
+        g.setColour(juce::Colours::black.withAlpha(0.6f));
+        g.fillEllipse(juce::Rectangle<float>(rad * 2.0f + 2.0f, rad * 2.0f + 2.0f).withCentre(node));
+        g.setColour(b == dragging || b == hoverBand ? Colours::lcdText : col);
+        g.fillEllipse(juce::Rectangle<float>(rad * 2.0f, rad * 2.0f).withCentre(node));
+        if (interactive)
+        {
+            g.setColour(juce::Colours::black);
+            g.setFont(labelFont(8.5f));
+            g.drawText(names[b], juce::Rectangle<float>(rad * 2.0f, rad * 2.0f).withCentre(node).toNearestInt(), juce::Justification::centred, false);
+        }
+    }
+    if (interactive && (dragging >= 0 || hoverBand >= 0))
+    {
+        const auto& bd = bands[dragging >= 0 ? dragging : hoverBand];
+        juce::String t = formatValue(bd.freq, v(bd.freq)) + "   " + formatValue(bd.gain, v(bd.gain));
+        if (bd.q >= 0)
+            t += "   " + formatValue(bd.q, v(bd.q));
+        drawLcdText(g, t, a.withHeight(14.0f).toNearestInt(), 11.0f, Colours::lcdText, juce::Justification::centredRight);
+    }
 }
 
 // =========================================================== comp meter ====

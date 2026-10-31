@@ -280,6 +280,15 @@ void MainPanel::buildUtilities()
         showMusicalTyping(! isMusicalTypingVisible()); });
     button("openComp", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Compressor ratio, attack, release, knee, side-chain and colour", [this] {
         showPage(getVisiblePage() == "comp" ? juce::String() : juce::String("comp")); });
+    button("reverbEqFlat", "FLAT", "Reset the reverb EQ to flat", [this] {
+        for (int i : { (int) P::RevEqLowGain, (int) P::RevEqB1Gain, (int) P::RevEqB2Gain, (int) P::RevEqHighGain })
+            if (auto* param = processor.getState().getParameter(paramDef(i).id))
+            {
+                param->beginChangeGesture();
+                param->setValueNotifyingHost(param->convertTo0to1(0.0f));
+                param->endChangeGesture();
+            }
+    });
     button("openValve", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Valve type, bias, sag, warmth and mix", [this] {
         showPage(getVisiblePage() == "valve" ? juce::String() : juce::String("valve")); });
 
@@ -303,6 +312,8 @@ void MainPanel::buildUtilities()
     displays.push_back(&addUtility<OutputInfo>("outputInfo", processor));
     displays.push_back(&addUtility<ValveDisplay>("valveDisplay", processor));
     displays.push_back(&addUtility<CompMeter>("compMeter", processor));
+    displays.push_back(&addUtility<ReverbEqCurve>("reverbEqCurve", processor, false));
+    displays.push_back(&addUtility<ReverbEqCurve>("reverbEqCurveBig", processor, true));
     displays.push_back(&addUtility<CompMeter>("compMeterBig", processor));
     displays.push_back(&addUtility<OutputMeter>("meter", processor));
     for (int op = 0; op < kNumOperators; ++op)

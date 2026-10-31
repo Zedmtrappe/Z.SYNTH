@@ -114,6 +114,38 @@ protected:
     uint64_t stateHash() const override;
 };
 
+/** Response curve of the reverb's parametric EQ. The large (interactive)
+    version lets you drag each band's node: left/right = frequency,
+    up/down = gain, mouse wheel = Q of a bell, double-click = flat band. */
+class ReverbEqCurve : public CachedDisplay, public juce::SettableTooltipClient
+{
+public:
+    ReverbEqCurve(ZSynthProcessor& p, bool isInteractive);
+    void paint(juce::Graphics&) override;
+    void mouseDown(const juce::MouseEvent&) override;
+    void mouseDrag(const juce::MouseEvent&) override;
+    void mouseUp(const juce::MouseEvent&) override;
+    void mouseDoubleClick(const juce::MouseEvent&) override;
+    void mouseWheelMove(const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
+    void mouseMove(const juce::MouseEvent&) override;
+    void mouseExit(const juce::MouseEvent&) override;
+protected:
+    uint64_t stateHash() const override;
+private:
+    struct Band { int freq, gain, q; };
+    static const Band bands[4];
+    juce::Rectangle<float> plotArea() const;
+    float xForFreq(float f) const;
+    float freqForX(float x) const;
+    float yForDb(float db) const;
+    float dbForY(float y) const;
+    int bandAt(juce::Point<float>) const;
+    void setParam(int index, float value);
+    void gesture(int index, bool begin);
+    bool interactive;
+    int dragging = -1, hoverBand = -1;
+};
+
 /** Analogue VU meter showing the output compressor's gain reduction. */
 class CompMeter : public Display
 {

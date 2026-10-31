@@ -168,7 +168,7 @@ Activity activityFor(int i, const float* v, bool hostTempo)
                              { P::PhaserOn, P::PhaserRate, P::PhaserMix, "Phaser" },
                              { P::FlangerOn, P::FlangerRate, P::FlangerMix, "Flanger" },
                              { P::DelayOn, P::DelaySync, P::DelayDuck, "Delay" },
-                             { P::ReverbOn, P::ReverbSize, P::ReverbWidth, "Reverb" } };
+                             { P::ReverbOn, P::ReverbSize, P::RevEqHighGain, "Reverb" } };
     for (const auto& f : fx)
         if (inRange(i, f.first, f.last) && ! on(v, f.on))
             return inactive(juce::String(f.name) + " is switched off.");

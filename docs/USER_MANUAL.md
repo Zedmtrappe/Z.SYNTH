@@ -290,6 +290,13 @@ the gaps.
 | Bricasti M7 | Dense and natural, realistic early reflections |
 | Shimmer | Hall with an octave-up pitch shifter in the feedback loop |
 
+**Reverb EQ.** A four-band parametric EQ on the reverb's wet signal only
+(the dry sound is untouched): low shelf, two bells (frequency, gain, Q) and a
+high shelf, +/-15 dB. In the advanced popup, drag a band's node on the curve
+(left/right = frequency, up/down = gain), use the mouse wheel over a bell to
+change its width, double-click a node to flatten it, or use the knobs; FLAT
+resets all four. A small live curve sits under the reverb's ADVANCED button.
+
 These are ZYNTH's own algorithms voiced after those units, not emulations of
 them. In the advanced popup: **REVERB PRESETS ▾** (two or three per type),
 **DECAY** (trims SIZE's decay time x0.35 to x2.8), **LO CUT**, **DIFF** (echo
