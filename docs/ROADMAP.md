@@ -14,9 +14,3 @@ Ideas and requests that are agreed but not built yet. Newest first.
     through with the < > buttons like any other folder.
 * **"Set as startup sound"** from the preset menu, instead of building a
   preset into the factory bank.
-
-## Sound
-
-* **Sample playback oscillator**: load WAV / SFZ multisamples from a folder on
-  disk (e.g. legally owned libraries sampled from 90s workstations), keymapped
-  with loop points, through the existing filters, envelopes and effects.
