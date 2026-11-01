@@ -13,9 +13,9 @@ advanced sections.
 |---|---|
 | Formats | Standalone app, VST3 and Audio Unit (macOS universal builds from CI, AU checked with auval) |
 | Engine | JUCE-free C++17 library, usable without any GUI |
-| Parameters | 393, all host-automatable, one authoritative table |
+| Parameters | 396, all host-automatable, one authoritative table |
 | Factory library | 272 presets: *ZYNTH Originals* (160, 15 categories) and *Classic Machines* (112 sounds in 26 instrument folders), level-matched by measurement |
-| Tests | 50 DSP tests, 23 state/preset/layout/editor tests, a VST3 host test |
+| Tests | 51 DSP tests, 23 state/preset/layout/editor tests, a VST3 host test |
 | Tested on | Ubuntu 24.04, x86-64, GCC 13.3, CMake 3.28, JUCE 8.0.9 |
 
 ## What it does
@@ -67,6 +67,10 @@ advanced sections.
   harmonic signature and tone voicing) with bias, supply sag, output-transformer
   warmth and mix. Gentle by design: warmth and soft peak compression through
   most of the DRIVE travel, audible distortion from about 90 %.
+* **Output transformer** — after the valve: Neve LO1166, API 2503, UTC
+  A-24, Haufe V76 and Jensen JT-11 models (flux-integrating core with
+  saturation, remanence and hysteresis; each calibrated to its published LF
+  distortion, LF corner and top-end response), with ON, TYPE and AMOUNT.
 * **Parametric output EQ** — five bell bands with variable Q, 12 dB/oct low
   and high cuts and an output trim; flat = completely dry. Its block in the
   effects row shows the curve; ADVANCED opens a draggable-node editor.
@@ -223,7 +227,7 @@ These are honest gaps in the current version, not hidden features:
   circuits or copies of their factory patches. Instrument names are trademarks
   of their owners, used descriptively; ZYNTH is not affiliated with them.
 * The VST3 exposes JUCE's 2048 hidden MIDI-CC proxy parameters in addition to
-  the 393 synth parameters (needed for controller input in VST3 hosts).
+  the 396 synth parameters (needed for controller input in VST3 hosts).
 
 ## Licence
 

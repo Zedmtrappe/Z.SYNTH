@@ -142,12 +142,13 @@ private:
     StereoDelay delay;
     Reverb reverb;
     ValveStage valve;
+    OutputTransformer transformer;
     OutputCompressor compressor;
     OutputEq outputEq;
     SmoothBand smooth;
     OutputStage output;
     // Each effect fades in/out over 20 ms when switched, so toggling never clicks.
-    float fades[10] {};
+    float fades[11] {};
     std::vector<float> fxTempL, fxTempR;
 
     std::atomic<bool> panicRequested { false };

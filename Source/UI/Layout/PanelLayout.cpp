@@ -274,11 +274,17 @@ PanelLayout::PanelLayout()
     utilityAt("meter", 1842, 464, 60, 282);
 
     // The valve stage: a window onto the valve plus DRIVE; the rest is on the "valve" page.
-    sectionAt("valve", "VALVE", 1658, 456, 178, 290, true);
+    sectionAt("valve", "VALVE", 1658, 456, 178, 194, true);
     compact("out.valve.on", 1792, 457, "ON");
-    utilityAt("valveDisplay", 1664, 480, 166, 168);
-    add("out.valve.drive", K::LargeKnob, 1666, 652, "DRIVE");
-    utilityAt("openValve", 1746, 684, 80, 26);
+    utilityAt("valveDisplay", 1664, 476, 112, 170);
+    add("out.valve.drive", K::Knob, 1780, 482, "DRIVE");
+    utilityAt("openValve", 1778, 590, 54, 40);
+
+    // Output transformer, straight after the valve: ON, TYPE and AMOUNT.
+    sectionAt("xfmr", "TRANSFORMER", 1658, 654, 178, 92, true);
+    compact("out.xfmr.on", 1792, 655, "ON");
+    add("out.xfmr.type", K::Selector, 1664, 682, "TYPE", 112);
+    add("out.xfmr.amt", K::Knob, 1780, 676, "AMOUNT", 52);
 
     // ------------------------------------------------------------ effects
     sectionAt("fx", "EFFECTS", 10, 760, 1900, 204);

@@ -396,6 +396,26 @@ glow brighter as you turn it up. **ADVANCED ▸** opens the rest:
 | MIX | Dry/valve blend | The meter
 shows both channels with peak hold.
 
+**TRANSFORMER** — an output transformer straight after the valve (its own
+strip under the valve window). **ON** switches it in, **TYPE** chooses the
+transformer, **AMOUNT** sets the level into it (50 % = nominal studio level,
++12 dBu for a -6 dBFS signal, up to +18 dB hotter; the output level is
+compensated). Like the real thing it colours mainly the **low end**: its
+distortion rises steeply as frequency falls and level rises (mostly the 3rd
+harmonic, which thickens and then "tightens" the bass), while the midrange
+and top stay clean; each type also has its own low-frequency corner and
+top-end softening. The models follow each transformer's published
+specifications and documented behaviour (core material, LF / HF response,
+distortion at low frequencies and high level):
+
+| Type | Character | 40 Hz THD at 50 % / 100 % | Low corner | 20 kHz |
+|---|---|---|---|---|
+| Neve LO1166 | Marinair steel core of the 1073: thick, weighty lows, slightly soft top, a little 2nd harmonic | 0.3 % / 15 % | 8 Hz | -0.8 dB |
+| API 2503 | Punchy and wide, the cleanest steel core | 0.15 % / 8 % | 5 Hz | -0.2 dB |
+| UTC A-24 | Tube-era line transformer: warm, rounded top, the first to saturate | 0.45 % / 18 % | 18 Hz | -2 dB |
+| Haufe V76 | German broadcast: rich lows, the most 2nd harmonic | 0.27 % / 12 % | 14 Hz | -1.2 dB |
+| Jensen JT-11 | Nickel core: clean, open and extended, barely saturates | 0.02 % / 0.65 % | 1 Hz | -0.1 dB |
+
 ## MIDI
 
 Note on/off with velocity, pitch bend, mod wheel (CC 1), expression (CC 11),

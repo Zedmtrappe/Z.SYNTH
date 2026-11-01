@@ -777,9 +777,10 @@ ZS_TEST(engine_extreme_parameters_stay_finite)
         std::vector<float> right;
         const auto x = rig.render(0.6, &right);
         ZS_CHECK(allFinite(x) && allFinite(right));
-        ZS_CHECK_LT(peakOf(x), 1.0001); // limiter on by default... unless randomised off
-        if (rig.params[P::Limiter] < 0.5f)
-            continue;
+        // The safety limiter holds peaks below full scale, unless this trial
+        // randomised it off.
+        if (rig.params[P::Limiter] >= 0.5f)
+            ZS_CHECK_LT(peakOf(x), 1.0001);
     }
 }
 
@@ -1308,6 +1309,57 @@ ZS_TEST(valve_stage_warms_without_level_jumps)
     ZS_CHECK_GT(h3[(int) ValveType::PushPullEL84] - h2[(int) ValveType::PushPullEL84], 15.0);
     ZS_CHECK_GT(h3[(int) ValveType::Power6L6] - h2[(int) ValveType::Power6L6], 15.0);
     ZS_CHECK_GT(h3[(int) ValveType::PushPullEL84], h3[(int) ValveType::Power6L6] + 2.0); // EL84 breaks up earlier
+}
+
+ZS_TEST(output_transformer_models)
+{
+    // Calibrated against each model's published character: low-frequency
+    // distortion at +12 dBu (AMOUNT 50 %) near its target, rising steeply when
+    // driven, while the midrange stays clean; nickel (Jensen) far cleaner than
+    // steel; each has its own low-end corner.
+    const float fs = 48000.0f;
+    auto run = [&](XfmrType t, float amount, float amp, float f, double& thd, double& gainDb) {
+        OutputTransformer x;
+        x.prepare(fs);
+        const int n = 96000;
+        std::vector<float> l((size_t) n), r((size_t) n);
+        for (int i = 0; i < n; ++i)
+            l[(size_t) i] = r[(size_t) i] = amp * std::sin(kTwoPi * f * (float) i / fs);
+        for (int i = 0; i < n; i += 256)
+            x.process(l.data() + i, r.data() + i, std::min(256, n - i), t, amount);
+        ZS_CHECK(allFinite(l));
+        auto a = [&](double fr) {
+            double c = 0.0, sn = 0.0;
+            for (int i = 48000; i < 96000; ++i)
+            {
+                c += l[(size_t) i] * std::cos(2.0 * 3.14159265358979 * fr * i / fs);
+                sn += l[(size_t) i] * std::sin(2.0 * 3.14159265358979 * fr * i / fs);
+            }
+            return std::sqrt(c * c + sn * sn) / 24000.0;
+        };
+        const double h1 = a(f);
+        double h = 0.0;
+        for (int k = 2; k <= 7; ++k)
+            h += a(f * k) * a(f * k);
+        thd = 100.0 * std::sqrt(h) / h1;
+        gainDb = 20.0 * std::log10(h1 / amp);
+    };
+    for (int t = 0; t < (int) XfmrType::Count; ++t)
+    {
+        const auto& m = OutputTransformer::model((XfmrType) t);
+        double nominal, driven, mid, g, lf;
+        run((XfmrType) t, 0.5f, 0.5f, 40.0f, nominal, g);
+        run((XfmrType) t, 1.0f, 0.5f, 40.0f, driven, g);
+        run((XfmrType) t, 1.0f, 0.5f, 1000.0f, mid, g);
+        double dummy;
+        run((XfmrType) t, 0.0f, 0.05f, m.lfHz, dummy, lf);
+        std::printf("    transformer %d: 40 Hz THD %.3f %% nominal, %.2f %% driven; 1 kHz driven %.4f %%; %.1f dB at %.0f Hz\n",
+                    t, nominal, driven, mid, lf, m.lfHz);
+        ZS_CHECK_NEAR(nominal, m.thd40, m.thd40 * 0.25 + 0.01);
+        ZS_CHECK_GT(driven, nominal * 10.0);
+        ZS_CHECK_LT(mid, 0.05);
+        ZS_CHECK_NEAR(lf, -3.0, 1.0);
+    }
 }
 
 ZS_TEST(arpeggiator_timing)

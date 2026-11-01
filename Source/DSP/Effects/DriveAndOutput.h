@@ -282,6 +282,149 @@ private:
 };
 
 // -----------------------------------------------------------------------------
+/** Audio output transformer, modelled from its physics:
+
+      v_out = v_in - R_s * i_m(phi),   d(phi)/dt = v_out
+
+    phi is the core flux (the integral of the voltage, so it grows as
+    frequency falls) and i_m the magnetising current drawn through the source
+    resistance. i_m has a linear part (the low-frequency roll-off), a cubic
+    part that bends over at the core's saturation flux (low-frequency
+    distortion that rises steeply as frequency falls and level rises, mostly
+    3rd harmonic, and the "tightening" of the bass when pushed), a small even
+    part (remanence: some 2nd harmonic) and a hysteresis loop (the low-level
+    distortion and slight bass phase shift of steel cores). Leakage
+    inductance and winding capacitance give each its top-end roll-off.
+
+    Level reference: -6 dBFS = +12 dBu. The voicings follow published
+    datasheet figures and documented behaviour (LF / HF corners, distortion
+    at low frequencies and high level, core material) of each transformer;
+    they are models of their measured character, not circuit-exact copies. */
+class OutputTransformer
+{
+public:
+    struct Model
+    {
+        float lfHz;        // -3 dB low-frequency corner (magnetising inductance)
+        float thd40;       // THD (%) at 40 Hz, +12 dBu (AMOUNT 50 %)
+        float satFlux;     // flux (40 Hz-peak units) where the core saturates hard
+        float even;        // 2nd-harmonic share (remanence / DC)
+        float hyst;        // hysteresis depth (steel > nickel)
+        float top10k, top20k; // response (dB) at 10 and 20 kHz (leakage L / winding C)
+    };
+
+    static const Model& model(XfmrType t)
+    {
+        static const Model models[(int) XfmrType::Count] = {
+            { 8.0f,  0.30f, 2.2f, 0.15f, 0.00035f, -0.2f, -0.8f }, // Neve LO1166 (Marinair, steel)
+            { 5.0f,  0.15f, 2.8f, 0.05f, 0.00020f, 0.0f,  -0.2f }, // API 2503
+            { 18.0f, 0.50f, 1.8f, 0.10f, 0.00045f, -0.6f, -2.0f }, // UTC A-24 (tube era)
+            { 14.0f, 0.25f, 2.2f, 0.22f, 0.00035f, -0.3f, -1.2f }, // Haufe V76
+            { 1.0f,  0.02f, 7.0f, 0.02f, 0.00004f, 0.0f,  -0.1f }, // Jensen JT-11 (nickel)
+        };
+        return models[std::clamp((int) t, 0, (int) XfmrType::Count - 1)];
+    }
+
+    void prepare(float sampleRate)
+    {
+        fs = sampleRate;
+        lastType = -1;
+        reset();
+    }
+
+    void reset()
+    {
+        for (int c = 0; c < 2; ++c)
+        {
+            flux[c] = play[c] = 0.0f;
+            for (auto& st : top[c])
+                st = {};
+        }
+    }
+
+    /** The magnetising-current voltage drop D(phi) and its slope. */
+    struct Core
+    {
+        float lin, a2, a3, cs, satFlux;
+        float drop(float phi) const
+        {
+            const float u = phi / satFlux, u3 = u * u * u;
+            return lin * phi + a2 * phi * phi + a3 * phi * phi * phi
+                 + cs * satFlux * u3 * u3 * u;
+        }
+        float slope(float phi) const
+        {
+            const float u = phi / satFlux, u3 = u * u * u;
+            return lin + 2.0f * a2 * phi + 3.0f * a3 * phi * phi + 7.0f * cs * u3 * u3;
+        }
+    };
+
+    void process(float* L, float* R, int n, XfmrType type, float amount)
+    {
+        const Model& m = model(type);
+        if ((int) type != lastType)
+        {
+            lastType = (int) type;
+            // Top end: two gentle shelves fitted to the response at 10 and 20 kHz.
+            topCoeffs[0] = ParametricEq::design(ParametricEq::Shape::HighShelf, 9000.0, m.top10k, 0.7, fs);
+            topCoeffs[1] = ParametricEq::design(ParametricEq::Shape::HighShelf, 17000.0, m.top20k - m.top10k, 0.7, fs);
+        }
+        // Flux in units where a 40 Hz sine of amplitude A peaks at A.
+        const float k = kTwoPi * 40.0f / fs;
+        Core core;
+        core.lin = m.lfHz / 40.0f;
+        // Cubic term calibrated to the model's THD at 40 Hz, +12 dBu (A = 0.5):
+        // THD ~ a3 A^2 / 2 (the flux integrator adds the factor of 2).
+        core.a3 = 2.0f * (m.thd40 * 0.01f) / (0.5f * 0.5f);
+        core.a2 = m.even * core.a3;
+        core.cs = 0.02f;          // hard saturation above satFlux
+        core.satFlux = m.satFlux;
+        const float hw = 0.02f;   // hysteresis loop half-width (flux units)
+        const float hk = m.hyst / hw;
+        const float drive = dbToGain(-12.0f + 30.0f * clampf(amount, 0.0f, 1.0f));
+        const float makeup = 1.0f / drive;
+
+        float* io[2] = { L, R };
+        for (int c = 0; c < 2; ++c)
+        {
+            float phi = flux[c], p = play[c];
+            for (int i = 0; i < n; ++i)
+            {
+                const float x = io[c][i] * drive;
+                // Backward-Euler step for the flux (one Newton iteration): stable
+                // however hard the core is driven.
+                p = std::clamp(p, phi - hw, phi + hw); // play-operator hysteresis
+                const float hystDrop = hk * (phi - p);
+                const float f = k * (core.drop(phi) + hystDrop - x);
+                const float next = phi - f / (1.0f + k * core.slope(phi));
+                float y = (next - phi) / k;
+                phi = undenormalise(next);
+                for (int s2 = 0; s2 < 2; ++s2)
+                {
+                    auto& st = top[c][s2];
+                    const auto& q = topCoeffs[s2];
+                    const double o = q.b0 * y + st.z1;
+                    st.z1 = q.b1 * y - q.a1 * o + st.z2;
+                    st.z2 = q.b2 * y - q.a2 * o;
+                    y = (float) o;
+                }
+                io[c][i] = y * makeup;
+            }
+            flux[c] = phi;
+            play[c] = p;
+        }
+    }
+
+private:
+    struct State { double z1 = 0.0, z2 = 0.0; };
+    float fs = 48000.0f;
+    int lastType = -1;
+    ParametricEq::Coeffs topCoeffs[2];
+    float flux[2] {}, play[2] {};
+    State top[2][2];
+};
+
+// -----------------------------------------------------------------------------
 /** DC blocking, stereo width, "character" saturation, master gain, safety
     limiter, NaN protection and peak metering. */
 class OutputStage

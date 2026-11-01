@@ -61,6 +61,7 @@ void SynthEngine::prepare(double sampleRate, int maxBlockSize)
     valve.prepare(fs);
     compressor.prepare(fs);
     outputEq.prepare(fs);
+    transformer.prepare(fs);
     smooth.prepare(fs);
     output.prepare(fs);
     for (auto& f : fades)
@@ -104,7 +105,7 @@ void SynthEngine::process(float* left, float* right, int numSamples,
         arp.reset();
         seq.reset();
         drive.reset(); phaser.reset(); flanger.reset(); chorus.reset();
-        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset(); compressor.reset(); outputEq.reset(); smooth.reset();
+        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset(); compressor.reset(); outputEq.reset(); transformer.reset(); smooth.reset();
         for (auto& ch : playedNote)
             for (auto& n : ch)
                 n = -1;
@@ -215,7 +216,7 @@ void SynthEngine::processChunk(float* left, float* right, int n, const MidiEvent
         badBlocks.fetch_add(1, std::memory_order_relaxed);
         voices.killAll();
         drive.reset(); phaser.reset(); flanger.reset(); chorus.reset();
-        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset(); compressor.reset(); outputEq.reset(); smooth.reset();
+        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset(); compressor.reset(); outputEq.reset(); transformer.reset(); smooth.reset();
     }
 
     activeVoices.store(voices.activeVoiceCount(), std::memory_order_relaxed);
@@ -757,6 +758,11 @@ void SynthEngine::runEffects(float* left, float* right, int n)
         valve.process(l, r, n, (ValveType) pi(P::ValveType), p(P::ValveDrive), p(P::ValveBias), p(P::ValveSag),
                       p(P::ValveWarmth), p(P::ValveMix));
     }, [&] { valve.reset(); });
+
+    // Output transformer, straight after the valve.
+    runFaded(10, pb(P::XfmrOn), [&](float* l, float* r) {
+        transformer.process(l, r, n, (XfmrType) pi(P::XfmrType), p(P::XfmrAmount));
+    }, [&] { transformer.reset(); });
 
     // Parametric output EQ (before SMOOTH and the compressor).
     runFaded(9, pb(P::PeqOn), [&](float* l, float* r) {

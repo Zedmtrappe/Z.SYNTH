@@ -25,7 +25,7 @@ namespace
         if (section.startsWith("peq"))                              return juce::Colour(0xffe8c26a); // brass
         if (section.startsWith("comp"))                             return juce::Colour(0xff78d4e6); // cyan
         if (section.startsWith("delay") || section.startsWith("reverb")) return juce::Colour(0xfff08fb0); // pink (effects)
-        if (section.startsWith("valve"))                                     return juce::Colour(0xffff8c3a); // valve orange
+        if (section.startsWith("valve") || section.startsWith("xfmr"))                                     return juce::Colour(0xffff8c3a); // valve orange
         if (section == "output")                                    return juce::Colour(0xffffffff);
         return Colours::accent;
     }
@@ -376,7 +376,7 @@ void MainPanel::buildUtilities()
         showPage(getVisiblePage() == "peq" ? juce::String() : juce::String("peq")); });
     button("openWave", juce::String::fromUTF8("SEQ / VECTOR \xe2\x96\xb8"), "Wave sequencing and vector mixing (Wavestation style)", [this] {
         showPage(getVisiblePage() == "wave" ? juce::String() : juce::String("wave")); });
-    button("openValve", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Valve type, bias, sag, warmth and mix", [this] {
+    button("openValve", juce::String::fromUTF8("ADV \xe2\x96\xb8"), "Valve type, bias, sag, warmth and mix", [this] {
         showPage(getVisiblePage() == "valve" ? juce::String() : juce::String("valve")); });
 
     auto& version = addUtility<juce::Label>("version", "version", "v" + juce::String(JucePlugin_VersionString));

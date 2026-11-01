@@ -20,6 +20,8 @@ Activity activityFor(int i, const float* v, bool hostTempo)
     if (inRange(i, P::FmAlgo, P::Op6Kls) && engine == EngineMode::Analog)
         return inactive("The FM engine is off. Set ENGINE to HYBRID or FM.");
 
+    if ((i == P::XfmrType || i == P::XfmrAmount) && ! on(v, P::XfmrOn))
+        return inactive("The output transformer is off. Switch it ON.");
     if (inRange(i, P::ValveType, P::ValveMix) && ! on(v, P::ValveOn))
         return inactive("The valve stage is off. Switch VALVE on.");
 
