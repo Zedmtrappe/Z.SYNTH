@@ -808,6 +808,61 @@ ZS_TEST(audition_trims_silent_intro_and_tail)
     ZS_CHECK(offs == 2); // the overhanging note-off was kept (moved to the loop end)
 }
 
+ZS_TEST(audition_octave_shift)
+{
+    juce::MidiMessageSequence track;
+    track.addEvent(juce::MidiMessage::tempoMetaEvent(500000), 0.0);
+    track.addEvent(juce::MidiMessage::noteOn(1, 60, (uint8_t) 100), 0.0);
+    track.addEvent(juce::MidiMessage::noteOff(1, 60), 1800.0);
+    track.addEvent(juce::MidiMessage::noteOn(1, 120, (uint8_t) 100), 960.0); // goes out of range at +1
+    track.addEvent(juce::MidiMessage::noteOff(1, 120), 1440.0);
+    track.addEvent(juce::MidiMessage::endOfTrack(), 1920.0);
+    track.updateMatchedPairs();
+    juce::MidiFile file;
+    file.setTicksPerQuarterNote(480);
+    file.addTrack(track);
+    juce::MemoryOutputStream out;
+    ZS_CHECK(file.writeTo(out));
+    juce::String error;
+    AuditionPlayer player;
+    player.setClip(AuditionPlayer::parse(out.getData(), out.getDataSize(), "oct", error));
+    player.setOctave(5);
+    ZS_CHECK(player.getOctave() == AuditionPlayer::kMaxOctave);
+    player.setOctave(1);
+    player.play();
+    std::vector<juce::MidiMessage> got;
+    auto run = [&](double seconds) {
+        for (int b = 0; b < (int) (seconds * 48000.0 / 512); ++b)
+        {
+            juce::MidiBuffer midi;
+            player.render(midi, 512, 48000.0, 1);
+            for (const auto m : midi)
+                got.push_back(m.getMessage());
+        }
+    };
+    run(0.5);
+    ZS_CHECK(got.size() == 1 && got[0].isNoteOn() && got[0].getNoteNumber() == 72);
+    // Changing octave mid-note ends the note it started.
+    got.clear();
+    player.setOctave(-1);
+    run(1.4);
+    ZS_CHECK(! got.empty() && got[0].isNoteOff() && got[0].getNoteNumber() == 72);
+    // 120 - 12 = 108 now plays; its off matches.
+    int on108 = 0, off108 = 0;
+    for (const auto& m : got)
+    {
+        on108 += m.isNoteOn() && m.getNoteNumber() == 108;
+        off108 += m.isNoteOff() && m.getNoteNumber() == 108;
+    }
+    ZS_CHECK(on108 == 1 && off108 == 1);
+    // At +1 the 120 is out of range: neither its on nor its off is sent.
+    player.setOctave(1);
+    got.clear();
+    run(2.0);
+    for (const auto& m : got)
+        ZS_CHECK(m.getNoteNumber() <= 127 && m.getNoteNumber() != 108);
+}
+
 ZS_TEST(audition_player_timing_loop_and_release)
 {
     // Two quarter notes at 120 BPM in a one-bar (2 s) file.

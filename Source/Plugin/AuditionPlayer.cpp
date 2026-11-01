@@ -177,6 +177,15 @@ void AuditionPlayer::render(juce::MidiBuffer& midi, int numSamples, double sampl
     }
     wasPlaying = true;
     lastChannel = channel;
+    if (const int oct = octave.load(); oct != appliedOctave)
+    {
+        // Notes started at the old transposition end now (the pedal is kept).
+        for (int note = 0; note < 128; ++note)
+            if (held[(size_t) note])
+                midi.addEvent(juce::MidiMessage::noteOff(channel, note), 0);
+        held.reset();
+        appliedOctave = oct;
+    }
 
     const auto& events = active->events;
     const double blockSeconds = numSamples / sampleRate;
@@ -188,12 +197,20 @@ void AuditionPlayer::render(juce::MidiBuffer& midi, int numSamples, double sampl
         {
             const auto& e = events[nextEvent++];
             const int offset = juce::jlimit(0, numSamples - 1, (int) ((blockStart + e.seconds - playhead) * sampleRate));
-            const uint8_t bytes[3] = { (uint8_t) (e.status | (channel - 1)), e.data1, e.data2 };
+            uint8_t data1 = e.data1;
+            if (e.status == 0x90 || e.status == 0x80 || e.status == 0xA0)
+            {
+                const int shifted = (int) e.data1 + 12 * appliedOctave;
+                if (shifted < 0 || shifted > 127)
+                    continue; // out of MIDI range at this octave: skipped (on and off alike)
+                data1 = (uint8_t) shifted;
+            }
+            const uint8_t bytes[3] = { (uint8_t) (e.status | (channel - 1)), data1, e.data2 };
             midi.addEvent(bytes, e.status == 0xC0 || e.status == 0xD0 ? 2 : 3, offset);
             if (e.status == 0x90)
-                held[e.data1 & 127] = true;
+                held[data1 & 127] = true;
             else if (e.status == 0x80)
-                held[e.data1 & 127] = false;
+                held[data1 & 127] = false;
             else if (e.status == 0xB0 && e.data1 == 64)
                 sustainDown = e.data2 >= 64;
         }

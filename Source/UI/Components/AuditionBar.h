@@ -28,14 +28,17 @@ private:
     void updateButtons();
     juce::Rectangle<int> clipArea() const;
     juce::Rectangle<int> progressArea() const;
+    juce::Rectangle<int> octaveArea() const;
+    void shiftOctave(int delta);
 
     ZSynthProcessor& processor;
-    juce::TextButton playButton, loopButton, loadButton;
+    juce::TextButton playButton, loopButton, loadButton, octDownButton, octUpButton;
     std::unique_ptr<juce::FileChooser> chooser;
     material::LegendCache legend, hint;
     juce::String shownName;
     float shownPosition = -1.0f;
     bool shownPlaying = false;
+    int shownOctave = 0;
     juce::File lastFolder;
 };
 

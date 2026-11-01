@@ -54,6 +54,10 @@ public:
     void stop() { playing = false; }
     bool isPlaying() const { return playing.load(); }
     void setLooping(bool shouldLoop) { looping = shouldLoop; }
+    /** Plays the clip up or down in whole octaves (-3..+3); playback only. */
+    void setOctave(int octaves) { octave = juce::jlimit(-kMaxOctave, kMaxOctave, octaves); }
+    int getOctave() const { return octave.load(); }
+    static constexpr int kMaxOctave = 3;
     bool isLooping() const { return looping.load(); }
 
     /** 0..1 position in the clip, for the display. */
@@ -77,6 +81,7 @@ private:
 
     std::atomic<bool> playing { false }, looping { true }, restartRequested { false };
     std::atomic<float> position { 0.0f };
+    std::atomic<int> octave { 0 };
 
     // Audio-thread state.
     bool wasPlaying = false;
@@ -85,6 +90,7 @@ private:
     std::bitset<128> held;
     bool sustainDown = false;
     int lastChannel = 1;
+    int appliedOctave = 0;
 };
 
 } // namespace zsynth

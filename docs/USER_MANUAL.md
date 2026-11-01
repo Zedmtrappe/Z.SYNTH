@@ -81,6 +81,7 @@ can audition a patch hands-free and tweak faders while it plays.
 | PLAY / STOP | Starts the clip from the top, or stops it (held notes are released) |
 | LOOP | Repeats the clip until stopped |
 | LOAD MIDI... | Opens any standard MIDI file (.mid) |
+| OCT − / OCT + | Plays the clip up to three octaves lower or higher (playback only; the display between them shows the shift) |
 
 The clip plays on the MIDI receive channel, merged with your own playing. All
 tracks and channels of a file are merged into one part; whether it plays

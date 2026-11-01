@@ -28,7 +28,13 @@ AuditionBar::AuditionBar(ZSynthProcessor& p) : processor(p)
     loadButton.setButtonText(juce::String::fromUTF8("LOAD MIDI\xe2\x80\xa6"));
     loadButton.setTooltip("Audition with your own standard MIDI file (.mid). All its channels play as one part.");
     loadButton.onClick = [this] { chooseFile(); };
-    for (auto* b : { &playButton, &loopButton, &loadButton })
+    octDownButton.setButtonText(juce::String::fromUTF8("OCT \xe2\x88\x92"));
+    octDownButton.setTooltip("Play the clip an octave lower (down to -3)");
+    octDownButton.onClick = [this] { shiftOctave(-1); };
+    octUpButton.setButtonText("OCT +");
+    octUpButton.setTooltip("Play the clip an octave higher (up to +3)");
+    octUpButton.onClick = [this] { shiftOctave(1); };
+    for (auto* b : { &playButton, &loopButton, &loadButton, &octDownButton, &octUpButton })
         addAndMakeVisible(*b);
     lastFolder = juce::File::getSpecialLocation(juce::File::userMusicDirectory);
     updateButtons();
@@ -45,9 +51,22 @@ juce::Rectangle<int> AuditionBar::clipArea() const
     return { kLabelW, 3, kClipW, getHeight() - 6 };
 }
 
+juce::Rectangle<int> AuditionBar::octaveArea() const
+{
+    return { octDownButton.getRight() + 2, 2, 34, getHeight() - 4 };
+}
+
+void AuditionBar::shiftOctave(int delta)
+{
+    auto& a = processor.getAudition();
+    a.setOctave(a.getOctave() + delta);
+    updateButtons();
+    repaint(octaveArea());
+}
+
 juce::Rectangle<int> AuditionBar::progressArea() const
 {
-    const int x = loadButton.getRight() + 10;
+    const int x = octUpButton.getRight() + 10;
     return { x, 5, getWidth() - x - 260, getHeight() - 10 };
 }
 
@@ -59,6 +78,10 @@ void AuditionBar::resized()
     loopButton.setBounds(x, 2, 64, getHeight() - 4);
     x += 70;
     loadButton.setBounds(x, 2, 110, getHeight() - 4);
+    x += 118;
+    octDownButton.setBounds(x, 2, 58, getHeight() - 4);
+    x += 58 + 2 + 34 + 2;
+    octUpButton.setBounds(x, 2, 58, getHeight() - 4);
 }
 
 void AuditionBar::updateButtons()
@@ -67,6 +90,9 @@ void AuditionBar::updateButtons()
     playButton.setButtonText(juce::String::fromUTF8(playing ? "\xe2\x96\xa0  STOP" : "\xe2\x96\xb6  PLAY"));
     playButton.setToggleState(playing, juce::dontSendNotification);
     loopButton.setToggleState(processor.getAudition().isLooping(), juce::dontSendNotification);
+    const int oct = processor.getAudition().getOctave();
+    octDownButton.setEnabled(oct > -AuditionPlayer::kMaxOctave);
+    octUpButton.setEnabled(oct < AuditionPlayer::kMaxOctave);
 }
 
 void AuditionBar::timerCallback()
@@ -79,6 +105,12 @@ void AuditionBar::timerCallback()
         shownPlaying = a.isPlaying();
         updateButtons();
         repaint();
+    }
+    if (a.getOctave() != shownOctave)
+    {
+        shownOctave = a.getOctave();
+        updateButtons();
+        repaint(octaveArea());
     }
     if (name != shownName)
     {
@@ -160,6 +192,14 @@ void AuditionBar::paint(juce::Graphics& g)
     m::glowText(g, shownName.isNotEmpty() ? shownName : juce::String("(no clip)"), clip.withTrimmedRight(16.0f).reduced(8.0f, 0.0f),
                 lcdFont(13.0f), Colours::lcdText, juce::Justification::centredLeft, 1.0f);
     m::glassSheen(g, clip, 3.0f, 0.8f);
+
+    // Octave readout between OCT - and OCT +.
+    const auto oct = octaveArea().toFloat();
+    drawLcd(g, oct);
+    const int o = processor.getAudition().getOctave();
+    m::glowText(g, o == 0 ? juce::String("0") : (o > 0 ? "+" : juce::String::fromUTF8("\xe2\x88\x92")) + juce::String(std::abs(o)), oct,
+                lcdFont(13.0f), o == 0 ? Colours::lcdText.withAlpha(0.6f) : Colours::lcdText, juce::Justification::centred, 1.0f);
+    m::glassSheen(g, oct, 3.0f, 0.8f);
 
     // Position: a lit bar in a display window, with beat ticks.
     const auto bar = progressArea().toFloat();
