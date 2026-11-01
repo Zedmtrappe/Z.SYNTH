@@ -2,6 +2,7 @@
 
 #include "Components/AuditionBar.h"
 #include "Components/Materials.h"
+#include "Components/Skins.h"
 #include "Layout/ActivityRules.h"
 
 namespace zsynth::ui
@@ -29,6 +30,20 @@ namespace
         if (section == "output")                                    return juce::Colour(0xffffffff);
         return Colours::accent;
     }
+
+    const Skin* skinForSection(const juce::String& section, int compModel, int reverbType)
+    {
+        if (section == "compModule" || section == "compPage")
+            return &compSkin((CompModel) compModel);
+        if (section == "fxReverb" || section == "reverbPage")
+            return reverbSkin((ReverbType) reverbType);
+        return nullptr;
+    }
+
+    // The models the faceplates show while a panel or page is being rendered
+    // (set by the owning panel just before; message thread only).
+    int renderCompModel = 0, renderReverbType = 0;
+    const Skin* skinForSection(const juce::String& section) { return skinForSection(section, renderCompModel, renderReverbType); }
 
     // Panel materials (see Components/Materials.h for the lighting model).
     const juce::Colour kChassis   { 0xff0f1012 }; // black textured plastic body
@@ -59,6 +74,12 @@ namespace
             for (auto p : { juce::Point<float>(9.0f, 12.0f), juce::Point<float>(9.0f, 82.0f),
                             juce::Point<float>(r.getRight() - 9.0f, 12.0f), juce::Point<float>(r.getRight() - 9.0f, 82.0f) })
                 m::screw(g, p, 4.2f, 0.4f + p.x * 0.01f);
+            return;
+        }
+
+        if (const auto* skin = skinForSection(s.id))
+        {
+            paintFaceplate(g, r, *skin, s.title, s.subPanel);
             return;
         }
 
@@ -104,13 +125,27 @@ void paintLayoutPage(juce::Graphics& g, const juce::String& page)
         if (s.page == page)
             paintSection(g, s);
 
+    // Text on a model faceplate is printed in its ink (not inside recessed sub-panels).
+    const Skin* pageSkin = nullptr;
+    for (const auto& s : layout.sections())
+        if (s.page == page && ! s.subPanel)
+            if (const auto* skin = skinForSection(s.id))
+                pageSkin = skin;
+    auto inSubPanel = [&](juce::Rectangle<int> b) {
+        for (const auto& s : layout.sections())
+            if (s.page == page && s.subPanel && s.bounds.contains(b.getCentre()))
+                return true;
+        return false;
+    };
     for (const auto& l : layout.labels())
     {
         if (l.page != page)
             continue;
-        material::engravedText(g, l.text, l.bounds.toFloat(), labelFont(l.heading ? 11.0f : 10.0f), l.justification,
-                               l.heading ? Colours::accent.brighter(0.2f) : material::kLegend.withMultipliedBrightness(0.92f),
-                               l.heading ? 0.9f : 0.45f, juce::jmax(1, l.bounds.getHeight() / 13));
+        const bool printed = pageSkin != nullptr && ! inSubPanel(l.bounds);
+        const auto colour = printed ? (l.heading ? pageSkin->ink : pageSkin->ink.withMultipliedAlpha(0.85f))
+                                    : (l.heading ? Colours::accent.brighter(0.2f) : material::kLegend.withMultipliedBrightness(0.92f));
+        material::engravedText(g, l.text, l.bounds.toFloat(), labelFont(l.heading ? 11.0f : 10.0f), l.justification, colour,
+                               printed ? 0.2f : (l.heading ? 0.9f : 0.45f), juce::jmax(1, l.bounds.getHeight() / 13));
     }
 }
 
@@ -154,6 +189,8 @@ void PopupPage::paint(juce::Graphics& g)
                             juce::jmax(1, juce::roundToInt((float) getHeight() * scale)), true);
         juce::Graphics cg(cache);
         cg.addTransform(juce::AffineTransform::scale(scale));
+        if (beforeRender)
+            beforeRender();
         paintLayoutPage(cg, id);
         const auto r = getLocalBounds().toFloat();
         cg.setColour(juce::Colours::black);
@@ -241,6 +278,7 @@ MainPanel::MainPanel(ZSynthProcessor& p) : processor(p), browser(p)
     browser.setBounds(460, 120, 1000, 760);
     browser.onClose = [this] { showPresetBrowser(false); };
 
+    updateSkins();
     updateActivity();
     startTimerHz(30);
 }
@@ -256,6 +294,10 @@ void MainPanel::buildPages()
     {
         auto page = std::make_unique<PopupPage>(spec);
         page->onClose = [this] { showPage({}); };
+        page->beforeRender = [this] {
+            renderCompModel = juce::jmax(0, shownCompModel);
+            renderReverbType = juce::jmax(0, shownReverbType);
+        };
         addChildComponent(*page);
         pages.push_back(std::move(page));
     }
@@ -281,6 +323,11 @@ void MainPanel::buildControls()
         auto c = std::make_unique<ParamControl>(state, index, spec.kind, spec.label, &processor.getMidiLearn());
         c->setBounds(spec.bounds);
         c->setAccent(sectionColour(spec.section));
+        if (spec.section == "compModule" || spec.section == "compPage" || spec.section == "fxReverb" || spec.section == "reverbPage")
+        {
+            const juce::String section(spec.section);
+            c->setSkinSource([this, section] { return skinForSection(section, juce::jmax(0, shownCompModel), juce::jmax(0, shownReverbType)); });
+        }
         c->onDragStateChanged = [this](ParamControl& control, bool dragging) {
             if (! dragging)
             {
@@ -688,6 +735,7 @@ void MainPanel::timerCallback()
         if (c->getParamIndex() == learning)
             c->repaint();
 
+    updateSkins();
     if (++activityCounter % 3 == 0)
         updateActivity();
     if (modSelector != nullptr)
@@ -710,6 +758,51 @@ void MainPanel::updateActivity()
     }
 }
 
+void MainPanel::updateSkins()
+{
+    const int comp = juce::jlimit(0, (int) CompModel::Count - 1, (int) std::lround(processor.getValue(P::CompModel)));
+    const int reverb = juce::jlimit(0, (int) ReverbType::Count - 1, (int) std::lround(processor.getValue(P::ReverbType)));
+    if (comp == shownCompModel && reverb == shownReverbType)
+        return;
+    const bool compChanged = comp != shownCompModel;
+    const bool reverbChanged = reverbSkin((ReverbType) reverb) != reverbSkin((ReverbType) juce::jmax(0, shownReverbType)) || shownReverbType < 0;
+    shownCompModel = comp;
+    shownReverbType = reverb;
+    if (! compChanged && ! reverbChanged)
+        return; // e.g. Hall -> Room: both the house look
+    // Re-render the faceplates (their area of the panel background, and the pages) and the controls on them.
+    for (const auto* id : { "compModule", "fxReverb" })
+    {
+        if ((juce::String(id) == "compModule" && ! compChanged) || (juce::String(id) == "fxReverb" && ! reverbChanged))
+            continue;
+        const auto area = PanelLayout::get().section(id).expanded(4);
+        renderBackgroundArea(area);
+        repaint(area);
+    }
+    for (auto& page : pages)
+        if (page->getPageId() == (compChanged ? "comp" : "") || page->getPageId() == (reverbChanged ? "reverb" : ""))
+            page->invalidate();
+    for (auto& c : controls)
+        if (c->hasSkinSource())
+            c->repaint();
+}
+
+void MainPanel::renderBackgroundArea(juce::Rectangle<int> area)
+{
+    if (background.isNull())
+        return; // rendered in full on the next paint
+    juce::Graphics g(background);
+    g.addTransform(juce::AffineTransform::scale(backgroundScale));
+    g.reduceClipRegion(area);
+    renderCompModel = juce::jmax(0, shownCompModel);
+    renderReverbType = juce::jmax(0, shownReverbType);
+    // The module bays sit in the EFFECTS plate: repaint that plate under them, then the bay.
+    const auto& layout = PanelLayout::get();
+    for (const auto& s : layout.sections())
+        if (s.page == kMainPage && s.bounds.intersects(area))
+            paintSection(g, s);
+}
+
 // ----------------------------------------------------------------- painting
 void MainPanel::paint(juce::Graphics& g)
 {
@@ -726,6 +819,8 @@ void MainPanel::renderBackground(float scale)
                              juce::roundToInt(PanelLayout::kHeight * backgroundScale), true);
     juce::Graphics g(background);
     g.addTransform(juce::AffineTransform::scale(backgroundScale));
+    renderCompModel = juce::jmax(0, shownCompModel);
+    renderReverbType = juce::jmax(0, shownReverbType);
 
     // The chassis: black textured plastic, slightly darker towards the edges.
     const auto bounds = juce::Rectangle<float>(0.0f, 0.0f, (float) PanelLayout::kWidth, (float) PanelLayout::kHeight);

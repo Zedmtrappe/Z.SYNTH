@@ -208,6 +208,15 @@ void engravedText(juce::Graphics& g, const juce::String& text, juce::Rectangle<f
     if (text.isEmpty())
         return;
     const auto p = textPath(text, r, font, just, maxLines);
+    if (light.getPerceivedBrightness() < 0.45f)
+    {
+        // Dark ink: silk-screened onto a light plate rather than lit from behind.
+        g.setColour(juce::Colours::white.withAlpha(0.28f * light.getFloatAlpha()));
+        g.fillPath(p, juce::AffineTransform::translation(0.0f, 0.7f));
+        g.setColour(light);
+        g.fillPath(p);
+        return;
+    }
     if (glow > 0.0f)
         juce::DropShadow(light.withAlpha(juce::jlimit(0.0f, 1.0f, 0.38f * glow)), 5, {}).drawForPath(g, p);
     // The cut walls: shadowed above, a lit lip below.

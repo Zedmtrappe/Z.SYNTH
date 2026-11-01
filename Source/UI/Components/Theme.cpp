@@ -141,10 +141,15 @@ juce::Rectangle<int> ZLookAndFeel::getTooltipBounds(const juce::String& tipText,
 
 void drawLcd(juce::Graphics& g, juce::Rectangle<float> r)
 {
+    drawLcd(g, r, Colours::lcdBack);
+}
+
+void drawLcd(juce::Graphics& g, juce::Rectangle<float> r, juce::Colour back)
+{
     // A display window set into the panel: dark smoked glass with depth.
     // Gradients only (no blurs): displays repaint at the panel frame rate.
     constexpr float radius = 3.0f;
-    juce::ColourGradient grad(Colours::lcdBack.brighter(0.1f), r.getX(), r.getY(), Colours::lcdBack.darker(0.4f), r.getX(), r.getBottom(), false);
+    juce::ColourGradient grad(back.brighter(0.1f), r.getX(), r.getY(), back.darker(0.4f), r.getX(), r.getBottom(), false);
     g.setGradientFill(grad);
     g.fillRoundedRectangle(r, radius);
 

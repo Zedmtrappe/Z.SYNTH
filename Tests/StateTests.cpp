@@ -1265,8 +1265,55 @@ static int xfmrReport(const juce::String& presetName)
     return 0;
 }
 
+// Diagnostic: renders the panel with each compressor model and reverb type
+// (main panel and their ADVANCED pages) into PNGs in `dir`.
+static int snapshots(const juce::File& dir)
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    dir.createDirectory();
+    ZSynthProcessor processor(juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("zynth-snap"));
+    std::unique_ptr<juce::AudioProcessorEditor> editor(processor.createEditor());
+    auto* zeditor = dynamic_cast<ZSynthEditor*>(editor.get());
+    if (zeditor == nullptr)
+        return 1;
+    auto& panel = zeditor->getPanel();
+    editor->addToDesktop(0); // on screen, so the displays refresh
+    editor->setVisible(true);
+    auto set = [&](const char* id, float v) {
+        auto* prm = processor.getState().getParameter(id);
+        prm->setValueNotifyingHost(prm->convertTo0to1(v));
+    };
+    set("comp.on", 1.0f);
+    set("fx.rev.on", 1.0f);
+    auto shoot = [&](const juce::String& name, const juce::String& page) {
+        panel.showPage(page);
+        for (int k = 0; k < 12; ++k)
+            panel.refreshNow(); // activity, meters, faceplates
+        const auto img = panel.createComponentSnapshot(panel.getLocalBounds(), true, 1.0f);
+        juce::FileOutputStream out(dir.getChildFile(name + ".png"));
+        out.setPosition(0);
+        out.truncate();
+        juce::PNGImageFormat().writeImageToStream(img, out);
+    };
+    for (int m = 0; m < (int) CompModel::Count; ++m)
+    {
+        set("comp.model", (float) m);
+        shoot("comp" + juce::String(m), "comp");
+    }
+    for (int r = 0; r < (int) ReverbType::Count; ++r)
+    {
+        set("fx.rev.type", (float) r);
+        shoot("reverb" + juce::String(r), "reverb");
+        shoot("reverbm" + juce::String(r), {});
+    }
+    panel.showPage({});
+    return 0;
+}
+
 int main(int argc, char** argv)
 {
+    if (argc > 2 && juce::String(argv[1]) == "--snapshots")
+        return snapshots(juce::File(juce::String(argv[2])));
     if (argc > 2 && juce::String(argv[1]) == "--xfmr-report")
         return xfmrReport(juce::String(argv[2]));
     if (argc > 2 && juce::String(argv[1]) == "--audition-file")

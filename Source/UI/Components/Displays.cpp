@@ -1,4 +1,5 @@
 #include "Displays.h"
+#include "Skins.h"
 #include "Materials.h"
 
 #include "../../DSP/Effects/ParametricEq.h"
@@ -1322,10 +1323,12 @@ void CompMeter::refresh()
     const float target = on ? processor.getEngine().getCompGainReduction() : 0.0f;
     // VU ballistics: about 300 ms to settle, evaluated at the panel frame rate.
     needle += (target - needle) * 0.32f;
-    if (std::abs(needle - shown) > 0.03f || on != lit)
+    const int m = iv(P::CompModel);
+    if (std::abs(needle - shown) > 0.03f || on != lit || m != model)
     {
         shown = needle;
         lit = on;
+        model = m;
         repaint();
     }
 }
@@ -1333,20 +1336,31 @@ void CompMeter::refresh()
 void CompMeter::paint(juce::Graphics& g)
 {
     namespace m = material;
+    const auto& skin = compSkin((CompModel) juce::jlimit(0, (int) CompModel::Count - 1, iv(P::CompModel)));
     const auto r = getLocalBounds().toFloat();
-    // Housing: a black bezel set into the panel.
+    // Housing: the model's bezel set into the panel (a chrome trim ring on the lamp-lit meters).
     m::castShadow(g, r.reduced(2.0f), 5.0f, 5.0f, { 1, 3 }, 0.7f);
-    juce::ColourGradient housing(juce::Colour(0xff2b2c30), 0.0f, r.getY(), juce::Colour(0xff0d0d0f), 0.0f, r.getBottom(), false);
+    juce::ColourGradient housing(skin.meterBezel.brighter(0.35f), 0.0f, r.getY(), skin.meterBezel.darker(0.5f), 0.0f, r.getBottom(), false);
     g.setGradientFill(housing);
     g.fillRoundedRectangle(r, 6.0f);
     m::raisedEdge(g, r, 6.0f, 0.9f);
+    if (skin.meterLamp)
+    {
+        juce::ColourGradient trim(juce::Colour(0xffd8dadd), r.getX(), r.getY(), juce::Colour(0xff55585c), r.getRight(), r.getBottom(), false);
+        g.setGradientFill(trim);
+        g.drawRoundedRectangle(r.reduced(5.0f), 4.0f, 1.4f);
+    }
 
-    // The face, lit from behind by a warm lamp (dim when the compressor is off).
+    // The face: lamp-lit meters glow warm from behind (dim when the compressor
+    // is off); unlit faces just dim a little.
     const auto face = r.reduced(7.0f);
     juce::Path facePath;
     facePath.addRoundedRectangle(face, 3.0f);
-    const auto lampCentre = juce::Colour(lit ? 0xfffff1cc : 0xff8d8572);
-    const auto lampEdge = juce::Colour(lit ? 0xffd9bd7c : 0xff5e5747);
+    const auto paperBase = skin.meterFace;
+    const auto lampCentre = skin.meterLamp ? (lit ? paperBase.brighter(0.12f) : paperBase.darker(0.75f))
+                                           : (lit ? paperBase : paperBase.darker(0.25f));
+    const auto lampEdge = skin.meterLamp ? (lit ? paperBase.darker(0.25f).withMultipliedSaturation(1.3f) : paperBase.darker(1.1f))
+                                         : (lit ? paperBase.darker(0.08f) : paperBase.darker(0.35f));
     juce::ColourGradient paper(lampCentre, face.getCentreX(), face.getBottom(), lampEdge, face.getX(), face.getY(), true);
     g.setGradientFill(paper);
     g.fillPath(facePath);
@@ -1363,7 +1377,7 @@ void CompMeter::paint(juce::Graphics& g)
     auto polar = [&](float a, float rad) { return juce::Point<float>(pivot.x + std::sin(a) * rad, pivot.y - std::cos(a) * rad); };
 
     // Scale arc, red heavy-compression zone, ticks and numbers.
-    const auto ink = juce::Colour(0xff1d1a14);
+    const auto ink = skin.meterInk;
     juce::Path arc;
     arc.addCentredArc(pivot.x, pivot.y, radius * 0.8f, radius * 0.8f, 0.0f, -span, span, true);
     g.setColour(ink);
@@ -1385,9 +1399,10 @@ void CompMeter::paint(juce::Graphics& g)
     g.setColour(ink.withAlpha(0.8f));
     g.setFont(labelFont(fontSize * 0.95f));
     g.drawText("GAIN REDUCTION  dB", face.withTrimmedTop(face.getHeight() * 0.62f).withHeight(14.0f).toNearestInt(), juce::Justification::centred, false);
-    static const char* badge[4] = { "OPTO", "VCA", "FET", "VARI-MU" };
-    g.setFont(titleFont(fontSize * 1.05f));
-    g.drawText(badge[juce::jlimit(0, 3, iv(P::CompModel))], face.withTrimmedTop(face.getHeight() * 0.74f).withHeight(14.0f).toNearestInt(),
+    g.setColour(ink);
+    g.setFont(skin.meterLamp ? juce::Font(juce::FontOptions("Times New Roman", fontSize * 1.6f, juce::Font::bold | juce::Font::italic))
+                             : titleFont(fontSize * 1.05f));
+    g.drawText(skin.meterLabel, face.withTrimmedTop(face.getHeight() * 0.72f).withHeight(fontSize * 1.9f).toNearestInt(),
                juce::Justification::centred, false);
 
     // Needle with a soft shadow on the face.
@@ -1396,12 +1411,12 @@ void CompMeter::paint(juce::Graphics& g)
     const auto base = polar(a, radius * 0.38f);
     g.setColour(juce::Colours::black.withAlpha(0.18f));
     g.drawLine({ base.translated(2.0f, 2.5f), tip.translated(2.0f, 2.5f) }, 2.0f);
-    g.setColour(juce::Colour(0xff111111));
+    g.setColour(skin.meterLamp ? juce::Colour(0xff111111) : juce::Colour(0xffb02a1e));
     g.drawLine({ base, tip }, 1.4f);
     g.restoreState();
 
     // Pivot cover and glass.
-    juce::ColourGradient cover(juce::Colour(0xff3a3b40), 0.0f, face.getBottom() - 16.0f, juce::Colour(0xff111113), 0.0f, face.getBottom(), false);
+    juce::ColourGradient cover(skin.meterBezel.brighter(0.3f), 0.0f, face.getBottom() - 16.0f, skin.meterBezel.darker(0.4f), 0.0f, face.getBottom(), false);
     g.setGradientFill(cover);
     g.fillRect(face.withTop(face.getBottom() - 12.0f));
     m::glassSheen(g, face, 3.0f, 1.2f);

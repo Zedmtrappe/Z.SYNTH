@@ -56,6 +56,7 @@ set(ZSYNTH_APP_SOURCES
     ${CMAKE_SOURCE_DIR}/Source/UI/Components/Materials.cpp
     ${CMAKE_SOURCE_DIR}/Source/UI/Components/ParamControl.cpp
     ${CMAKE_SOURCE_DIR}/Source/UI/Components/Displays.cpp
+    ${CMAKE_SOURCE_DIR}/Source/UI/Components/Skins.cpp
     ${CMAKE_SOURCE_DIR}/Source/UI/Components/Keyboard.cpp
     ${CMAKE_SOURCE_DIR}/Source/UI/Components/PresetBrowser.cpp
     ${CMAKE_SOURCE_DIR}/Source/UI/Layout/PanelLayout.cpp

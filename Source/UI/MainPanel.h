@@ -27,6 +27,10 @@ public:
     void paint(juce::Graphics&) override;
     const juce::String& getPageId() const { return id; }
     std::function<void()> onClose;
+    /** Re-renders the plate (its faceplate follows the selected model). */
+    void invalidate() { cache = {}; repaint(); }
+    /** Called just before the plate is rendered (sets the faceplate models). */
+    std::function<void()> beforeRender;
 
     // Drag the window by any empty part of its plate (it stays inside the panel).
     void mouseDown(const juce::MouseEvent&) override;
@@ -85,6 +89,10 @@ public:
 
     /** Shows one popup editor page ("matrix", "fm", "seq") or hides all (empty). */
     void showPage(const juce::String& page);
+    /** Follows the compressor model / reverb type with their faceplates (also run by the timer). */
+    void updateSkins();
+    /** One refresh tick (displays, activity, faceplates) without the timer: for tools and tests. */
+    void refreshNow() { timerCallback(); }
     juce::String getVisiblePage() const;
 
 private:
@@ -93,6 +101,8 @@ private:
     void buildControls();
     void buildUtilities();
     void renderBackground(float scale);
+    /** Re-renders one area of the cached background (a faceplate that changed). */
+    void renderBackgroundArea(juce::Rectangle<int> area);
     void updateActivity();
     void savePreset();
     void showPresetMenu();
@@ -136,6 +146,7 @@ private:
     juce::Image background;
     float backgroundScale = 0.0f;
     int activityCounter = 0;
+    int shownCompModel = -1, shownReverbType = -1;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainPanel)
 };

@@ -67,5 +67,7 @@ public:
 
 /** Draws a recessed LCD window. */
 void drawLcd(juce::Graphics& g, juce::Rectangle<float> r);
+/** The same window with another glass colour (model displays). */
+void drawLcd(juce::Graphics& g, juce::Rectangle<float> r, juce::Colour back);
 
 } // namespace zsynth::ui

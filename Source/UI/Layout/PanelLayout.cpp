@@ -379,9 +379,10 @@ PanelLayout::PanelLayout()
     compact("comp.on", cx + cw - 42, 789, "ON");
     compact("comp.pre", cx + cw - 96, 789, "PRE FX", 50);
     utilityAt("compMeter", cx + 8, 808, 176, 144);
-    shortFader("comp.thresh", cx + 192, 810, "THRESH");
-    shortFader("comp.mix",    cx + 228, 810, "MIX");
-    shortFader("comp.makeup", cx + 264, 810, "MAKEUP"); // output gain last, as on the hardware
+    // Knobs, as on the hardware (their style follows the MODEL); output gain last.
+    add("comp.thresh", K::LargeKnob, cx + 210, 806, "THRESH", 72, 86);
+    add("comp.mix",    K::Knob, cx + 190, 892, "MIX");
+    add("comp.makeup", K::Knob, cx + 248, 892, "MAKEUP");
     add("comp.model", K::Selector, cx + 306, 812, "MODEL", cw - 314);
     utilityAt("openComp", cx + 306, 862, cw - 314, 24);
 
@@ -561,7 +562,7 @@ PanelLayout::PanelLayout()
     const std::pair<const char*, const char*> compFaders[5] = { { "comp.attack", "ATTACK" }, { "comp.release", "RELEASE" },
         { "comp.knee", "KNEE" }, { "comp.emph", "EMPH" }, { "comp.color", "COLOUR" } };
     for (int k = 0; k < 5; ++k)
-        fader(compFaders[k].first, 300 + k * 46, 110, compFaders[k].second);
+        add(compFaders[k].first, K::LargeKnob, k < 3 ? 300 + k * 92 : 346 + (k - 3) * 92, k < 3 ? 104 : 214, compFaders[k].second);
     heading("MODELS (MODEL on the panel)", 590, 44, 250);
     const char* compNotes[4] = {
         "LA-2A OPTO   Optical leveller: smooth, program-dependent two-stage release. THRESH = peak reduction; ratio up to 4:1 = COMPRESS, 8:1+ = LIMIT; EMPH = HF emphasis (bright sounds compressed harder).",

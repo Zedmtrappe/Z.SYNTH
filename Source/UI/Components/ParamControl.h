@@ -15,6 +15,7 @@
 #include "../../Parameters/ParameterLayout.h"
 #include "../Layout/PanelLayout.h"
 #include "Materials.h"
+#include "Skins.h"
 #include "Theme.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -43,6 +44,9 @@ public:
     void setLedColour(juce::Colour c) { ledColour = c; }
     /** Section colour used on fader caps (JD-style colour coding). */
     void setAccent(juce::Colour c) { accent = c; }
+    /** Model faceplate the control sits on (compressor / reverb); nullptr = house look. */
+    void setSkinSource(std::function<const Skin*()> source) { skinSource = std::move(source); }
+    bool hasSkinSource() const { return skinSource != nullptr; }
 
     juce::String getTooltip() override;
     juce::String getValueText() const { return formatValue(index, value); }
@@ -76,6 +80,9 @@ private:
     void showChoiceMenu();
 
     void paintKnob(juce::Graphics&, float diameter, bool showLabel);
+    void paintSkinnedKnob(juce::Graphics&, float diameter, bool showLabel, const Skin&);
+    const Skin* skin() const { return skinSource ? skinSource() : nullptr; }
+    juce::Colour legendInk() const;
     void paintSelector(juce::Graphics&);
     void paintSwitch(juce::Graphics&);
     void paintVSlider(juce::Graphics&);
@@ -102,6 +109,7 @@ private:
     juce::Colour ledColour = Colours::accent;
     juce::Colour accent = Colours::accent;
     material::LegendCache legend;
+    std::function<const Skin*()> skinSource;
 };
 
 } // namespace zsynth::ui

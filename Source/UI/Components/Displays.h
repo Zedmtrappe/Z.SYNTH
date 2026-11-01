@@ -190,6 +190,7 @@ public:
 private:
     float needle = 0.0f, shown = -1.0f;
     bool lit = false;
+    int model = -1;
 };
 
 /** Output level meter; its tooltip carries CPU load, voices and peak. */

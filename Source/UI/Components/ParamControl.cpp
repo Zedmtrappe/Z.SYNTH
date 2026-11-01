@@ -299,6 +299,13 @@ std::unique_ptr<juce::AccessibilityHandler> ParamControl::createAccessibilityHan
 }
 
 // ------------------------------------------------------------------- painting
+juce::Colour ParamControl::legendInk() const
+{
+    if (const auto* s = skin())
+        return s->ink;
+    return material::kLegend;
+}
+
 void ParamControl::paint(juce::Graphics& g)
 {
     switch (kind)
@@ -389,6 +396,11 @@ namespace
 
 void ParamControl::paintKnob(juce::Graphics& g, float diameter, bool showLabel)
 {
+    if (const auto* s = skin(); s != nullptr && s->knob != KnobStyle::Machined)
+    {
+        paintSkinnedKnob(g, diameter, showLabel, *s);
+        return;
+    }
     // A machined knob: black knurled skirt with a spun aluminium cap, standing
     // in a back-lit value ring engraved into the panel.
     const auto bounds = getLocalBounds().toFloat();
@@ -496,7 +508,188 @@ void ParamControl::paintKnob(juce::Graphics& g, float diameter, bool showLabel)
         if (dragging || hovered)
             valueReadout(g, getValueText(), textArea.reduced(6.0f, 0.0f));
         else
-            legend.draw(g, label, textArea, labelFont(10.0f), juce::Justification::centred, m::kLegend, 0.7f);
+            legend.draw(g, label, textArea, labelFont(10.0f), juce::Justification::centred, legendInk(), skin() != nullptr ? 0.15f : 0.7f);
+    }
+}
+
+void ParamControl::paintSkinnedKnob(juce::Graphics& g, float diameter, bool showLabel, const Skin& s)
+{
+    // Hardware knobs of the modelled units, over a scale printed on the plate.
+    const auto bounds = getLocalBounds().toFloat();
+    const bool big = diameter > 50.0f;
+    // Big knobs shrink a little to leave room for the printed numbers.
+    const float rOuter = diameter * (big ? 0.39f : 0.5f);
+    const float cx = bounds.getCentreX();
+    const float cy = showLabel ? (big ? 41.0f : 2.0f + rOuter) : bounds.getCentreY();
+    const juce::Point<float> c(cx, cy);
+    const float angle = kStartAngle + getNormalised() * (kEndAngle - kStartAngle);
+    const auto dir = juce::Point<float>(std::sin(angle), -std::cos(angle));
+
+    // Printed scale: ticks, and numbers 0..10 on the big knobs.
+    const int steps = numSteps();
+    const int ticks = steps > 0 && steps <= 16 ? steps + 1 : 11;
+    g.setColour(s.ink.withAlpha(0.8f));
+    for (int i = 0; i < ticks; ++i)
+    {
+        const float a = kStartAngle + (float) i / (float) (ticks - 1) * (kEndAngle - kStartAngle);
+        const bool major = ticks != 11 || i % 2 == 0;
+        const juce::Point<float> d(std::sin(a), -std::cos(a));
+        g.drawLine({ c + d * (rOuter + 1.0f), c + d * (rOuter + (major ? 4.5f : 2.8f)) }, major ? 1.2f : 0.9f);
+        if (big && ticks == 11 && major)
+        {
+            g.setFont(labelFont(8.5f));
+            g.drawText(juce::String(i), juce::Rectangle<float>(16.0f, 10.0f).withCentre(c + d * (rOuter + 10.0f)).toNearestInt(),
+                       juce::Justification::centred, false);
+        }
+    }
+
+    // Cast shadow.
+    const auto disc = [&](float r) { return juce::Rectangle<float>(r * 2.0f, r * 2.0f).withCentre(c); };
+    g.setColour(juce::Colours::black.withAlpha(0.3f));
+    g.fillEllipse(disc(rOuter * 0.86f).translated(2.0f, 4.0f));
+    g.setColour(juce::Colours::black.withAlpha(0.45f));
+    g.fillEllipse(disc(rOuter * 0.84f).translated(1.0f, 2.0f));
+
+    const float hover = hovered || dragging ? 0.08f : 0.0f;
+    auto glossyDisc = [&](float r, juce::Colour col) {
+        const auto d = disc(r);
+        juce::ColourGradient body(col.brighter(0.55f + hover), d.getX() + r * 0.4f, d.getY() + r * 0.3f, col.darker(0.6f), d.getRight(), d.getBottom(), true);
+        g.setGradientFill(body);
+        g.fillEllipse(d);
+        juce::ColourGradient rim(juce::Colours::white.withAlpha(0.35f), d.getX(), d.getY(), juce::Colours::black.withAlpha(0.6f), d.getRight(), d.getBottom(), false);
+        g.setGradientFill(rim);
+        g.drawEllipse(d.reduced(0.5f), 1.0f);
+    };
+    auto spunDisc = [&](float r, float lo, float hi) {
+        // Polished / spun metal: brightness follows the angle to the light twice per turn.
+        constexpr float lightAngle = -2.4f;
+        const int slices = 56;
+        for (int k = 0; k < slices; ++k)
+        {
+            const float a0 = (float) k / (float) slices * juce::MathConstants<float>::twoPi;
+            const float a1 = (float) (k + 1) / (float) slices * juce::MathConstants<float>::twoPi + 0.02f;
+            const float mid = 0.5f * (a0 + a1);
+            const float b = lo + (hi - lo) * (0.5f + 0.35f * std::cos(2.0f * (mid - lightAngle)) + 0.15f * std::cos(mid - lightAngle));
+            juce::Path w;
+            w.startNewSubPath(c);
+            w.lineTo(c.x + std::cos(a0) * r, c.y + std::sin(a0) * r);
+            w.lineTo(c.x + std::cos(a1) * r, c.y + std::sin(a1) * r);
+            w.closeSubPath();
+            g.setColour(juce::Colour::greyLevel(juce::jlimit(0.0f, 1.0f, b + hover)));
+            g.fillPath(w);
+        }
+        g.setColour(juce::Colours::black.withAlpha(0.55f));
+        g.drawEllipse(disc(r), 0.9f);
+    };
+    auto line = [&](float from, float to, juce::Colour col, float w) {
+        g.setColour(col);
+        g.drawLine({ c + dir * from, c + dir * to }, w);
+    };
+
+    switch (s.knob)
+    {
+        case KnobStyle::BlackRound:
+        {
+            const float r = rOuter * 0.86f;
+            glossyDisc(r, s.knobColour);
+            g.setColour(juce::Colours::white.withAlpha(0.18f));
+            g.fillEllipse(disc(r * 0.45f).translated(-r * 0.25f, -r * 0.3f));
+            line(r * 0.2f, r - 2.0f, juce::Colours::white, big ? 2.6f : 2.0f);
+            break;
+        }
+        case KnobStyle::Chrome:
+        {
+            const float rs = rOuter * 0.9f, rb = rOuter * 0.6f;
+            spunDisc(rs, 0.45f, 0.95f);
+            line(rb, rs - 1.5f, juce::Colour(0xff151515), big ? 2.2f : 1.6f);
+            glossyDisc(rb, s.knobColour);
+            line(rb * 0.25f, rb - 1.5f, juce::Colours::white, big ? 2.2f : 1.7f);
+            break;
+        }
+        case KnobStyle::Ribbed:
+        {
+            const float rb = rOuter * 0.8f, rc = rb * 0.62f;
+            glossyDisc(rb, juce::Colour(0xff3b3e43));
+            const int ribs = big ? 36 : 28;
+            for (int k = 0; k < ribs; ++k)
+            {
+                const float a = (float) k / (float) ribs * juce::MathConstants<float>::twoPi;
+                const juce::Point<float> d(std::cos(a), std::sin(a));
+                g.setColour(k % 2 == 0 ? juce::Colours::white.withAlpha(0.08f) : juce::Colours::black.withAlpha(0.35f));
+                g.drawLine({ c + d * (rc + 1.0f), c + d * (rb - 0.8f) }, 1.0f);
+            }
+            const auto cap = s.capFor(paramDef(index).id);
+            glossyDisc(rc, cap);
+            line(rc * 0.15f, rb - 1.5f, cap.getPerceivedBrightness() > 0.6f ? juce::Colour(0xff151515) : juce::Colours::white, big ? 2.2f : 1.7f);
+            break;
+        }
+        case KnobStyle::ChickenHead:
+        {
+            glossyDisc(rOuter * 0.55f, s.knobColour);
+            juce::Path pointer;
+            const float R = rOuter * 0.95f;
+            pointer.startNewSubPath(0.0f, -R);
+            pointer.lineTo(0.22f * R, -0.08f * R);
+            pointer.lineTo(0.17f * R, 0.55f * R);
+            pointer.lineTo(-0.17f * R, 0.55f * R);
+            pointer.lineTo(-0.22f * R, -0.08f * R);
+            pointer.closeSubPath();
+            const auto place = juce::AffineTransform::rotation(angle).translated(cx, cy);
+            g.setColour(juce::Colours::black.withAlpha(0.4f));
+            g.fillPath(pointer, place.translated(1.5f, 3.0f));
+            juce::ColourGradient body(s.knobColour.brighter(0.7f + hover), cx - R * 0.4f, cy - R * 0.5f, s.knobColour.darker(0.5f), cx + R, cy + R, false);
+            g.setGradientFill(body);
+            g.fillPath(pointer, place);
+            g.setColour(juce::Colours::white.withAlpha(0.25f));
+            g.strokePath(pointer, juce::PathStrokeType(0.8f), place);
+            line(R * 0.1f, R * 0.85f, juce::Colours::white, big ? 2.0f : 1.5f);
+            break;
+        }
+        case KnobStyle::BlackSkirt:
+        {
+            const float rs = rOuter * 0.92f, rt = rs * 0.62f;
+            glossyDisc(rs, s.knobColour.brighter(0.15f));
+            line(rt + 1.0f, rs - 1.5f, juce::Colours::white, big ? 2.2f : 1.7f);
+            glossyDisc(rt, s.knobColour);
+            const int flutes = big ? 24 : 18;
+            for (int k = 0; k < flutes; ++k)
+            {
+                const float a = (float) k / (float) flutes * juce::MathConstants<float>::twoPi;
+                const juce::Point<float> d(std::cos(a), std::sin(a));
+                g.setColour(juce::Colours::black.withAlpha(0.45f));
+                g.drawLine({ c + d * (rt * 0.78f), c + d * (rt - 0.8f) }, 1.0f);
+            }
+            g.setColour(juce::Colours::white.withAlpha(0.14f));
+            g.fillEllipse(disc(rt * 0.5f).translated(-rt * 0.2f, -rt * 0.25f));
+            break;
+        }
+        case KnobStyle::Silver:
+        {
+            const float rb = rOuter * 0.82f;
+            spunDisc(rb, 0.55f, 0.92f);
+            for (float k = 0.35f; k < 1.0f; k += 0.16f)
+            {
+                g.setColour(juce::Colours::black.withAlpha(0.06f));
+                g.drawEllipse(disc(rb * k), 0.7f);
+            }
+            g.setColour(juce::Colour(0xff151515));
+            g.fillEllipse(juce::Rectangle<float>(big ? 5.0f : 4.0f, big ? 5.0f : 4.0f).withCentre(c + dir * (rb * 0.72f)));
+            break;
+        }
+        case KnobStyle::Machined:
+        default:
+            break;
+    }
+
+    g.setOpacity(1.0f); // images (the cached legend) are drawn at the current colour's opacity
+    if (showLabel)
+    {
+        const float labelY = big ? bounds.getHeight() - 15.0f : cy + rOuter + 4.0f;
+        const auto textArea = juce::Rectangle<float>(-6.0f, labelY, bounds.getWidth() + 12.0f, 14.0f);
+        if (dragging || hovered)
+            valueReadout(g, getValueText(), textArea.reduced(6.0f, 0.0f));
+        else
+            legend.draw(g, label, textArea, labelFont(10.0f), juce::Justification::centred, legendInk(), skin() != nullptr ? 0.15f : 0.7f);
     }
 }
 
@@ -505,17 +698,19 @@ void ParamControl::paintSelector(juce::Graphics& g)
     auto r = getLocalBounds().toFloat();
     if (label.isNotEmpty())
     {
-        legend.draw(g, label, r.removeFromTop(14.0f), labelFont(10.0f), juce::Justification::centredLeft, m::kLegend, 0.6f);
+        legend.draw(g, label, r.removeFromTop(14.0f), labelFont(10.0f), juce::Justification::centredLeft, legendInk(), 0.6f);
         r.removeFromTop(2.0f);
     }
-    drawLcd(g, r);
+    const auto* s = skin();
+    const auto lcdText = s != nullptr ? s->lcdText : Colours::lcdText;
+    drawLcd(g, r, s != nullptr ? s->lcdBack : Colours::lcdBack);
     auto arrow = r.withTrimmedLeft(r.getWidth() - 14.0f).reduced(3.0f, r.getHeight() * 0.36f);
     juce::Path p;
     p.addTriangle(arrow.getX(), arrow.getY(), arrow.getRight(), arrow.getY(), arrow.getCentreX(), arrow.getBottom());
-    g.setColour(Colours::lcdText.withAlpha(hovered ? 0.9f : 0.45f));
+    g.setColour(lcdText.withAlpha(hovered ? 0.9f : 0.45f));
     g.fillPath(p);
     m::glowText(g, getValueText(), r.withTrimmedRight(14.0f).reduced(6.0f, 0.0f), lcdFont(r.getHeight() > 20.0f ? 13.0f : 12.0f),
-                Colours::lcdText.brighter(hovered ? 0.2f : 0.0f), juce::Justification::centredLeft, 1.0f);
+                lcdText.brighter(hovered ? 0.2f : 0.0f), juce::Justification::centredLeft, 1.0f);
     m::glassSheen(g, r, 3.0f, 1.0f);
 }
 
@@ -532,7 +727,7 @@ void ParamControl::paintSwitch(juce::Graphics& g)
     }
     else
     {
-        legend.draw(g, label, r.removeFromTop(14.0f), labelFont(10.0f), juce::Justification::centred, m::kLegend, 0.6f);
+        legend.draw(g, label, r.removeFromTop(14.0f), labelFont(10.0f), juce::Justification::centred, legendInk(), 0.6f);
         r.removeFromTop(2.0f);
         button = r.withSizeKeepingCentre(juce::jmin(r.getWidth(), 40.0f), 20.0f);
     }
@@ -583,14 +778,26 @@ void ParamControl::paintFader(juce::Graphics& g)
     const float cx = r.getCentreX();
     const float norm = getNormalised();
     const float y = bottom - norm * (bottom - top);
+    const auto* s = skin();
+    const auto light = s != nullptr ? s->accent : accent;
+    const bool lightPlate = s != nullptr && s->lightPlate();
 
-    // Engraved scale either side of the slot.
+    // Engraved scale either side of the slot (printed on light plates).
     for (int i = 0; i <= 10; ++i)
     {
         const float ty = std::round(bottom - (float) i / 10.0f * (bottom - top)) + 0.5f;
         const float len = (i % 5 == 0) ? 5.0f : 3.0f;
-        m::engravedLine(g, { cx - 9.0f - len, ty, cx - 8.0f, ty }, 1.0f);
-        m::engravedLine(g, { cx + 8.0f, ty, cx + 9.0f + len, ty }, 1.0f);
+        if (lightPlate)
+        {
+            g.setColour(s->ink.withAlpha(0.7f));
+            g.drawHorizontalLine((int) ty, cx - 9.0f - len, cx - 8.0f);
+            g.drawHorizontalLine((int) ty, cx + 8.0f, cx + 9.0f + len);
+        }
+        else
+        {
+            m::engravedLine(g, { cx - 9.0f - len, ty, cx - 8.0f, ty }, 1.0f);
+            m::engravedLine(g, { cx + 8.0f, ty, cx + 9.0f + len, ty }, 1.0f);
+        }
     }
     if (isBipolar())
     {
@@ -611,9 +818,9 @@ void ParamControl::paintFader(juce::Graphics& g)
     // Light from inside the slot up to the value (from centre when bipolar).
     const float from = isBipolar() ? (top + bottom) * 0.5f : bottom;
     const auto trail = juce::Rectangle<float>(cx - 1.0f, juce::jmin(from, y), 2.0f, std::abs(from - y));
-    g.setColour(accent.withAlpha(0.18f));
+    g.setColour(light.withAlpha(0.18f));
     g.fillRect(trail.expanded(1.5f, 0.0f));
-    g.setColour(accent.withAlpha(0.8f));
+    g.setColour(light.withAlpha(0.8f));
     g.fillRect(trail);
 
     // Cap: soft cast shadow, then the moulding.
@@ -627,20 +834,30 @@ void ParamControl::paintFader(juce::Graphics& g)
     const float lift = hovered || dragging ? 0.12f : 0.0f;
     const auto upper = cap.withHeight(cap.getHeight() * 0.5f - 1.0f);
     const auto lower = cap.withTrimmedTop(cap.getHeight() * 0.5f + 1.0f);
-    g.setColour(juce::Colour(0xff101114));
+    // Cap moulding: the house grey, or the model's cap colour.
+    const auto mould = s != nullptr ? s->faderCap : juce::Colour(0xff4a4d54);
+    const auto upTop = s != nullptr ? mould.brighter(0.5f) : juce::Colour(0xff72767e);
+    const auto upBottom = s != nullptr ? mould.darker(0.1f) : juce::Colour(0xff3a3d43);
+    const auto downTop = s != nullptr ? mould.darker(0.45f) : juce::Colour(0xff2b2d32);
+    const auto downBottom = s != nullptr ? mould.darker(1.2f) : juce::Colour(0xff121316);
+    g.setColour(s != nullptr ? mould.darker(1.6f) : juce::Colour(0xff101114));
     g.fillRoundedRectangle(cap, 2.5f);
     // Upper face tilts towards the light, the lower face away from it.
-    juce::ColourGradient up(juce::Colour(0xff72767e).brighter(lift), 0.0f, upper.getY(), juce::Colour(0xff3a3d43).brighter(lift), 0.0f, upper.getBottom(), false);
+    juce::ColourGradient up(upTop.brighter(lift), 0.0f, upper.getY(), upBottom.brighter(lift), 0.0f, upper.getBottom(), false);
     g.setGradientFill(up);
     g.fillRoundedRectangle(upper.reduced(0.6f, 0.6f), 2.0f);
-    juce::ColourGradient down(juce::Colour(0xff2b2d32).brighter(lift), 0.0f, lower.getY(), juce::Colour(0xff121316), 0.0f, lower.getBottom(), false);
+    juce::ColourGradient down(downTop.brighter(lift), 0.0f, lower.getY(), downBottom, 0.0f, lower.getBottom(), false);
     g.setGradientFill(down);
     g.fillRoundedRectangle(lower.reduced(0.6f, 0.6f), 2.0f);
-    // Coloured insert in the centre groove, glowing slightly.
+    // Coloured insert in the centre groove (glowing on the house caps, a painted line on model caps).
     const auto insert = juce::Rectangle<float>(cap.getX() + 2.0f, cap.getCentreY() - 1.2f, cap.getWidth() - 4.0f, 2.4f);
-    g.setColour(accent.withAlpha(0.3f));
-    g.fillRect(insert.expanded(0.0f, 1.2f));
-    g.setColour(accent.brighter(0.15f));
+    const auto insertColour = s != nullptr ? s->faderInsert : accent;
+    if (s == nullptr)
+    {
+        g.setColour(insertColour.withAlpha(0.3f));
+        g.fillRect(insert.expanded(0.0f, 1.2f));
+    }
+    g.setColour(insertColour.brighter(s == nullptr ? 0.15f : 0.0f));
     g.fillRect(insert);
     // Specular top edge and dark outline.
     g.setColour(juce::Colours::white.withAlpha(0.45f));
@@ -653,7 +870,7 @@ void ParamControl::paintFader(juce::Graphics& g)
     if (dragging || hovered)
         valueReadout(g, getValueText(), labelArea.reduced(0.0f, 1.0f));
     else
-        legend.draw(g, label, labelArea, labelFont(9.0f), juce::Justification::centred, m::kLegend, 0.6f);
+        legend.draw(g, label, labelArea, labelFont(9.0f), juce::Justification::centred, legendInk(), skin() != nullptr ? 0.15f : 0.6f);
 }
 
 void ParamControl::paintStepSlider(juce::Graphics& g)

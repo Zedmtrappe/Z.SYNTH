@@ -322,6 +322,15 @@ the full set. Controls that a model does not have are dimmed.
 
 These are ZYNTH's own models voiced after those units, not circuit emulations.
 
+**Faceplates.** The compressor block and its ADVANCED window take on the look
+of the selected model: the panel finish, the knobs (with printed 0-10 scales)
+and the gain-reduction meter. LA-2A: light grey panel, big black knobs, a
+lamp-lit cream VU. SSL Bus: charcoal panel, ribbed knobs with colour-coded caps
+(blue time constants, red make-up, yellow mix), a white unlit meter. 1176:
+black panel, black knobs on polished skirts, a lamp-lit VU. Fairchild: grey
+hammertone, large black skirted knobs, an ivory meter. The controls work the
+same on every model.
+
 ### Delay types and advanced controls
 
 | Type | Character |
@@ -373,6 +382,14 @@ them. In the advanced popup: **REVERB PRESETS ▾** (two or three classic settin
 **DECAY** (trims SIZE's decay time x0.35 to x2.8), **LO CUT**, **DIFF** (echo
 density: low = grainier), **MOD** (tail chorusing), **E / L** (early
 reflections vs tail) and **WIDTH**.
+
+**Faceplates.** The REVERB block and its ADVANCED window take on the look of
+the unit each type is modelled on: finish, fader caps and display colour. For
+example: EMT 140 grey-green hammertone, Lexicon 224 / 480L / PCM70 black with
+red LED displays and grey fader caps, Bricasti M7 brushed silver with a
+blue-white display, AMS blue, Yamaha REV7 light grey with a green display,
+Eventide navy with an amber display, Quantec beige. Hall, Room and Shimmer
+keep the ZYNTH look.
 
 ## Output
 
