@@ -296,7 +296,9 @@ It has five bell bands, each with **FREQ** (20 Hz-20 kHz), **GAIN**
 node on the big curve (left/right = frequency, up/down = gain, mouse wheel = Q,
 double-click = flat / filter off) or use the knobs. **With every band at 0 dB,
 both cuts off and OUTPUT at 0 dB the EQ is bypassed exactly.** **FLAT**
-resets it; **ON** switches it out for A/B. It is clean (no colour): the valve,
+resets it; **ON** switches it out for A/B. **PRE FX** moves it in front of
+the delay and reverb, so it shapes the synth itself (and feeds a PRE FX
+compressor) rather than the whole output. It is clean (no colour): the valve,
 drive and compressor are there for character.
 
 ### Output compressor
@@ -420,6 +422,15 @@ distortion at low frequencies and high level):
 | UTC A-24 | Tube-era line transformer: warm, rounded top, the first to saturate | 0.45 % / 18 % | 18 Hz | -2 dB |
 | Haufe V76 | German broadcast: rich lows, the most 2nd harmonic | 0.27 % / 12 % | 14 Hz | -1.2 dB |
 | Jensen JT-11 | Nickel core: clean, open and extended, barely saturates | 0.02 % / 0.65 % | 1 Hz | -0.1 dB |
+
+Real transformers are subtle, so the normal mode is deliberately so. **+HOT**
+goes beyond real-world levels: AMOUNT then drives from nominal up to +36 dB,
+where bass and low mids saturate and compress (on a bass note: about 2-4 %
+distortion at 75 % and 20-30 % at full on the steel types, under 2 % on the
+Jensen), and each type's voicing is exaggerated: Neve a low bump at 80 Hz and
+warm low mids, API a tighter 120 Hz bump and forward 3 kHz, UTC a big
+100 Hz bump and a dark top, Haufe deep 60 Hz weight and full low mids, Jensen
+still clean.
 
 ## MIDI
 

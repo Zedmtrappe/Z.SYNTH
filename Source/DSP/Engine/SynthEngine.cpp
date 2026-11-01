@@ -712,6 +712,17 @@ void SynthEngine::runEffects(float* left, float* right, int n)
             compGrOut.store(compressor.takeGainReduction(), std::memory_order_relaxed);
         }, [&] { compressor.reset(); });
     };
+    // Parametric EQ: on the whole output, or (PRE FX) on the synth before the
+    // delay and reverb, ahead of a PRE FX compressor (console order).
+    auto runEq = [&] {
+        runFaded(9, pb(P::PeqOn), [&](float* l, float* r) {
+            outputEq.process(l, r, n, outputEqSettings());
+        }, [&] { outputEq.reset(); });
+    };
+    const bool eqPre = pb(P::PeqPre);
+    if (eqPre)
+        runEq();
+
     const bool compPre = pb(P::CompPre);
     compGrOut.store(0.0f, std::memory_order_relaxed);
     if (compPre)
@@ -761,13 +772,12 @@ void SynthEngine::runEffects(float* left, float* right, int n)
 
     // Output transformer, straight after the valve.
     runFaded(10, pb(P::XfmrOn), [&](float* l, float* r) {
-        transformer.process(l, r, n, (XfmrType) pi(P::XfmrType), p(P::XfmrAmount));
+        transformer.process(l, r, n, (XfmrType) pi(P::XfmrType), p(P::XfmrAmount), pb(P::XfmrHot));
     }, [&] { transformer.reset(); });
 
     // Parametric output EQ (before SMOOTH and the compressor).
-    runFaded(9, pb(P::PeqOn), [&](float* l, float* r) {
-        outputEq.process(l, r, n, outputEqSettings());
-    }, [&] { outputEq.reset(); });
+    if (! eqPre)
+        runEq();
 
 
     // SMOOTH: tames the 2.2 kHz presence band before the compressor (bypassed at 0).

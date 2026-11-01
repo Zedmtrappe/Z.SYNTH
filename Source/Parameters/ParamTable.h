@@ -251,6 +251,7 @@ X(ChorusType,    "fx.cho.type",    "Chorus Type",   "Effects", Choice, 0, 0, 0.f
 X(XfmrOn,        "out.xfmr.on",    "Transformer On","Output", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "Output transformer stage after the valve.") \
 X(XfmrType,      "out.xfmr.type",  "Transformer",   "Output", Choice, 0, 0, 0.f, LIN, "", ZS_CH_XFMR_TYPE, "Neve LO1166 (Marinair, 1073 output): thick lows, soft top. API 2503: punchy, wide. UTC A-24: tube-era, warm, earliest to saturate. Haufe V76: German broadcast, rich lows, a little 2nd harmonic. Jensen JT-11: nickel core, clean and open.") \
 X(XfmrAmount,    "out.xfmr.amt",   "Transformer Amount","Output", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Level into the transformer: 50 % = nominal (+12 dBu for -6 dBFS), up to +18 dB hotter. Level-compensated.") \
+X(XfmrHot,       "out.xfmr.hot",   "Transformer +HOT","Output", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "+HOT: beyond real-world levels. AMOUNT drives up to +36 dB (bass and low mids saturate and compress, as when a console is slammed) and each type's voicing (low-end bump, midrange, top) is exaggerated.") \
 X(ValveOn,       "out.valve.on",   "Valve On",      "Output", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "Valve output stage (oversampled triode / power-valve saturation).") \
 X(ValveType,     "out.valve.type", "Valve Type",    "Output", Choice, 0, 0, 0.f, LIN, "", ZS_CH_VALVE_TYPE, "12AX7: high-gain preamp triode (even harmonics). 12AU7: low-gain, clean warmth. EL84: push-pull power pair (odd harmonics, early compression). 6L6: big, smooth power valve with more headroom.") \
 X(ValveDrive,    "out.valve.drive","Valve Drive",   "Output", Float, 0.f, 1.f, 0.3f, LIN, "", nullptr, "How hard the valve is driven: warmth and gentle peak compression up to about 80 %, audible distortion from about 90 %.") \
@@ -290,6 +291,7 @@ X(PeqB5Freq,     "peq.b5.f",       "Output EQ 5 Freq", "Output", Float, 20.f, 20
 X(PeqB5Gain,     "peq.b5.g",       "Output EQ 5 Gain", "Output", Float, -15.f, 15.f, 0.f, LIN, "dB", nullptr, "Output EQ band 5 boost / cut.") \
 X(PeqB5Q,        "peq.b5.q",       "Output EQ 5 Q", "Output", Float, 0.3f, 10.f, 0.9f, LOG, "", nullptr, "Output EQ band 5 width: low = broad, high = narrow.") \
 X(PeqOutput,     "peq.out",        "Output EQ Output", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Output EQ level trim.") \
+X(PeqPre,        "peq.pre",        "Output EQ Pre FX", "Output", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "PRE FX: EQ the synth before the delay and reverb (and before the compressor when that is PRE FX too), instead of the whole output.") \
 
 #define ZS_LFO_PARAMS(X, n, unused) \
 X(Lfo##n##Wave,  "lfo" #n ".wave",  "LFO " #n " Wave",  "LFO", Choice, 0, 0, 0.f, LIN, "", ZS_CH_LFO_WAVE, "LFO waveform.") \

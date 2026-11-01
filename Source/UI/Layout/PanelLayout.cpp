@@ -283,6 +283,7 @@ PanelLayout::PanelLayout()
     // Output transformer, straight after the valve: ON, TYPE and AMOUNT.
     sectionAt("xfmr", "TRANSFORMER", 1658, 654, 178, 92, true);
     compact("out.xfmr.on", 1792, 655, "ON");
+    compact("out.xfmr.hot", 1744, 655, "+HOT", 44);
     add("out.xfmr.type", K::Selector, 1664, 682, "TYPE", 112);
     add("out.xfmr.amt", K::Knob, 1780, 676, "AMOUNT", 52);
 
@@ -362,6 +363,7 @@ PanelLayout::PanelLayout()
     // Parametric output EQ: the curve at a glance; ADVANCED opens the editor.
     inSection("peqModule");
     compact("peq.on", mx[4] + mw[4] - 42, 789, "ON");
+    compact("peq.pre", mx[4] + mw[4] - 96, 789, "PRE FX", 50);
     utilityAt("peqCurve", mx[4] + 8, 808, mw[4] - 16, 112);
     utilityAt("openPeq", mx[4] + 8, 926, mw[4] - 16, 24);
 

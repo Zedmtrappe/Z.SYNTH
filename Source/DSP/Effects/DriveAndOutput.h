@@ -311,16 +311,20 @@ public:
         float even;        // 2nd-harmonic share (remanence / DC)
         float hyst;        // hysteresis depth (steel > nickel)
         float top10k, top20k; // response (dB) at 10 and 20 kHz (leakage L / winding C)
+        // +HOT voicing (exaggerated): low-frequency resonance with the
+        // source / load, a midrange tilt and a stronger top-end tilt.
+        float bumpHz, bumpDb, bumpQ, midHz, midDb, hotTop10k, hotTop20k;
     };
 
     static const Model& model(XfmrType t)
     {
         static const Model models[(int) XfmrType::Count] = {
-            { 8.0f,  0.30f, 2.2f, 0.15f, 0.00035f, -0.2f, -0.8f }, // Neve LO1166 (Marinair, steel)
-            { 5.0f,  0.15f, 2.8f, 0.05f, 0.00020f, 0.0f,  -0.2f }, // API 2503
-            { 18.0f, 0.50f, 1.8f, 0.10f, 0.00045f, -0.6f, -2.0f }, // UTC A-24 (tube era)
-            { 14.0f, 0.25f, 2.2f, 0.22f, 0.00035f, -0.3f, -1.2f }, // Haufe V76
-            { 1.0f,  0.02f, 7.0f, 0.02f, 0.00004f, 0.0f,  -0.1f }, // Jensen JT-11 (nickel)
+            //                                                   +HOT: bump Hz/dB/Q      mid Hz/dB      10k/20k
+            { 8.0f,  0.30f, 2.2f, 0.15f, 0.00035f, -0.2f, -0.8f, 80.0f, 1.5f, 0.8f,  700.0f, 0.6f,  -0.6f, -2.0f }, // Neve LO1166 (Marinair, steel)
+            { 5.0f,  0.15f, 2.8f, 0.05f, 0.00020f, 0.0f,  -0.2f, 120.0f, 1.0f, 0.9f, 3000.0f, 0.9f, -0.2f, -0.8f }, // API 2503
+            { 18.0f, 0.50f, 1.8f, 0.10f, 0.00045f, -0.6f, -2.0f, 100.0f, 2.0f, 0.7f, 1500.0f, -0.6f, -1.2f, -4.0f }, // UTC A-24 (tube era)
+            { 14.0f, 0.25f, 2.2f, 0.22f, 0.00035f, -0.3f, -1.2f, 60.0f, 2.0f, 0.7f,  400.0f, 0.8f,  -0.8f, -2.8f }, // Haufe V76
+            { 1.0f,  0.02f, 7.0f, 0.02f, 0.00004f, 0.0f,  -0.1f, 50.0f, 0.0f, 0.7f, 1000.0f, 0.0f,  0.0f, -0.3f }, // Jensen JT-11 (nickel)
         };
         return models[std::clamp((int) t, 0, (int) XfmrType::Count - 1)];
     }
@@ -346,28 +350,36 @@ public:
     struct Core
     {
         float lin, a2, a3, cs, satFlux;
+        bool soft = false; // +HOT: a 5th-order knee (gradual) instead of 7th (real cores bend late and hard)
         float drop(float phi) const
         {
-            const float u = phi / satFlux, u3 = u * u * u;
-            return lin * phi + a2 * phi * phi + a3 * phi * phi * phi
-                 + cs * satFlux * u3 * u3 * u;
+            const float u = phi / satFlux, u2 = u * u;
+            const float sat = soft ? u2 * u2 * u : u2 * u2 * u2 * u;
+            return lin * phi + a2 * phi * phi + a3 * phi * phi * phi + cs * satFlux * sat;
         }
         float slope(float phi) const
         {
-            const float u = phi / satFlux, u3 = u * u * u;
-            return lin + 2.0f * a2 * phi + 3.0f * a3 * phi * phi + 7.0f * cs * u3 * u3;
+            const float u = phi / satFlux, u2 = u * u;
+            const float sat = soft ? 5.0f * u2 * u2 : 7.0f * u2 * u2 * u2;
+            return lin + 2.0f * a2 * phi + 3.0f * a3 * phi * phi + cs * sat;
         }
     };
 
-    void process(float* L, float* R, int n, XfmrType type, float amount)
+    void process(float* L, float* R, int n, XfmrType type, float amount, bool hot = false)
     {
         const Model& m = model(type);
-        if ((int) type != lastType)
+        const int key = (int) type * 2 + (hot ? 1 : 0);
+        if (key != lastType)
         {
-            lastType = (int) type;
-            // Top end: two gentle shelves fitted to the response at 10 and 20 kHz.
-            topCoeffs[0] = ParametricEq::design(ParametricEq::Shape::HighShelf, 9000.0, m.top10k, 0.7, fs);
-            topCoeffs[1] = ParametricEq::design(ParametricEq::Shape::HighShelf, 17000.0, m.top20k - m.top10k, 0.7, fs);
+            lastType = key;
+            // Top end: two gentle shelves fitted to the response at 10 and 20 kHz;
+            // +HOT adds the exaggerated low bump and midrange tilt.
+            const float t10 = hot ? m.hotTop10k : m.top10k, t20 = hot ? m.hotTop20k : m.top20k;
+            topCoeffs[0] = ParametricEq::design(ParametricEq::Shape::HighShelf, 9000.0, t10, 0.7, fs);
+            topCoeffs[1] = ParametricEq::design(ParametricEq::Shape::HighShelf, 17000.0, t20 - t10, 0.7, fs);
+            topCoeffs[2] = ParametricEq::design(ParametricEq::Shape::Bell, m.bumpHz, hot ? m.bumpDb : 0.0, m.bumpQ, fs);
+            topCoeffs[3] = ParametricEq::design(ParametricEq::Shape::Bell, m.midHz, hot ? m.midDb : 0.0, 0.7, fs);
+            stages = hot ? 4 : 2;
         }
         // Flux in units where a 40 Hz sine of amplitude A peaks at A.
         const float k = kTwoPi * 40.0f / fs;
@@ -377,11 +389,15 @@ public:
         // THD ~ a3 A^2 / 2 (the flux integrator adds the factor of 2).
         core.a3 = 2.0f * (m.thd40 * 0.01f) / (0.5f * 0.5f);
         core.a2 = m.even * core.a3;
-        core.cs = 0.02f;          // hard saturation above satFlux
+        core.cs = hot ? 0.05f : 0.02f; // saturation around satFlux
+        core.soft = hot;
         core.satFlux = m.satFlux;
         const float hw = 0.02f;   // hysteresis loop half-width (flux units)
         const float hk = m.hyst / hw;
-        const float drive = dbToGain(-12.0f + 30.0f * clampf(amount, 0.0f, 1.0f));
+        // Real: -12 .. +18 dB around nominal (+12 dBu at -6 dBFS).
+        // +HOT: nominal .. +36 dB, where bass and low mids saturate and compress.
+        const float a = clampf(amount, 0.0f, 1.0f);
+        const float drive = dbToGain(hot ? 36.0f * std::pow(a, 1.1f) : -12.0f + 30.0f * a);
         const float makeup = 1.0f / drive;
 
         float* io[2] = { L, R };
@@ -399,7 +415,7 @@ public:
                 const float next = phi - f / (1.0f + k * core.slope(phi));
                 float y = (next - phi) / k;
                 phi = undenormalise(next);
-                for (int s2 = 0; s2 < 2; ++s2)
+                for (int s2 = 0; s2 < stages; ++s2)
                 {
                     auto& st = top[c][s2];
                     const auto& q = topCoeffs[s2];
@@ -419,9 +435,10 @@ private:
     struct State { double z1 = 0.0, z2 = 0.0; };
     float fs = 48000.0f;
     int lastType = -1;
-    ParametricEq::Coeffs topCoeffs[2];
+    ParametricEq::Coeffs topCoeffs[4];
+    int stages = 2;
     float flux[2] {}, play[2] {};
-    State top[2][2];
+    State top[2][4];
 };
 
 // -----------------------------------------------------------------------------

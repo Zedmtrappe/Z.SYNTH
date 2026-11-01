@@ -1360,6 +1360,42 @@ ZS_TEST(output_transformer_models)
         ZS_CHECK_LT(mid, 0.05);
         ZS_CHECK_NEAR(lf, -3.0, 1.0);
     }
+
+    // +HOT: a usable drive range on a synth-level signal (110 Hz, -9 dBFS):
+    // clean at 0, clearly saturated at 75 %, heavily at full, and the types
+    // (steel vs nickel) far apart.
+    auto hotThd = [&](XfmrType t, float amount) {
+        OutputTransformer x;
+        x.prepare(fs);
+        const int n = 96000;
+        std::vector<float> l((size_t) n), r((size_t) n);
+        for (int i = 0; i < n; ++i)
+            l[(size_t) i] = r[(size_t) i] = 0.35f * std::sin(kTwoPi * 110.0f * (float) i / fs);
+        for (int i = 0; i < n; i += 256)
+            x.process(l.data() + i, r.data() + i, 256, t, amount, true);
+        ZS_CHECK(allFinite(l));
+        auto a2 = [&](double fr) {
+            double c = 0.0, sn = 0.0;
+            for (int i = 48000; i < 96000; ++i)
+            {
+                c += l[(size_t) i] * std::cos(2.0 * 3.14159265358979 * fr * i / fs);
+                sn += l[(size_t) i] * std::sin(2.0 * 3.14159265358979 * fr * i / fs);
+            }
+            return std::sqrt(c * c + sn * sn);
+        };
+        double h = 0.0;
+        for (int k = 2; k <= 9; ++k)
+            h += a2(110.0 * k) * a2(110.0 * k);
+        return 100.0 * std::sqrt(h) / a2(110.0);
+    };
+    for (int t = 0; t < (int) XfmrType::Count; ++t)
+        std::printf("    transformer %d +HOT at 110 Hz: %.2f %% / %.2f %% / %.2f %% (0 / 75 / 100 %%)\n", t,
+                    hotThd((XfmrType) t, 0.0f), hotThd((XfmrType) t, 0.75f), hotThd((XfmrType) t, 1.0f));
+    ZS_CHECK_LT(hotThd(XfmrType::NeveLo1166, 0.0f), 0.2);
+    ZS_CHECK_GT(hotThd(XfmrType::NeveLo1166, 0.75f), 1.5);
+    ZS_CHECK_GT(hotThd(XfmrType::NeveLo1166, 1.0f), 15.0);
+    ZS_CHECK_GT(hotThd(XfmrType::UtcA24, 0.75f), hotThd(XfmrType::Api2503, 0.75f) * 2.0);
+    ZS_CHECK_LT(hotThd(XfmrType::JensenJt11, 1.0f), 5.0);
 }
 
 ZS_TEST(arpeggiator_timing)
