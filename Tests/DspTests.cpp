@@ -1361,16 +1361,15 @@ ZS_TEST(output_transformer_models)
         ZS_CHECK_NEAR(lf, -3.0, 1.0);
     }
 
-    // +HOT: a usable drive range on a synth-level signal (110 Hz, -9 dBFS):
-    // clean at 0, clearly saturated at 75 %, heavily at full, and the types
-    // (steel vs nickel) far apart.
-    auto hotThd = [&](XfmrType t, float amount) {
+    // +HOT: a usable drive range on a synth-level signal (-9 dBFS): clean at
+    // 0, clearly saturated at 75 %, heavily at full; the Jensen stays clean.
+    auto hotThdAt = [&](XfmrType t, float amount, float freq) {
         OutputTransformer x;
         x.prepare(fs);
         const int n = 96000;
         std::vector<float> l((size_t) n), r((size_t) n);
         for (int i = 0; i < n; ++i)
-            l[(size_t) i] = r[(size_t) i] = 0.35f * std::sin(kTwoPi * 110.0f * (float) i / fs);
+            l[(size_t) i] = r[(size_t) i] = 0.35f * std::sin(kTwoPi * freq * (float) i / fs);
         for (int i = 0; i < n; i += 256)
             x.process(l.data() + i, r.data() + i, 256, t, amount, true);
         ZS_CHECK(allFinite(l));
@@ -1385,17 +1384,30 @@ ZS_TEST(output_transformer_models)
         };
         double h = 0.0;
         for (int k = 2; k <= 9; ++k)
-            h += a2(110.0 * k) * a2(110.0 * k);
-        return 100.0 * std::sqrt(h) / a2(110.0);
+            h += a2(freq * k) * a2(freq * k);
+        return 100.0 * std::sqrt(h) / a2(freq);
     };
+    auto hotThd = [&](XfmrType t, float amount) { return hotThdAt(t, amount, 110.0f); };
     for (int t = 0; t < (int) XfmrType::Count; ++t)
         std::printf("    transformer %d +HOT at 110 Hz: %.2f %% / %.2f %% / %.2f %% (0 / 75 / 100 %%)\n", t,
                     hotThd((XfmrType) t, 0.0f), hotThd((XfmrType) t, 0.75f), hotThd((XfmrType) t, 1.0f));
     ZS_CHECK_LT(hotThd(XfmrType::NeveLo1166, 0.0f), 0.2);
     ZS_CHECK_GT(hotThd(XfmrType::NeveLo1166, 0.75f), 1.5);
     ZS_CHECK_GT(hotThd(XfmrType::NeveLo1166, 1.0f), 15.0);
-    ZS_CHECK_GT(hotThd(XfmrType::UtcA24, 0.75f), hotThd(XfmrType::Api2503, 0.75f) * 2.0);
+    // Tube-era UTC colours early; the API's op-amp stays clean until it clips.
+    ZS_CHECK_GT(hotThdAt(XfmrType::UtcA24, 0.25f, 440.0f), hotThdAt(XfmrType::Api2503, 0.25f, 440.0f) * 5.0);
     ZS_CHECK_LT(hotThd(XfmrType::JensenJt11, 1.0f), 5.0);
+
+    // ...and not only in the bass: the drive amplifier saturates the mids
+    // too, rising steadily with AMOUNT (no dead zone in the middle of the knob).
+    for (auto t : { XfmrType::NeveLo1166, XfmrType::Api2503, XfmrType::UtcA24, XfmrType::HaufeV76 })
+    {
+        const double q = hotThdAt(t, 0.25f, 440.0f), h = hotThdAt(t, 0.5f, 440.0f), f = hotThdAt(t, 1.0f, 440.0f);
+        std::printf("    transformer %d +HOT at 440 Hz: %.2f %% / %.2f %% / %.2f %% (25 / 50 / 100 %%)\n", (int) t, q, h, f);
+        ZS_CHECK_GT(h, 1.0);
+        ZS_CHECK_GT(f, 8.0);
+        ZS_CHECK_GT(f, h * 1.5);
+    }
 }
 
 ZS_TEST(arpeggiator_timing)

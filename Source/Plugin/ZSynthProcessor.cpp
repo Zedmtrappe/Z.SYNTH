@@ -33,6 +33,8 @@ ZSynthProcessor::ZSynthProcessor(juce::File userPresetDir)
     events.reserve(kMaxEventsPerBlock);
     presets = std::make_unique<PresetManager>(apvts, factoryBanks(), userPresetDir);
 
+    presets->seedDefaultFavourites({ kStartupPreset, "AXEL F", "JP-8000 - Resonant Sweep", "Synthex - Galactic Lead" });
+
     // Start on the chosen factory sound (falling back to the first preset).
     const auto& entries = presets->getEntries();
     int startup = entries.empty() ? -1 : 0;

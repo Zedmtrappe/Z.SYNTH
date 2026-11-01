@@ -354,6 +354,26 @@ void PresetManager::loadFavourites()
     favourites.removeEmptyStrings();
 }
 
+void PresetManager::seedDefaultFavourites(const juce::StringArray& factoryNames)
+{
+    // Each default is offered once: "seeded:F:<name>" records that it was,
+    // so removing it from the favourites later is respected.
+    bool changed = false;
+    for (const auto& name : factoryNames)
+    {
+        const auto key = "F:" + name;
+        if (favourites.contains("seeded:" + key))
+            continue;
+        favourites.addIfNotAlreadyThere(key);
+        favourites.add("seeded:" + key);
+        changed = true;
+    }
+    if (! changed)
+        return;
+    saveFavourites();
+    refresh();
+}
+
 void PresetManager::saveFavourites()
 {
     const auto f = userDir.getParentDirectory().getChildFile("favourites.txt");

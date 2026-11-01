@@ -417,20 +417,25 @@ distortion at low frequencies and high level):
 
 | Type | Character | 40 Hz THD at 50 % / 100 % | Low corner | 20 kHz |
 |---|---|---|---|---|
-| Neve LO1166 | Marinair steel core of the 1073: thick, weighty lows, slightly soft top, a little 2nd harmonic | 0.3 % / 15 % | 8 Hz | -0.8 dB |
-| API 2503 | Punchy and wide, the cleanest steel core | 0.15 % / 8 % | 5 Hz | -0.2 dB |
-| UTC A-24 | Tube-era line transformer: warm, rounded top, the first to saturate | 0.45 % / 18 % | 18 Hz | -2 dB |
-| Haufe V76 | German broadcast: rich lows, the most 2nd harmonic | 0.27 % / 12 % | 14 Hz | -1.2 dB |
-| Jensen JT-11 | Nickel core: clean, open and extended, barely saturates | 0.02 % / 0.65 % | 1 Hz | -0.1 dB |
+| Neve LO1166 | Marinair steel core of the 1073: thick, weighty lows, slightly soft top, a little 2nd harmonic | 0.35 % / 40 % | 8 Hz | -0.8 dB |
+| API 2503 | Punchy and wide, the cleanest steel core | 0.16 % / 33 % | 5 Hz | -0.2 dB |
+| UTC A-24 | Tube-era line transformer: warm, rounded top, the first to saturate | 0.5 % / 42 % | 18 Hz | -2 dB |
+| Haufe V76 | German broadcast: rich lows, the most 2nd harmonic | 0.3 % / 37 % | 14 Hz | -1.2 dB |
+| Jensen JT-11 | Nickel core: clean, open and extended, barely saturates | 0.02 % / 1.7 % | 1 Hz | -0.1 dB |
 
-Real transformers are subtle, so the normal mode is deliberately so. **+HOT**
-goes beyond real-world levels: AMOUNT then drives from nominal up to +36 dB,
-where bass and low mids saturate and compress (on a bass note: about 2-4 %
-distortion at 75 % and 20-30 % at full on the steel types, under 2 % on the
-Jensen), and each type's voicing is exaggerated: Neve a low bump at 80 Hz and
-warm low mids, API a tighter 120 Hz bump and forward 3 kHz, UTC a big
-100 Hz bump and a dark top, Haufe deep 60 Hz weight and full low mids, Jensen
-still clean.
+Real transformers are subtle at line level, so the normal mode is deliberately
+so: it mostly shapes the deep bass and the top end. **+HOT** models the
+transformer *and the amplifier that drives it* pushed far past nominal
+(AMOUNT = 0 to +20 dB, level-compensated so the knob changes the colour, not
+the volume). The drive stage saturates the whole range and the core then
+clamps and compresses the bass. Each type has its own amplifier character:
+Neve warm class-A with some 2nd harmonic, API clean until its op-amp clips
+hard, UTC and Haufe tube-soft and colouring early, Jensen clean until the top
+of the knob. On a 440 Hz note at -9 dBFS that is about 0.5-3.5 % distortion at
+25 %, 1.5-8 % at 50 % and 22-28 % at full (the Jensen stays clean until about
+75 %). The voicing is exaggerated too: Neve a low bump at 80 Hz and warm low
+mids, API a tighter 120 Hz bump and forward 3 kHz, UTC a big 100 Hz bump and
+a dark top, Haufe deep 60 Hz weight and full low mids, Jensen still clean.
 
 ## MIDI
 
@@ -462,7 +467,9 @@ folder at the top of the preset menu and in the browser's folder list. When
 you pick a preset from a Favourites folder, the **< >** buttons step through
 your favourites only (the display shows *FAV 2 / 5*); picking from any other
 folder returns them to the whole library. A ★ before the category on the
-display marks a favourite. Favourites are kept between sessions.
+display marks a favourite. Favourites are kept between sessions. A new
+install starts with four favourites (OB-Xa - Jump, AXEL F, JP-8000 - Resonant
+Sweep and Synthex - Galactic Lead); un-star any of them and it stays un-starred.
 
 Factory presets are read-only; save a copy with SAVE AS. In the browser:
 type to search, filter by category, star favourites, single-click to audition,

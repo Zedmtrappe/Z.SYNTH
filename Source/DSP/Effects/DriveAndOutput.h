@@ -314,17 +314,21 @@ public:
         // +HOT voicing (exaggerated): low-frequency resonance with the
         // source / load, a midrange tilt and a stronger top-end tilt.
         float bumpHz, bumpDb, bumpQ, midHz, midDb, hotTop10k, hotTop20k;
+        // +HOT drive amplifier (the stage that pushes the transformer):
+        // headroom (input-referred), asymmetry (even harmonics) and knee
+        // hardness (0 = tube-soft .. 1 = op-amp/class-AB hard).
+        float ampHeadroom, ampAsym, ampHard;
     };
 
     static const Model& model(XfmrType t)
     {
         static const Model models[(int) XfmrType::Count] = {
             //                                                   +HOT: bump Hz/dB/Q      mid Hz/dB      10k/20k
-            { 8.0f,  0.30f, 2.2f, 0.15f, 0.00035f, -0.2f, -0.8f, 80.0f, 1.5f, 0.8f,  700.0f, 0.6f,  -0.6f, -2.0f }, // Neve LO1166 (Marinair, steel)
-            { 5.0f,  0.15f, 2.8f, 0.05f, 0.00020f, 0.0f,  -0.2f, 120.0f, 1.0f, 0.9f, 3000.0f, 0.9f, -0.2f, -0.8f }, // API 2503
-            { 18.0f, 0.50f, 1.8f, 0.10f, 0.00045f, -0.6f, -2.0f, 100.0f, 2.0f, 0.7f, 1500.0f, -0.6f, -1.2f, -4.0f }, // UTC A-24 (tube era)
-            { 14.0f, 0.25f, 2.2f, 0.22f, 0.00035f, -0.3f, -1.2f, 60.0f, 2.0f, 0.7f,  400.0f, 0.8f,  -0.8f, -2.8f }, // Haufe V76
-            { 1.0f,  0.02f, 7.0f, 0.02f, 0.00004f, 0.0f,  -0.1f, 50.0f, 0.0f, 0.7f, 1000.0f, 0.0f,  0.0f, -0.3f }, // Jensen JT-11 (nickel)
+            { 8.0f,  0.30f, 2.2f, 0.15f, 0.00035f, -0.2f, -0.8f, 80.0f, 1.5f, 0.8f,  700.0f, 0.6f,  -0.6f, -2.0f, 1.6f, 0.30f, 0.35f }, // Neve LO1166 (Marinair, steel)
+            { 5.0f,  0.15f, 2.8f, 0.05f, 0.00020f, 0.0f,  -0.2f, 120.0f, 1.0f, 0.9f, 3000.0f, 0.9f, -0.2f, -0.8f, 1.35f, 0.08f, 0.60f }, // API 2503
+            { 18.0f, 0.50f, 1.8f, 0.10f, 0.00045f, -0.6f, -2.0f, 100.0f, 2.0f, 0.7f, 1500.0f, -0.6f, -1.2f, -4.0f, 1.3f, 0.40f, 0.10f }, // UTC A-24 (tube era)
+            { 14.0f, 0.25f, 2.2f, 0.22f, 0.00035f, -0.3f, -1.2f, 60.0f, 2.0f, 0.7f,  400.0f, 0.8f,  -0.8f, -2.8f, 1.4f, 0.35f, 0.15f }, // Haufe V76
+            { 1.0f,  0.02f, 7.0f, 0.02f, 0.00004f, 0.0f,  -0.1f, 50.0f, 0.0f, 0.7f, 1000.0f, 0.0f,  0.0f, -0.3f, 4.0f, 0.02f, 0.90f }, // Jensen JT-11 (nickel)
         };
         return models[std::clamp((int) t, 0, (int) XfmrType::Count - 1)];
     }
@@ -341,6 +345,10 @@ public:
         for (int c = 0; c < 2; ++c)
         {
             flux[c] = play[c] = 0.0f;
+            agc = 1.0f;
+            envIn = envOut = 0.0f;
+            up[c].reset();
+            down[c].reset();
             for (auto& st : top[c])
                 st = {};
         }
@@ -389,28 +397,43 @@ public:
         // THD ~ a3 A^2 / 2 (the flux integrator adds the factor of 2).
         core.a3 = 2.0f * (m.thd40 * 0.01f) / (0.5f * 0.5f);
         core.a2 = m.even * core.a3;
-        core.cs = hot ? 0.05f : 0.02f; // saturation around satFlux
+        // Saturation: the magnetising current climbs steeply past satFlux, so
+        // the core clamps the flux (the bass flattens and compresses).
+        core.cs = hot ? 6.0f : 1.0f;
         core.soft = hot;
         core.satFlux = m.satFlux;
         const float hw = 0.02f;   // hysteresis loop half-width (flux units)
         const float hk = m.hyst / hw;
         // Real: -12 .. +18 dB around nominal (+12 dBu at -6 dBFS).
-        // +HOT: nominal .. +36 dB, where bass and low mids saturate and compress.
+        // +HOT: the drive amplifier and the core pushed together, nominal ..
+        // +20 dB, level-compensated so AMOUNT changes the colour, not the volume.
         const float a = clampf(amount, 0.0f, 1.0f);
-        const float drive = dbToGain(hot ? 36.0f * std::pow(a, 1.1f) : -12.0f + 30.0f * a);
+        const float drive = dbToGain(hot ? 20.0f * a : -12.0f + 30.0f * a);
         const float makeup = 1.0f / drive;
+        const float H = m.ampHeadroom, p = 2.0f + 8.0f * m.ampHard, bias = 0.5f * m.ampAsym;
+        const auto ampSat = [p](float u) { return u / std::pow(1.0f + std::pow(std::abs(u), p), 1.0f / p); };
+        const float biasOut = ampSat(bias);
 
+        double inPow = 0.0, outPow = 0.0;
         float* io[2] = { L, R };
         for (int c = 0; c < 2; ++c)
         {
-            float phi = flux[c], p = play[c];
+            float phi = flux[c], pl = play[c];
             for (int i = 0; i < n; ++i)
             {
-                const float x = io[c][i] * drive;
+                float x = io[c][i] * drive;
+                if (hot)
+                {
+                    inPow += (double) io[c][i] * io[c][i];
+                    // The amplifier clips at 2x (half-band) so its harmonics don't alias.
+                    float a0, a1;
+                    up[c].process(x / H, a0, a1);
+                    x = H * down[c].process(ampSat(a0 + bias) - biasOut, ampSat(a1 + bias) - biasOut);
+                }
                 // Backward-Euler step for the flux (one Newton iteration): stable
                 // however hard the core is driven.
-                p = std::clamp(p, phi - hw, phi + hw); // play-operator hysteresis
-                const float hystDrop = hk * (phi - p);
+                pl = std::clamp(pl, phi - hw, phi + hw); // play-operator hysteresis
+                const float hystDrop = hk * (phi - pl);
                 const float f = k * (core.drop(phi) + hystDrop - x);
                 const float next = phi - f / (1.0f + k * core.slope(phi));
                 float y = (next - phi) / k;
@@ -424,10 +447,32 @@ public:
                     st.z2 = q.b2 * y - q.a2 * o;
                     y = (float) o;
                 }
-                io[c][i] = y * makeup;
+                y *= makeup;
+                if (hot)
+                    outPow += (double) y * y;
+                io[c][i] = y;
             }
             flux[c] = phi;
-            play[c] = p;
+            play[c] = pl;
+        }
+
+        // +HOT level compensation: a slow, linked loudness match (about 0.4 s).
+        if (hot)
+        {
+            const float blockCoeff = 1.0f - std::exp(-(float) n / (0.4f * fs));
+            envIn += blockCoeff * ((float) inPow - envIn);
+            envOut += blockCoeff * ((float) outPow - envOut);
+            const float target = envOut > 1e-9f && envIn > 1e-9f ? clampf(std::sqrt(envIn / envOut), 0.5f, 4.0f) : agc;
+            const float start = agc, step = (target - start) / (float) std::max(1, n);
+            for (int c = 0; c < 2; ++c)
+                for (int i = 0; i < n; ++i)
+                    io[c][i] *= start + step * (float) (i + 1);
+            agc = target;
+        }
+        else
+        {
+            agc = 1.0f;
+            envIn = envOut = 0.0f;
         }
     }
 
@@ -438,6 +483,9 @@ private:
     ParametricEq::Coeffs topCoeffs[4];
     int stages = 2;
     float flux[2] {}, play[2] {};
+    float agc = 1.0f, envIn = 0.0f, envOut = 0.0f;
+    HalfBandInterpolator up[2];
+    HalfBandDecimator down[2];
     State top[2][4];
 };
 

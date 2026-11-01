@@ -10,6 +10,7 @@
 #include "MIDI/MidiLearn.h"
 #include "Parameters/ParameterLayout.h"
 #include "Plugin/ZSynthProcessor.h"
+#include "DSP/Effects/DriveAndOutput.h"
 #include "Presets/PresetFormat.h"
 #include "Presets/PresetManager.h"
 #include "UI/Layout/ActivityRules.h"
@@ -469,6 +470,37 @@ ZS_TEST(factory_bank_parses_cleanly)
                 std::printf("    near-duplicate: '%s' vs '%s' (%d params differ)\n", bank[a].name.toRawUTF8(), bank[b].name.toRawUTF8(), differing);
             ZS_CHECK(differing >= 3);
         }
+}
+
+ZS_TEST(first_install_stars_the_default_favourites)
+{
+    // A fresh user folder of its own (favourites.txt lives beside Presets/).
+    const auto root = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("zsynth_tests_seed");
+    root.deleteRecursively();
+    const auto names = [](PresetManager& pm)
+    {
+        juce::StringArray s;
+        for (int i : pm.getFavouriteIndices())
+            s.add(pm.getEntries()[(size_t) i].name);
+        s.sort(true);
+        return s;
+    };
+    {
+        ZSynthProcessor p(root.getChildFile("Presets"));
+        ZS_CHECK(p.getPresets().getCurrentName() == "OB-Xa - Jump");
+        const auto favs = names(p.getPresets());
+        ZS_CHECK(favs == juce::StringArray({ "AXEL F", "JP-8000 - Resonant Sweep", "OB-Xa - Jump", "Synthex - Galactic Lead" }));
+        // Un-starring one sticks: it is not seeded again next time.
+        auto& pm = p.getPresets();
+        for (int i : pm.getFavouriteIndices())
+            if (pm.getEntries()[(size_t) i].name == "AXEL F")
+                pm.setFavourite(i, false);
+    }
+    {
+        ZSynthProcessor p(root.getChildFile("Presets"));
+        ZS_CHECK(names(p.getPresets()) == juce::StringArray({ "JP-8000 - Resonant Sweep", "OB-Xa - Jump", "Synthex - Galactic Lead" }));
+    }
+    root.deleteRecursively();
 }
 
 ZS_TEST(favourites_folder_steps_through_favourites)
@@ -1095,8 +1127,93 @@ static int auditionFileReport(const juce::File& file)
     return 0;
 }
 
+// Diagnostic: how much the output transformer changes a real preset, measured
+// through the whole engine (difference vs. transformer off, in dB re signal).
+static int xfmrReport(const juce::String& presetName)
+{
+    ZSynthProcessor processor(juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("zynth-xfmr-diag"));
+    auto& pm = processor.getPresets();
+    int index = -1;
+    for (int i = 0; i < (int) pm.getEntries().size(); ++i)
+        if (pm.getEntries()[(size_t) i].name == presetName)
+            index = i;
+    if (index < 0)
+        return 1;
+    auto render = [&](bool on, int type, float amount, bool hot, std::vector<float>& out)
+    {
+        pm.load(index);
+        auto set = [&](const char* id, float v) {
+            auto* prm = processor.getState().getParameter(id);
+            prm->setValueNotifyingHost(prm->convertTo0to1(v));
+        };
+        set("out.xfmr.on", on ? 1.0f : 0.0f);
+        set("out.xfmr.type", (float) type);
+        set("out.xfmr.amt", amount);
+        set("out.xfmr.hot", hot ? 1.0f : 0.0f);
+        processor.prepareToPlay(48000.0, 512);
+        juce::AudioBuffer<float> buffer(2, 512);
+        out.clear();
+        for (int b = 0; b < 48000 * 3 / 512; ++b)
+        {
+            buffer.clear();
+            juce::MidiBuffer midi;
+            if (b == 2)
+                for (int note : { 45, 57, 60, 64 })
+                    midi.addEvent(juce::MidiMessage::noteOn(1, note, (juce::uint8) 100), 0);
+            if (b == 220)
+                for (int note : { 45, 57, 60, 64 })
+                    midi.addEvent(juce::MidiMessage::noteOff(1, note), 0);
+            processor.processBlock(buffer, midi);
+            for (int i = 0; i < 512; ++i)
+                out.push_back(buffer.getSample(0, i));
+        }
+    };
+    std::vector<float> ref, y;
+    render(false, 0, 0.5f, false, ref);
+    // The transformer sits near the end of the chain, before master volume:
+    // undo the master gain to get (close to) the signal it actually sees.
+    const float master = dbToGain(processor.getValue(P::MasterVolume));
+    double sig = 0, pk = 0;
+    for (float v : ref) { sig += v * v; pk = std::max(pk, (double) std::abs(v / master)); }
+    std::printf("%s: transformer input RMS %.1f dBFS, peak %.1f dBFS\n", presetName.toRawUTF8(),
+                10 * std::log10(sig / ref.size() / (master * master)), 20 * std::log10(pk));
+    for (bool hot : { false, true })
+        for (int type = 0; type < 5; ++type)
+        {
+            std::printf("  %s %-12s", hot ? "HOT " : "real", juce::StringArray::fromTokens(ZS_CH_XFMR_TYPE, "|", "")[type].toRawUTF8());
+            for (float amt : { 0.25f, 0.5f, 0.75f, 1.0f })
+            {
+                auto run = [&](float scale, std::vector<float>& out)
+                {
+                    OutputTransformer xf;
+                    xf.prepare(48000.0f);
+                    std::vector<float> l(ref.size()), r(ref.size());
+                    for (size_t i = 0; i < ref.size(); ++i) l[i] = r[i] = ref[i] / master * scale;
+                    for (size_t i = 0; i + 512 <= l.size(); i += 512)
+                        xf.process(l.data() + i, r.data() + i, 512, (XfmrType) type, amt, hot);
+                    out.resize(l.size());
+                    for (size_t i = 0; i < l.size(); ++i) out[i] = l[i] * master / scale;
+                };
+                std::vector<float> wet, lin;
+                run(1.0f, wet);
+                run(1e-3f, lin);
+                double d = 0, e = 0;
+                for (size_t i = 24000; i < ref.size(); ++i) { const double dv = wet[i] - lin[i]; d += dv * dv; e += (double) wet[i] * wet[i]; }
+                double s2 = 0;
+                for (size_t i = 24000; i < ref.size(); ++i) s2 += (double) ref[i] * ref[i];
+                std::printf("  %3d%%: %6.1f dB (%+4.1f)", (int) (amt * 100), 10 * std::log10(d / e + 1e-12), 10 * std::log10(e / s2));
+                continue;
+                std::printf("  %3d%%: %6.1f dB", (int) (amt * 100), 10 * std::log10(d / sig + 1e-12));
+            }
+            std::printf("\n");
+        }
+    return 0;
+}
+
 int main(int argc, char** argv)
 {
+    if (argc > 2 && juce::String(argv[1]) == "--xfmr-report")
+        return xfmrReport(juce::String(argv[2]));
     if (argc > 2 && juce::String(argv[1]) == "--audition-file")
         return auditionFileReport(juce::File(juce::String(argv[2])));
     if (argc > 1 && juce::String(argv[1]) == "--preset-report")

@@ -71,6 +71,9 @@ public:
     juce::Result renameUser(int index, const juce::String& newName);
     juce::Result deleteUser(int index);
     void setFavourite(int index, bool favourite);
+    /** Stars these factory presets once per install (and once more whenever
+        the list is extended): a later un-star by the user sticks. */
+    void seedDefaultFavourites(const juce::StringArray& factoryNames);
     bool isFavourite(int index) const { return index >= 0 && index < (int) entries.size() && entries[(size_t) index].favourite; }
     /** Entry indices of the favourites, in library order. */
     std::vector<int> getFavouriteIndices() const;
