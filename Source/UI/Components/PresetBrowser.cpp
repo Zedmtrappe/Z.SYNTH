@@ -26,11 +26,7 @@ PresetBrowser::PresetBrowser(ZSynthProcessor& p) : processor(p)
     for (auto* b : { &loadButton, &favButton, &renameButton, &deleteButton, &initButton, &closeButton })
         addAndMakeVisible(b);
     loadButton.onClick = [this] { loadRow(list.getSelectedRow()); };
-    favButton.onClick = [this] {
-        const int e = selectedEntry();
-        if (e >= 0)
-            processor.getPresets().setFavourite(e, ! processor.getPresets().getEntries()[(size_t) e].favourite);
-    };
+    favButton.onClick = [this] { toggleFavourite(selectedEntry()); };
     renameButton.onClick = [this] { renameSelected(); };
     deleteButton.onClick = [this] { deleteSelected(); };
     initButton.onClick = [this] { processor.getPresets().loadInit(); };
@@ -81,12 +77,14 @@ void PresetBrowser::rebuild()
 
     // Folder filter: "All", then each bank's folders under a bank heading.
     const int previousId = category.getSelectedId();
-    const auto previousFolder = previousId > 1 && previousId - 2 < (int) folders.size() ? folders[(size_t) (previousId - 2)]
-                                                                                        : std::pair<juce::String, juce::String> {};
+    const auto previousFolder = previousId > kFirstFolderId - 1 && previousId - kFirstFolderId < (int) folders.size()
+                                    ? folders[(size_t) (previousId - kFirstFolderId)]
+                                    : std::pair<juce::String, juce::String> {};
     folders.clear();
     category.clear(juce::dontSendNotification);
     category.addItem("All presets", 1);
-    int selectId = 1;
+    category.addItem(juce::String::fromUTF8("\xe2\x98\x85 Favourites"), kFavouritesId);
+    int selectId = previousId == kFavouritesId ? kFavouritesId : 1;
     for (const auto& bank : pm.getBankNames())
     {
         const auto cats = pm.getCategories(bank);
@@ -96,15 +94,16 @@ void PresetBrowser::rebuild()
         for (const auto& c : cats)
         {
             folders.push_back({ bank, c });
-            const int id = (int) folders.size() + 1;
+            const int id = (int) folders.size() - 1 + kFirstFolderId;
             category.addItem(c, id);
             if (folders.back() == previousFolder)
                 selectId = id;
         }
     }
     category.setSelectedId(selectId, juce::dontSendNotification);
-    const bool filterFolder = selectId > 1;
-    const auto folder = filterFolder ? folders[(size_t) (selectId - 2)] : std::pair<juce::String, juce::String> {};
+    const bool filterFolder = selectId >= kFirstFolderId;
+    const auto folder = filterFolder ? folders[(size_t) (selectId - kFirstFolderId)] : std::pair<juce::String, juce::String> {};
+    const bool favouritesFolder = selectId == kFavouritesId;
 
     const auto query = search.getText().trim().toLowerCase();
     const auto& entries = pm.getEntries();
@@ -114,7 +113,7 @@ void PresetBrowser::rebuild()
         const auto& e = entries[(size_t) i];
         if (filterFolder && (e.bank != folder.first || e.category != folder.second))
             continue;
-        if (favouritesOnly.getToggleState() && ! e.favourite)
+        if ((favouritesOnly.getToggleState() || favouritesFolder) && ! e.favourite)
             continue;
         if (query.isNotEmpty() && ! e.name.toLowerCase().contains(query) && ! e.category.toLowerCase().contains(query)
             && ! e.bank.toLowerCase().contains(query))
@@ -132,7 +131,27 @@ void PresetBrowser::rebuild()
     status.setText(juce::String((int) filtered.size()) + " shown  |  " + juce::String((int) entries.size() - user) + " factory, "
                        + juce::String(user) + " user  |  " + pm.getUserDirectory().getFullPathName(),
                    juce::dontSendNotification);
+    updateFavButton();
     repaint();
+}
+
+bool PresetBrowser::showingFavourites() const
+{
+    return favouritesOnly.getToggleState() || category.getSelectedId() == kFavouritesId;
+}
+
+void PresetBrowser::updateFavButton()
+{
+    const int e = selectedEntry();
+    favButton.setEnabled(e >= 0);
+    favButton.setButtonText(e >= 0 && processor.getPresets().isFavourite(e) ? juce::String::fromUTF8("\xe2\x98\x86 Unfavourite")
+                                                                             : juce::String::fromUTF8("\xe2\x98\x85 Favourite"));
+}
+
+void PresetBrowser::toggleFavourite(int entry)
+{
+    if (entry >= 0)
+        processor.getPresets().setFavourite(entry, ! processor.getPresets().isFavourite(entry));
 }
 
 int PresetBrowser::selectedEntry() const
@@ -146,6 +165,8 @@ void PresetBrowser::loadRow(int row)
     if (row < 0 || row >= (int) filtered.size())
         return;
     auto& pm = processor.getPresets();
+    // Loaded from the favourites view: < > on the panel then step through the favourites.
+    pm.setFavouritesMode(showingFavourites());
     if (! pm.load(filtered[(size_t) row]))
         showError("Could not load the preset:\n" + pm.getLastError());
 }
@@ -153,7 +174,31 @@ void PresetBrowser::loadRow(int row)
 void PresetBrowser::listBoxItemClicked(int row, const juce::MouseEvent& e)
 {
     if (e.mods.isPopupMenu())
+    {
+        // Right-click: actions for that preset.
+        if (row < 0 || row >= (int) filtered.size())
+            return;
+        list.selectRow(row);
+        const int entry = filtered[(size_t) row];
+        const auto& en = processor.getPresets().getEntries()[(size_t) entry];
+        juce::PopupMenu menu;
+        menu.addItem(1, "Load");
+        menu.addItem(2, en.favourite ? juce::String::fromUTF8("\xe2\x98\x86 Remove from favourites")
+                                     : juce::String::fromUTF8("\xe2\x98\x85 Add to favourites"));
+        menu.addSeparator();
+        menu.addItem(3, "Rename...", ! en.factory);
+        menu.addItem(4, "Delete...", ! en.factory);
+        juce::Component::SafePointer<PresetBrowser> safe(this);
+        menu.showMenuAsync(juce::PopupMenu::Options(), [safe, row, entry](int result) {
+            if (safe == nullptr)
+                return;
+            if (result == 1) safe->loadRow(row);
+            else if (result == 2) safe->toggleFavourite(entry);
+            else if (result == 3) safe->renameSelected();
+            else if (result == 4) safe->deleteSelected();
+        });
         return;
+    }
     loadRow(row); // single click auditions the sound immediately
 }
 

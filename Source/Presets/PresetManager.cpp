@@ -188,14 +188,65 @@ void PresetManager::loadInit()
     sendChangeMessage();
 }
 
+std::vector<int> PresetManager::getFavouriteIndices() const
+{
+    std::vector<int> result;
+    for (int i = 0; i < (int) entries.size(); ++i)
+        if (entries[(size_t) i].favourite)
+            result.push_back(i);
+    return result;
+}
+
+void PresetManager::setFavouritesMode(bool on)
+{
+    if (favouritesMode != on)
+    {
+        favouritesMode = on;
+        sendChangeMessage();
+    }
+}
+
 void PresetManager::next()
 {
+    if (favouritesMode)
+    {
+        const auto favs = getFavouriteIndices();
+        if (! favs.empty())
+        {
+            // The first favourite after the current preset (wrapping).
+            for (int f : favs)
+                if (f > currentIndex)
+                {
+                    load(f);
+                    return;
+                }
+            load(favs.front());
+            return;
+        }
+        favouritesMode = false; // nothing starred any more: back to the whole library
+    }
     if (! entries.empty())
         load((currentIndex + 1) % (int) entries.size());
 }
 
 void PresetManager::previous()
 {
+    if (favouritesMode)
+    {
+        const auto favs = getFavouriteIndices();
+        if (! favs.empty())
+        {
+            for (auto it = favs.rbegin(); it != favs.rend(); ++it)
+                if (*it < currentIndex || currentIndex < 0)
+                {
+                    load(*it);
+                    return;
+                }
+            load(favs.back());
+            return;
+        }
+        favouritesMode = false;
+    }
     if (! entries.empty())
         load(currentIndex <= 0 ? (int) entries.size() - 1 : currentIndex - 1);
 }

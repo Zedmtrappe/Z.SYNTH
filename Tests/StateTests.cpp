@@ -471,6 +471,47 @@ ZS_TEST(factory_bank_parses_cleanly)
         }
 }
 
+ZS_TEST(favourites_folder_steps_through_favourites)
+{
+    ProcessorFixture f("favourites");
+    auto& pm = f.processor.getPresets();
+    for (int i : pm.getFavouriteIndices())
+        pm.setFavourite(i, false);
+    for (int i : { 5, 40, 120 })
+        pm.setFavourite(i, true);
+    ZS_CHECK(pm.getFavouriteIndices() == std::vector<int>({ 5, 40, 120 }));
+
+    // Chosen from the Favourites folder: < > stay within the favourites, wrapping.
+    pm.setFavouritesMode(true);
+    pm.load(40);
+    pm.next();
+    ZS_CHECK(pm.getCurrentIndex() == 120);
+    pm.next();
+    ZS_CHECK(pm.getCurrentIndex() == 5);
+    pm.previous();
+    ZS_CHECK(pm.getCurrentIndex() == 120);
+
+    // Chosen from a normal folder: the whole library.
+    pm.setFavouritesMode(false);
+    pm.load(40);
+    pm.next();
+    ZS_CHECK(pm.getCurrentIndex() == 41);
+
+    // Favourites persist across sessions.
+    {
+        ProcessorFixture again("favourites");
+        ZS_CHECK(again.processor.getPresets().getFavouriteIndices() == std::vector<int>({ 5, 40, 120 }));
+    }
+    // With no favourites left, favourites mode falls back to the library.
+    for (int i : { 5, 40, 120 })
+        pm.setFavourite(i, false);
+    pm.setFavouritesMode(true);
+    pm.load(10);
+    pm.next();
+    ZS_CHECK(pm.getCurrentIndex() == 11);
+    ZS_CHECK(! pm.isFavouritesMode());
+}
+
 ZS_TEST(factory_presets_render_cleanly_and_level_matched)
 {
     juce::StringArray errors;
@@ -635,7 +676,7 @@ ZS_TEST(new_instance_starts_on_the_startup_preset)
 ZS_TEST(audition_builtin_clips_load)
 {
     const auto names = ZSynthProcessor::getBuiltInClipNames();
-    ZS_CHECK(names.size() == 11);
+    ZS_CHECK(names.size() == 35);
     ZS_CHECK(names.contains("Jump"));
     ZS_CHECK(names[0] == "Mono Bassline");
     ProcessorFixture f("audition");

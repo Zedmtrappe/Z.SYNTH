@@ -31,6 +31,7 @@ private:
     void listBoxItemDoubleClicked(int row, const juce::MouseEvent&) override;
     void listBoxItemClicked(int row, const juce::MouseEvent&) override;
     void returnKeyPressed(int row) override { loadRow(row); }
+    void selectedRowsChanged(int) override { updateFavButton(); }
     void changeListenerCallback(juce::ChangeBroadcaster*) override;
 
     void rebuild();
@@ -39,6 +40,10 @@ private:
     void renameSelected();
     void deleteSelected();
     void showError(const juce::String& message);
+    void updateFavButton();
+    void toggleFavourite(int entry);
+    bool showingFavourites() const;
+    static constexpr int kFavouritesId = 2, kFirstFolderId = 3; // folder combo ids (1 = all presets)
 
     ZSynthProcessor& processor;
     juce::TextEditor search;

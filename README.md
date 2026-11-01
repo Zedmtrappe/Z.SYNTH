@@ -95,8 +95,10 @@ advanced sections.
   from the computer keyboard with Logic's layout, octave/velocity keys,
   sustain, pitch bend and mod wheel.
 * **Audition player** — a strip above the keyboard plays a MIDI clip into the
-  current sound while you work the panel: 11 built-in loops (basslines, acid,
-  lead, chords, e-piano, pads, arpeggio, plucks, brass, bells, Jump) or any standard
+  current sound while you work the panel: 35 built-in loops (basslines, acid,
+  leads, chords, pads, drones, choir, strings, arpeggios, plucks, brass, bells,
+  trance, rave, hoover, wobble, reese, synthwave, techno, house, funk, disco,
+  jazz, chiptune, film swells, Jump...) or any standard
   MIDI file, merged to one part that plays poly or mono as the patch decides.
 * **Effects** — drive (2x oversampled overdrive/distortion/wavefolder), a
   modulation block (chorus with Classic BBD / Roland digital / Korg stereo /

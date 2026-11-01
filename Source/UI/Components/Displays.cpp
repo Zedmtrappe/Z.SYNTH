@@ -1599,9 +1599,19 @@ void PresetDisplay::paint(juce::Graphics& g)
     auto inner = r.reduced(12.0f, 5.0f).toNearestInt();
     auto top = inner.removeFromTop(14);
     const int idx = pm.getCurrentIndex();
-    drawLcdText(g, pm.getCurrentCategory().toUpperCase(), top, 10.5f, Colours::lcdDim.brighter(0.8f));
-    drawLcdText(g, idx >= 0 ? juce::String(idx + 1).paddedLeft('0', 3) + " / " + juce::String((int) pm.getEntries().size()) : juce::String("---"),
-                top, 10.5f, Colours::lcdDim.brighter(0.8f), juce::Justification::centredRight);
+    const bool fav = pm.isFavourite(idx);
+    drawLcdText(g, (fav ? juce::String::fromUTF8("\xe2\x98\x85 ") : juce::String()) + pm.getCurrentCategory().toUpperCase(), top, 10.5f,
+                fav ? Colours::lcdText : Colours::lcdDim.brighter(0.8f));
+    juce::String counter("---");
+    if (idx >= 0 && pm.isFavouritesMode() && fav)
+    {
+        const auto favs = pm.getFavouriteIndices();
+        const int pos = (int) (std::find(favs.begin(), favs.end(), idx) - favs.begin());
+        counter = "FAV " + juce::String(pos + 1) + " / " + juce::String((int) favs.size());
+    }
+    else if (idx >= 0)
+        counter = juce::String(idx + 1).paddedLeft('0', 3) + " / " + juce::String((int) pm.getEntries().size());
+    drawLcdText(g, counter, top, 10.5f, Colours::lcdDim.brighter(0.8f), juce::Justification::centredRight);
     drawLcdText(g, pm.getCurrentName(), inner, 22.0f);
 }
 

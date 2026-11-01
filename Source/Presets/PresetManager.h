@@ -71,6 +71,14 @@ public:
     juce::Result renameUser(int index, const juce::String& newName);
     juce::Result deleteUser(int index);
     void setFavourite(int index, bool favourite);
+    bool isFavourite(int index) const { return index >= 0 && index < (int) entries.size() && entries[(size_t) index].favourite; }
+    /** Entry indices of the favourites, in library order. */
+    std::vector<int> getFavouriteIndices() const;
+
+    /** Favourites mode: next() / previous() step through the favourites only.
+        Set when a preset is chosen from a Favourites folder. */
+    void setFavouritesMode(bool on);
+    bool isFavouritesMode() const { return favouritesMode; }
 
     /** Restores the displayed name after a session/state recall. */
     void setCurrentNameFromState(const juce::String& name, const juce::String& category);
@@ -95,6 +103,7 @@ private:
     std::vector<Entry> entries;
     juce::StringArray favourites;
     int currentIndex = -1;
+    bool favouritesMode = false;
     juce::CriticalSection nameLock;
     juce::String currentName { "Init" };
     juce::String currentCategory { "Init" };

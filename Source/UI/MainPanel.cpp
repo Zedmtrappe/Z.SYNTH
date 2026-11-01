@@ -323,8 +323,8 @@ void MainPanel::buildUtilities()
         b.onClick = std::move(fn);
         return b;
     };
-    button("presetPrev", "<", "Previous preset", [this] { processor.getPresets().previous(); });
-    button("presetNext", ">", "Next preset", [this] { processor.getPresets().next(); });
+    button("presetPrev", "<", "Previous preset (within the favourites when one was chosen from the Favourites folder)", [this] { processor.getPresets().previous(); });
+    button("presetNext", ">", "Next preset (within the favourites when one was chosen from the Favourites folder)", [this] { processor.getPresets().next(); });
     button("presetBrowse", "BROWSE", "Open the preset browser (search, folders, favourites)", [this] { showPresetBrowser(! browser.isVisible()); });
     button("presetSave", "SAVE", "Save: overwrites the current user preset, or asks for a name", [this] { savePreset(); });
     button("presetSaveAs", "SAVE AS", "Save the current sound as a new user preset", [this] { showSaveAsDialog(processor, this); });
@@ -557,11 +557,29 @@ void MainPanel::showFxPresetMenu(const std::vector<FxPreset>& list, const juce::
                        });
 }
 
+namespace { constexpr int kFavouriteItemBase = 200000; }
+
 void MainPanel::showPresetMenu()
 {
     auto& pm = processor.getPresets();
     const auto& entries = pm.getEntries();
     juce::PopupMenu menu;
+    // Favourites first: choosing one makes < > step through the favourites.
+    {
+        juce::PopupMenu favMenu;
+        bool favHasCurrent = false;
+        for (int i : pm.getFavouriteIndices())
+        {
+            const bool current = i == pm.getCurrentIndex();
+            const auto& e = entries[(size_t) i];
+            favMenu.addItem(kFavouriteItemBase + i, e.name + "   (" + e.category + ")", true, current);
+            favHasCurrent = favHasCurrent || current;
+        }
+        if (favMenu.getNumItems() == 0)
+            favMenu.addItem(-1, juce::String::fromUTF8("(none yet: use \"Add to favourites\" or the \xe2\x98\x86 in the browser)"), false);
+        menu.addSubMenu(juce::String::fromUTF8("\xe2\x98\x85 Favourites"), favMenu, true, nullptr, favHasCurrent && pm.isFavouritesMode());
+        menu.addSeparator();
+    }
     for (const auto& bank : pm.getBankNames())
     {
         juce::PopupMenu bankMenu;
@@ -588,6 +606,10 @@ void MainPanel::showPresetMenu()
         menu.addSubMenu(bank, bankMenu, true, nullptr, bankHasCurrent);
     }
     menu.addSeparator();
+    const int cur = pm.getCurrentIndex();
+    if (cur >= 0)
+        menu.addItem(100002, pm.isFavourite(cur) ? juce::String::fromUTF8("\xe2\x98\x86 Remove \"") + pm.getCurrentName() + "\" from favourites"
+                                                 : juce::String::fromUTF8("\xe2\x98\x85 Add \"") + pm.getCurrentName() + "\" to favourites");
     menu.addItem(100000, "Init patch");
     menu.addItem(100001, "Open preset browser...");
 
@@ -597,12 +619,23 @@ void MainPanel::showPresetMenu()
                        [safe](int result) {
                            if (safe == nullptr || result <= 0)
                                return;
+                           auto& presets = safe->processor.getPresets();
                            if (result == 100000)
-                               safe->processor.getPresets().loadInit();
+                               presets.loadInit();
                            else if (result == 100001)
                                safe->showPresetBrowser(true);
+                           else if (result == 100002)
+                               presets.setFavourite(presets.getCurrentIndex(), ! presets.isFavourite(presets.getCurrentIndex()));
+                           else if (result >= kFavouriteItemBase)
+                           {
+                               presets.setFavouritesMode(true);
+                               presets.load(result - kFavouriteItemBase);
+                           }
                            else
-                               safe->processor.getPresets().load(result - 1);
+                           {
+                               presets.setFavouritesMode(false);
+                               presets.load(result - 1);
+                           }
                        });
 }
 
