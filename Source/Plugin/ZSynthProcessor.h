@@ -5,6 +5,7 @@
 // JUCE-free SynthEngine, MIDI learn and the preset library.
 
 #include "../DSP/Engine/SynthEngine.h"
+#include "../DSP/Tracking/PitchTracker.h"
 #include "../MIDI/MidiLearn.h"
 #include "../Parameters/ParameterLayout.h"
 #include "../Presets/PresetManager.h"
@@ -19,8 +20,11 @@ namespace zsynth
 class ZSynthProcessor : public juce::AudioProcessor, private juce::Timer
 {
 public:
+    /** Audio input for PITCH TRACK: the standalone app has one (the plug-ins don't). */
+    enum class AudioInput { Auto, Enabled, Disabled };
+
     /** userPresetDir: override for tests; empty = platform default. */
-    explicit ZSynthProcessor(juce::File userPresetDir = {});
+    explicit ZSynthProcessor(juce::File userPresetDir = {}, AudioInput input = AudioInput::Auto);
     ~ZSynthProcessor() override;
 
     // ---- AudioProcessor
@@ -73,11 +77,17 @@ public:
     /** Loads a standard MIDI file from disk. */
     juce::Result loadAuditionFile(const juce::File& file);
 
+    // ---- pitch track (audio in -> notes)
+    bool hasAudioInput() const { return getTotalNumInputChannels() > 0; }
+    const dsp::PitchTracker& getTracker() const { return tracker; }
+    bool isTracking() const { return getValue(P::TrkOn) >= 0.5f && hasAudioInput(); }
+
     uint32_t getAudioCallbackCount() const { return audioCallbacks.load(); }
     /** Smoothed fraction of the real-time budget used by processBlock. */
     float getCpuLoad() const { return cpuLoad.load(); }
 
 private:
+    static BusesProperties busesFor(AudioInput input);
     void timerCallback() override;
     void readTransport(dsp::TransportInfo& t);
 
@@ -93,6 +103,9 @@ private:
 
     std::vector<dsp::MidiEvent> events;
     std::vector<float> monoScratch;
+    std::vector<float> trackInput;
+    dsp::PitchTracker tracker;
+    bool wasTracking = false;
     static constexpr int kMaxEventsPerBlock = 4096;
 
     // On-screen wheels -> MIDI, consumed on the audio thread.

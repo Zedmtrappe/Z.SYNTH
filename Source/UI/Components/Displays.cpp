@@ -1424,6 +1424,115 @@ void CompMeter::paint(juce::Graphics& g)
     g.drawRoundedRectangle(face, 3.0f, 1.2f);
 }
 
+// ============================================================ pitch track ====
+void TrackDisplay::refresh()
+{
+    const auto& tr = processor.getTracker();
+    const float l = tr.getLevelDb(), f = tr.getFrequency();
+    const int nn = tr.getNote();
+    const bool g = tr.isGateOpen();
+    if (std::abs(l - level) > 0.5f || std::abs(f - freq) > 0.05f || nn != note || g != gate)
+    {
+        level = l;
+        freq = f;
+        note = nn;
+        gate = g;
+        repaint();
+    }
+}
+
+void TrackDisplay::paint(juce::Graphics& g)
+{
+    namespace m = material;
+    const auto r = getLocalBounds().toFloat();
+    drawLcd(g, r);
+    auto inner = r.reduced(10.0f, 8.0f);
+    const auto text = Colours::lcdText, dim = Colours::lcdDim;
+
+    if (! processor.hasAudioInput())
+    {
+        m::glowText(g, "No audio input here: PITCH TRACK works in the ZYNTH standalone app.", inner, lcdFont(12.0f), text,
+                    juce::Justification::centred, 1.0f, 3);
+        return;
+    }
+
+    // Note name, frequency and cents.
+    static const char* names[12] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+    auto top = inner.removeFromTop(58.0f);
+    const bool voiced = freq > 0.0f;
+    const float midi = voiced ? 69.0f + 12.0f * std::log2(freq / 440.0f) : 0.0f;
+    const int nearest = (int) std::lround(midi);
+    juce::String noteText = "--";
+    if (voiced && nearest >= 0 && nearest < 128)
+        noteText = juce::String(names[nearest % 12]) + juce::String(nearest / 12 - 1);
+    m::glowText(g, noteText, top.removeFromLeft(110.0f), lcdFont(40.0f), voiced ? text : dim, juce::Justification::centredLeft, 1.2f);
+    const float cents = voiced ? (midi - (float) nearest) * 100.0f : 0.0f;
+    m::glowText(g, voiced ? juce::String(freq, 1) + " Hz" : juce::String("--- Hz"), top.removeFromTop(29.0f), lcdFont(14.0f),
+                voiced ? text : dim, juce::Justification::centredRight, 0.8f);
+    m::glowText(g, voiced ? (cents >= 0.0f ? "+" : "") + juce::String((int) std::lround(cents)) + " ct" : juce::String("    ct"), top,
+                lcdFont(14.0f), voiced ? text : dim, juce::Justification::centredRight, 0.8f);
+
+    // Tuner bar: -50 .. +50 cents.
+    inner.removeFromTop(4.0f);
+    auto tuner = inner.removeFromTop(16.0f);
+    g.setColour(dim.withAlpha(0.6f));
+    g.drawRect(tuner, 1.0f);
+    for (int k = -4; k <= 4; ++k)
+    {
+        const float x = tuner.getCentreX() + (float) k / 4.0f * (tuner.getWidth() * 0.5f - 2.0f);
+        g.drawVerticalLine(juce::roundToInt(x), tuner.getY() + (k == 0 ? 0.0f : 5.0f), tuner.getBottom() - (k == 0 ? 0.0f : 5.0f));
+    }
+    if (voiced)
+    {
+        const float x = tuner.getCentreX() + juce::jlimit(-50.0f, 50.0f, cents) / 50.0f * (tuner.getWidth() * 0.5f - 2.0f);
+        g.setColour(std::abs(cents) < 8.0f ? Colours::green : text);
+        g.fillRect(juce::Rectangle<float>(4.0f, tuner.getHeight() - 2.0f).withCentre({ x, tuner.getCentreY() }));
+    }
+
+    // Input meter (after GAIN) with the gate line.
+    inner.removeFromTop(10.0f);
+    auto meterRow = inner.removeFromTop(14.0f);
+    auto label = meterRow.removeFromLeft(34.0f);
+    g.setColour(dim);
+    g.setFont(labelFont(9.5f));
+    g.drawText("IN", label.toNearestInt(), juce::Justification::centredLeft, false);
+    auto meter = meterRow;
+    auto toX = [&](float db) { return meter.getX() + juce::jlimit(0.0f, 1.0f, (db + 80.0f) / 80.0f) * meter.getWidth(); };
+    g.setColour(juce::Colours::black.withAlpha(0.5f));
+    g.fillRect(meter);
+    const float lx = toX(level);
+    const float gateDb = v(P::TrkGate);
+    g.setColour(level > gateDb ? Colours::green.withAlpha(0.85f) : dim);
+    g.fillRect(meter.withRight(lx).reduced(0.0f, 2.0f));
+    if (level > -3.0f)
+    {
+        g.setColour(Colours::red);
+        g.fillRect(meter.withLeft(toX(-3.0f)).withRight(lx).reduced(0.0f, 2.0f));
+    }
+    g.setColour(text);
+    g.fillRect(juce::Rectangle<float>(2.0f, meter.getHeight() + 4.0f).withCentre({ toX(gateDb), meter.getCentreY() }));
+
+    // Lamps.
+    inner.removeFromTop(8.0f);
+    auto lamps = inner.removeFromTop(14.0f);
+    auto lamp = [&](juce::Rectangle<float> area, const juce::String& name, bool on, juce::Colour c) {
+        const auto dot = area.removeFromLeft(12.0f).withSizeKeepingCentre(9.0f, 9.0f);
+        if (on)
+        {
+            g.setColour(c.withAlpha(0.35f));
+            g.fillEllipse(dot.expanded(3.0f));
+        }
+        g.setColour(on ? c : dim.withAlpha(0.6f));
+        g.fillEllipse(dot);
+        g.setColour(on ? text : dim);
+        g.setFont(labelFont(9.5f));
+        g.drawText(name, area.withTrimmedLeft(4.0f).toNearestInt(), juce::Justification::centredLeft, false);
+    };
+    lamp(lamps.removeFromLeft(90.0f), "GATE", gate, Colours::green);
+    lamp(lamps.removeFromLeft(110.0f), note >= 0 ? "NOTE " + juce::String(names[note % 12]) + juce::String(note / 12 - 1) : juce::String("NOTE"),
+         note >= 0, Colours::ledOn);
+}
+
 // ============================================================ voice LEDs ====
 void VoiceLeds::refresh()
 {

@@ -147,6 +147,10 @@ private:
     float backgroundScale = 0.0f;
     int activityCounter = 0;
     int shownCompModel = -1, shownReverbType = -1;
+    // PITCH TRACK: the keyboards and the audition clip are disabled while the instrument plays.
+    void updateTracking();
+    int shownTracking = -1;
+    std::vector<juce::Component*> keyboardParts;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainPanel)
 };

@@ -292,6 +292,16 @@ X(PeqB5Gain,     "peq.b5.g",       "Output EQ 5 Gain", "Output", Float, -15.f, 1
 X(PeqB5Q,        "peq.b5.q",       "Output EQ 5 Q", "Output", Float, 0.3f, 10.f, 0.9f, LOG, "", nullptr, "Output EQ band 5 width: low = broad, high = narrow.") \
 X(PeqOutput,     "peq.out",        "Output EQ Output", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Output EQ level trim.") \
 X(PeqPre,        "peq.pre",        "Output EQ Pre FX", "Output", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "PRE FX: EQ the synth before the delay and reverb (and before the compressor when that is PRE FX too), instead of the whole output.") \
+/* --------------------------------------------- Pitch track (audio in) */ \
+X(TrkOn,         "trk.on",         "Pitch Track",   "Global", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "PITCH TRACK: play ZYNTH from a guitar or bass on the audio input (one note at a time). The keyboards are disabled while it is on.") \
+X(TrkInput,      "trk.input",      "Track Input",   "Global", Choice, 0, 0, 0.f, LIN, "", ZS_CH_TRK_INPUT, "Which audio input the instrument is plugged into.") \
+X(TrkGain,       "trk.gain",       "Track Input Gain", "Global", Float, -12.f, 36.f, 0.f, LIN, "dB", nullptr, "Input level into the tracker. Aim for strong picking to light the meter well above the gate.") \
+X(TrkGate,       "trk.gate",       "Track Gate",    "Global", Float, -80.f, -10.f, -50.f, LIN, "dB", nullptr, "GATE: the level that starts a note; notes end 6 dB below it. Raise it if hum or string noise triggers notes.") \
+X(TrkThresh,     "trk.thresh",     "Track Threshold", "Global", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "TRACKING: how sure the pitch detector must be before it plays. Loose = fastest, may glitch; strict = steadier, slightly slower.") \
+X(TrkRange,      "trk.range",      "Track Range",   "Global", Choice, 0, 0, 0.f, LIN, "", ZS_CH_TRK_RANGE, "Guitar (70 Hz - 1.4 kHz) or Bass (28 - 450 Hz).") \
+X(TrkBend,       "trk.bend",       "Track Bend",    "Global", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "BEND FOLLOW: string bends and vibrato become pitch bend (within the synth's BEND range). Off = notes snap to semitones.") \
+X(TrkVel,        "trk.vel",        "Track Velocity", "Global", Float, 0.f, 1.f, 0.7f, LIN, "", nullptr, "VELOCITY: how much your picking strength sets the note velocity (0 = always 100).") \
+X(TrkDry,        "trk.dry",        "Track Dry",     "Global", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "DRY: blends the instrument's own sound in with the synth.") \
 
 #define ZS_LFO_PARAMS(X, n, unused) \
 X(Lfo##n##Wave,  "lfo" #n ".wave",  "LFO " #n " Wave",  "LFO", Choice, 0, 0, 0.f, LIN, "", ZS_CH_LFO_WAVE, "LFO waveform.") \

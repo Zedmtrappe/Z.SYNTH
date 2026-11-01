@@ -103,6 +103,45 @@ Loaded files are trimmed to the music: playback starts at the bar holding the
 first note and loops at the end of the bar holding the last one, so silent
 intros and tails in exported files are skipped.
 
+## Pitch track (guitar / bass in)
+
+**PITCH TRACK** (header, under PANIC) plays ZYNTH from a guitar or bass on
+your audio interface, one note at a time, in the standalone app. Switching it
+on opens its window (▸ reopens it; switching off closes it) and turns off the
+on-screen keyboard, QWERTY keyboard, audition clip and MIDI notes. MIDI
+controllers such as sustain and the mod wheel still work, so a pedal can
+still hold notes.
+
+Setup: plug the instrument into the interface (a Hi-Z / instrument input),
+choose the interface and its input channels in **Options > Audio/MIDI
+Settings**, then set **INPUT** to the jack you used. On a Mac the first launch
+asks for permission to use the audio input; allow it.
+
+| Control | |
+|---|---|
+| INPUT | Input 1, Input 2 or both (summed) |
+| RANGE | Guitar (70 Hz - 1.4 kHz) or Bass (28 - 450 Hz) |
+| BEND FOLLOW | String bends and vibrato become pitch bend within the synth's BEND range; off = notes snap to semitones |
+| GAIN | Input level: strong picking should go well past the gate line on the meter |
+| GATE | Level that starts a note (notes end 6 dB below it); raise it if hum or string noise triggers notes |
+| TRACKING | How sure the detector must be: loose = fastest, strict = steadiest |
+| VELOCITY | How much picking strength sets velocity (0 = always 100) |
+| DRY | Blends the instrument's own sound with the synth |
+
+The display shows the detected note, its frequency and a tuner bar (the
+marker turns green within 8 cents), the input meter with the gate line, and
+GATE / NOTE lamps.
+
+Response: about 35 ms on the low E string, 15-20 ms in the middle of the neck
+and around 12 ms higher up (a note can only be recognised after a cycle or two
+of it); on bass about 75 ms for the low E. A fresh pick of the same note
+retriggers it; a slide or hammer-on plays the new note legato. Play cleanly and
+one note at a time: chords and heavy distortion confuse any single-note
+tracker. The neck pickup with the tone rolled back a little tracks best.
+
+The plug-in versions have no audio input, so PITCH TRACK works in the
+standalone app only.
+
 ## Header
 
 | Control | |

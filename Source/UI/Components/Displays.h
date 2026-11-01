@@ -180,6 +180,20 @@ private:
 };
 
 
+/** PITCH TRACK read-out: input meter with the gate line, the detected note
+    with a tuner bar, and gate / note lamps. */
+class TrackDisplay : public Display
+{
+public:
+    using Display::Display;
+    void refresh() override;
+    void paint(juce::Graphics&) override;
+private:
+    float level = -120.0f, freq = 0.0f;
+    int note = -1;
+    bool gate = false;
+};
+
 /** Analogue VU meter showing the output compressor's gain reduction. */
 class CompMeter : public Display
 {

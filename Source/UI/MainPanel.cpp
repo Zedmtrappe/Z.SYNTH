@@ -466,6 +466,9 @@ void MainPanel::buildUtilities()
     displays.push_back(&addUtility<EqCurve>("reverbEqCurve", processor, EqCurve::Which::Reverb, false));
     displays.push_back(&addUtility<EqCurve>("reverbEqCurveBig", processor, EqCurve::Which::Reverb, true));
     displays.push_back(&addUtility<CompMeter>("compMeterBig", processor));
+    displays.push_back(&addUtility<TrackDisplay>("trackDisplay", processor));
+    button("openTrack", juce::String::fromUTF8("\xe2\x96\xb8"), "Open the PITCH TRACK window (input, gate, tracking, velocity, dry)", [this] {
+        showPage(getVisiblePage() == "track" ? juce::String() : juce::String("track")); });
     displays.push_back(&addUtility<OutputMeter>("meter", processor));
     for (int op = 0; op < kNumOperators; ++op)
         displays.push_back(&addUtility<EnvelopeDisplay>("op" + juce::String(op + 1) + "EnvDisplay", processor,
@@ -475,11 +478,12 @@ void MainPanel::buildUtilities()
     displays.push_back(&seqLeds);
 
     wheels.push_back(&addUtility<PerformanceWheel>("pitchWheel", processor, true));
+    keyboardParts.push_back(wheels.back()); // pitch bend comes from the strings while tracking
     wheels.push_back(&addUtility<PerformanceWheel>("modWheel", processor, false));
     keyboard = &addUtility<ZKeyboard>("keyboard", processor.getKeyboardState());
-    addUtility<AuditionBar>("auditionBar", processor);
-    button("kbdOctDown", "OCT -", "Shift the on-screen keyboard down one octave", [this] { keyboard->shiftOctave(-1); });
-    button("kbdOctUp", "OCT +", "Shift the on-screen keyboard up one octave", [this] { keyboard->shiftOctave(1); });
+    keyboardParts.push_back(&addUtility<AuditionBar>("auditionBar", processor));
+    keyboardParts.push_back(&button("kbdOctDown", "OCT -", "Shift the on-screen keyboard down one octave", [this] { keyboard->shiftOctave(-1); }));
+    keyboardParts.push_back(&button("kbdOctUp", "OCT +", "Shift the on-screen keyboard up one octave", [this] { keyboard->shiftOctave(1); }));
 }
 
 // ------------------------------------------------------------------ pages
@@ -736,6 +740,7 @@ void MainPanel::timerCallback()
             c->repaint();
 
     updateSkins();
+    updateTracking();
     if (++activityCounter % 3 == 0)
         updateActivity();
     if (modSelector != nullptr)
@@ -755,6 +760,46 @@ void MainPanel::updateActivity()
     {
         const auto a = activityFor(c->getParamIndex(), values, hostTempo);
         c->setInactive(! a.active, a.reason);
+    }
+}
+
+void MainPanel::updateTracking()
+{
+    const int on = processor.getValue(P::TrkOn) >= 0.5f ? 1 : 0;
+    if (on == shownTracking)
+        return;
+    const bool first = shownTracking < 0;
+    shownTracking = on;
+    // Switching on opens the window; switching off closes it.
+    if (! first)
+    {
+        if (on)
+            showPage("track");
+        else if (getVisiblePage() == "track")
+            showPage({});
+    }
+    const bool locked = on && processor.hasAudioInput();
+    if (keyboard != nullptr)
+    {
+        keyboard->setEnabled(! locked);
+        keyboard->setAlpha(locked ? 0.35f : 1.0f);
+    }
+    for (auto* c : keyboardParts)
+    {
+        c->setEnabled(! locked);
+        c->setAlpha(locked ? 0.35f : 1.0f);
+    }
+    if (locked)
+    {
+        showMusicalTyping(false);
+        processor.getAudition().stop();
+        processor.getKeyboardState().allNotesOff(0);
+    }
+    if (typingButton != nullptr)
+    {
+        typingButton->setEnabled(! locked);
+        typingButton->setTooltip(locked ? "Off while PITCH TRACK plays the synth"
+                                        : "QWERTY keyboard: play ZYNTH from your computer keyboard (floating window)");
     }
 }
 

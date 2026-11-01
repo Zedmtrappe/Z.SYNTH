@@ -121,8 +121,11 @@ PanelLayout::PanelLayout()
     utilityAt("audioLed", 1508, 26, 54, 40);
     utilityAt("voiceCount", 1570, 20, 100, 54);
     add("master.volume", K::Knob, 1680, 16, "MASTER");
-    utilityAt("panic", 1744, 32, 84, 34);
-    utilityAt("musicalTyping", 1836, 32, 74, 34); // in line with PANIC
+    utilityAt("panic", 1744, 10, 84, 30);
+    utilityAt("musicalTyping", 1836, 10, 74, 30); // in line with PANIC
+    // PITCH TRACK: play from a guitar / bass on the audio input; the arrow reopens its window.
+    add("trk.on", K::Switch, 1744, 46, "PITCH TRACK", 138, 22);
+    utilityAt("openTrack", 1886, 46, 24, 22);
     utilityAt("version", 1836, 70, 74, 18);
 
     // -------------------------------------------------------- oscillators
@@ -550,6 +553,25 @@ PanelLayout::PanelLayout()
         else
             add(k == 0 ? "fx.rev.lowcut" : "fx.rev.eq.lpf", K::Knob, x + 22, 500, k == 0 ? "HPF" : "LPF", 48);
     }
+
+    // --------------------------------------------------------- pitch track
+    pageList.push_back({ "track", "PITCH TRACK", { 640, 250, 640, 300 } });
+    page("track");
+    sectionAt("trackPage", "PITCH TRACK  -  GUITAR / BASS IN", 0, 0, 640, 300);
+    utilityAt("trackClose", 600, 3, 34, 20);
+    utilityAt("trackDisplay", 20, 40, 300, 156);
+    add("trk.input", K::Selector, 340, 44, "INPUT", 130);
+    add("trk.range", K::Selector, 484, 44, "RANGE", 130);
+    add("trk.bend", K::Switch, 340, 96, "BEND FOLLOW", 92);
+    const std::pair<const char*, const char*> trackKnobs[5] = { { "trk.gain", "GAIN" }, { "trk.gate", "GATE" },
+        { "trk.thresh", "TRACKING" }, { "trk.vel", "VELOCITY" }, { "trk.dry", "DRY" } };
+    for (int k = 0; k < 5; ++k)
+        add(trackKnobs[k].first, K::Knob, 20 + k * 62, 214, trackKnobs[k].second);
+    text("Play one note at a time.  GAIN: strong picking should reach well past the gate line on the meter.  "
+         "GATE: raise it if hum or string noise starts notes.  TRACKING: loose = fastest, strict = steadiest.  "
+         "Choose the audio interface and input in Options > Audio/MIDI Settings.  While PITCH TRACK is on the "
+         "keyboards, QWERTY and MIDI notes are off (MIDI controllers such as sustain still work).",
+         340, 150, 280, 140, juce::Justification::topLeft);
 
     // ------------------------------------------------------- comp advanced
     pageList.push_back({ "comp", "OUTPUT COMP", { 1050, 300, 850, 380 } });

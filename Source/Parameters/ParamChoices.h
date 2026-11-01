@@ -117,6 +117,9 @@ enum class DelayType : int { Digital, TapeRE201, TapeEP3, AnalogDM2, Diffuse, Lo
 #define ZS_CH_XFMR_TYPE "Neve LO1166|API 2503|UTC A-24|Haufe V76|Jensen JT-11"
 enum class XfmrType : int { NeveLo1166, Api2503, UtcA24, HaufeV76, JensenJt11, Count };
 
+#define ZS_CH_TRK_RANGE "Guitar|Bass"
+#define ZS_CH_TRK_INPUT "Input 1|Input 2|Inputs 1+2"
+
 #define ZS_CH_CHORUS_TYPE "Classic BBD|Roland Digital|Korg Stereo|Virus"
 enum class ChorusType : int { ClassicBbd, RolandDigital, KorgStereo, Virus, Count };
 

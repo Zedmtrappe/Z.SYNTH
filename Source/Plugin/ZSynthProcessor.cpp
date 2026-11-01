@@ -20,8 +20,17 @@ namespace
     }
 }
 
-ZSynthProcessor::ZSynthProcessor(juce::File userPresetDir)
-    : AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
+juce::AudioProcessor::BusesProperties ZSynthProcessor::busesFor(AudioInput input)
+{
+    auto buses = BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true);
+    const bool standalone = juce::PluginHostType::getPluginLoadedAs() == juce::AudioProcessor::wrapperType_Standalone;
+    if (input == AudioInput::Enabled || (input == AudioInput::Auto && standalone))
+        buses = buses.withInput("Input", juce::AudioChannelSet::stereo(), true);
+    return buses;
+}
+
+ZSynthProcessor::ZSynthProcessor(juce::File userPresetDir, AudioInput input)
+    : AudioProcessor(busesFor(input)),
       apvts(*this, nullptr, "ZSynthParams", createParameterLayout())
 {
     for (int i = 0; i < kNumParams; ++i)
@@ -124,7 +133,9 @@ ZSynthProcessor::~ZSynthProcessor()
 bool ZSynthProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 {
     const auto out = layouts.getMainOutputChannelSet();
-    return out == juce::AudioChannelSet::stereo() || out == juce::AudioChannelSet::mono();
+    const auto in = layouts.getMainInputChannelSet();
+    const bool inputOk = in.isDisabled() || in == juce::AudioChannelSet::stereo() || in == juce::AudioChannelSet::mono();
+    return inputOk && (out == juce::AudioChannelSet::stereo() || out == juce::AudioChannelSet::mono());
 }
 
 void ZSynthProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
@@ -132,6 +143,8 @@ void ZSynthProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
     currentSampleRate = sampleRate;
     engine.prepare(sampleRate, std::max(32, samplesPerBlock));
     monoScratch.assign((size_t) std::max(32, samplesPerBlock) * 2, 0.0f);
+    trackInput.assign((size_t) std::max(32, samplesPerBlock) * 2, 0.0f);
+    tracker.prepare(sampleRate);
     keyboardState.reset();
 }
 
@@ -164,10 +177,26 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     const auto startTicks = juce::Time::getHighResolutionTicks();
     audioCallbacks.fetch_add(1, std::memory_order_relaxed);
 
+    // PITCH TRACK: take the instrument from the input channels before the
+    // engine renders over them.
+    const int inputs = getTotalNumInputChannels();
+    const bool tracking = rawValues[(size_t) P::TrkOn]->load() >= 0.5f && inputs > 0 && (int) trackInput.size() >= n;
+    if (tracking)
+    {
+        const int sel = juce::roundToInt(rawValues[(size_t) P::TrkInput]->load());
+        const float* a = buffer.getReadPointer(0);
+        const float* b = inputs > 1 ? buffer.getReadPointer(1) : a;
+        for (int i = 0; i < n; ++i)
+            trackInput[(size_t) i] = sel == 0 ? a[i] : (sel == 1 ? b[i] : 0.5f * (a[i] + b[i]));
+    }
+    for (int ch = 0; ch < inputs && ch < buffer.getNumChannels(); ++ch)
+        buffer.clear(ch, 0, n);
+
     // The audition clip plays on the receive channel, before the on-screen
     // keyboard merge so its notes light the keys too.
     const int receive = juce::roundToInt(rawValues[(size_t) P::MidiChannel]->load());
-    audition.render(midi, n, currentSampleRate, receive <= 0 ? 1 : receive);
+    if (! tracking)
+        audition.render(midi, n, currentSampleRate, receive <= 0 ? 1 : receive);
 
     // On-screen keyboard notes join the incoming MIDI (and external notes light the keys).
     keyboardState.processNextMidiBuffer(midi, 0, n, true);
@@ -187,10 +216,15 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     events.clear();
     for (const auto metadata : midi)
     {
-        if (events.size() >= (size_t) kMaxEventsPerBlock)
+        if (events.size() >= (size_t) kMaxEventsPerBlock - 32)
             break;
         const auto* raw = metadata.data;
         if (metadata.numBytes < 1 || metadata.numBytes > 3)
+            continue;
+        // While tracking, the instrument plays the notes: keyboard, QWERTY and
+        // MIDI notes (and pitch bend) are ignored; controllers still work.
+        const int kind = raw[0] & 0xF0;
+        if (tracking && (kind == 0x80 || kind == 0x90 || kind == 0xA0 || kind == 0xE0))
             continue;
         dsp::MidiEvent e;
         e.offset = juce::jlimit(0, n - 1, metadata.samplePosition);
@@ -198,6 +232,39 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
         e.data1 = metadata.numBytes > 1 ? raw[1] : 0;
         e.data2 = metadata.numBytes > 2 ? raw[2] : 0;
         events.push_back(e);
+    }
+
+    // The tracker's notes join the events, in time order.
+    {
+        dsp::MidiEvent tracked[32];
+        int count = 0;
+        const int channel = receive <= 0 ? 1 : receive;
+        if (tracking)
+        {
+            dsp::TrackerSettings s;
+            s.inputGainDb = rawValues[(size_t) P::TrkGain]->load();
+            s.gateDb = rawValues[(size_t) P::TrkGate]->load();
+            s.threshold = rawValues[(size_t) P::TrkThresh]->load();
+            s.velocity = rawValues[(size_t) P::TrkVel]->load();
+            s.bass = juce::roundToInt(rawValues[(size_t) P::TrkRange]->load()) == 1;
+            s.bendFollow = rawValues[(size_t) P::TrkBend]->load() >= 0.5f;
+            s.bendRange = rawValues[(size_t) P::BendRange]->load();
+            s.channel = channel;
+            count = tracker.process(trackInput.data(), n, s, tracked, 32);
+        }
+        else if (wasTracking)
+        {
+            count = tracker.release(tracked, 32, channel); // switched off: end the held note
+            tracker.reset();
+        }
+        wasTracking = tracking;
+        for (int k = 0; k < count; ++k)
+        {
+            // Insert in time order (after events at the same offset); no allocation.
+            events.push_back(tracked[k]);
+            for (size_t j = events.size() - 1; j > 0 && events[j - 1].offset > events[j].offset; --j)
+                std::swap(events[j - 1], events[j]);
+        }
     }
 
     for (int i = 0; i < kNumParams; ++i)
@@ -222,6 +289,15 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
         engine.process(left, scratch, n, snapshot, events.data(), (int) events.size(), transport);
         for (int i = 0; i < n; ++i)
             left[i] = 0.5f * (left[i] + scratch[i]);
+    }
+
+    // DRY: the instrument itself, mixed with the synth.
+    if (tracking)
+    {
+        const float dry = rawValues[(size_t) P::TrkDry]->load() * juce::Decibels::decibelsToGain(rawValues[(size_t) P::TrkGain]->load());
+        if (dry > 0.0f)
+            for (int ch = 0; ch < juce::jmin(2, buffer.getNumChannels()); ++ch)
+                buffer.addFrom(ch, 0, trackInput.data(), n, dry);
     }
 
     for (int ch = 2; ch < buffer.getNumChannels(); ++ch)

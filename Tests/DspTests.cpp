@@ -11,6 +11,7 @@
 #include "DSP/Effects/TimeEffects.h"
 #include "DSP/Effects/OutputEq.h"
 #include "DSP/FM/FmAlgorithms.h"
+#include "DSP/Tracking/PitchTracker.h"
 #include "DSP/FM/FmVoice.h"
 #include "DSP/Filters/Filters.h"
 #include "DSP/Oscillators/Oscillator.h"
@@ -1407,6 +1408,133 @@ ZS_TEST(output_transformer_models)
         ZS_CHECK_GT(h, 1.0);
         ZS_CHECK_GT(f, 8.0);
         ZS_CHECK_GT(f, h * 1.5);
+    }
+}
+
+ZS_TEST(pitch_tracker_guitar_and_bass)
+{
+    using dsp::PitchTracker;
+    using dsp::TrackerSettings;
+    using dsp::MidiEvent;
+    const float fs = 48000.0f;
+
+    // A plucked string: harmonics with faster decay up the series, a little
+    // inharmonicity and a noisy pick transient. Level ~ -12 dBFS peak.
+    auto pluck = [&](std::vector<float>& buf, double start, float freq, float seconds, float amp = 0.25f, float glideSemis = 0.0f) {
+        uint32_t seed = 7;
+        auto noise = [&seed] { seed = seed * 1664525u + 1013904223u; return (float) (seed >> 8) / 8388608.0f - 1.0f; };
+        const int s0 = (int) (start * fs), len = (int) (seconds * fs);
+        double phase[12] = {};
+        for (int i = 0; i < len && s0 + i < (int) buf.size(); ++i)
+        {
+            const float t = (float) i / fs;
+            const float f = freq * std::pow(2.0f, glideSemis * std::min(1.0f, t / seconds) / 12.0f);
+            float v = 0.0f;
+            for (int h = 1; h <= 10; ++h)
+            {
+                phase[h] += 2.0 * 3.14159265358979 * f * h * (1.0 + 0.0004 * h * h) / fs;
+                v += std::sin((float) phase[h]) * std::exp(-t * (1.2f + 0.9f * (float) h)) / (float) h;
+            }
+            const float pick = i < 200 ? noise() * (1.0f - (float) i / 200.0f) * 0.3f : 0.0f;
+            buf[(size_t) (s0 + i)] += amp * (v + pick);
+        }
+    };
+    auto run = [&](const std::vector<float>& in, const TrackerSettings& s) {
+        PitchTracker tr;
+        tr.prepare(fs);
+        std::vector<std::pair<double, MidiEvent>> got;
+        MidiEvent out[64];
+        for (size_t i = 0; i < in.size(); i += 256)
+        {
+            const int n = (int) std::min<size_t>(256, in.size() - i);
+            const int c = tr.process(in.data() + i, n, s, out, 64);
+            for (int k = 0; k < c; ++k)
+                got.push_back({ (double) (i + (size_t) out[k].offset) / fs, out[k] });
+        }
+        return got;
+    };
+    auto noteOns = [](const std::vector<std::pair<double, MidiEvent>>& ev) {
+        std::vector<std::pair<double, int>> r;
+        for (const auto& [t, e] : ev)
+            if ((e.status & 0xF0) == 0x90 && e.data2 > 0)
+                r.push_back({ t, e.data1 });
+        return r;
+    };
+
+    // Guitar: low E, A, high E, and a re-picked A; with silence between.
+    {
+        std::vector<float> in((size_t) (fs * 6.0f), 0.0f);
+        pluck(in, 0.2, 82.41f, 1.0f);   // E2 = 40
+        pluck(in, 1.5, 110.0f, 0.6f);   // A2 = 45
+        pluck(in, 2.2, 110.0f, 0.6f);   //   picked again
+        pluck(in, 3.0, 329.63f, 0.8f);  // E4 = 64
+        pluck(in, 4.2, 659.26f, 0.6f);  // E5 = 76
+        TrackerSettings s;
+        s.bendFollow = false;
+        const auto ev = run(in, s);
+        const auto ons = noteOns(ev);
+        for (const auto& [t, nn] : ons)
+            std::printf("    guitar note %d at %.1f ms\n", nn, t * 1000.0);
+        const std::pair<double, int> expect[5] = { { 0.2, 40 }, { 1.5, 45 }, { 2.2, 45 }, { 3.0, 64 }, { 4.2, 76 } };
+        ZS_CHECK(ons.size() == 5);
+        for (size_t k = 0; k < std::min<size_t>(5, ons.size()); ++k)
+        {
+            ZS_CHECK(ons[k].second == expect[k].second);
+            const double latency = ons[k].first - expect[k].first;
+            ZS_CHECK(latency >= 0.0);
+            ZS_CHECK_LT(latency, expect[k].second < 50 ? 0.045 : 0.025);
+        }
+        // Every note on is matched by a note off.
+        int on = 0, off = 0;
+        for (const auto& [t, e] : ev)
+        {
+            on += (e.status & 0xF0) == 0x90;
+            off += (e.status & 0xF0) == 0x80;
+        }
+        ZS_CHECK(on == off);
+    }
+
+    // Below the gate: nothing plays.
+    {
+        std::vector<float> in((size_t) fs, 0.0f);
+        pluck(in, 0.1, 196.0f, 0.8f, 0.001f); // about -60 dBFS
+        TrackerSettings s;
+        s.gateDb = -45.0f;
+        ZS_CHECK(noteOns(run(in, s)).empty());
+    }
+
+    // Bend follow: a one-semitone bend becomes pitch bend, not new notes.
+    {
+        std::vector<float> in((size_t) (fs * 1.5f), 0.0f);
+        pluck(in, 0.1, 220.0f, 1.2f, 0.25f, 1.0f);
+        TrackerSettings s;
+        s.bendFollow = true;
+        s.bendRange = 2.0f;
+        const auto ev = run(in, s);
+        ZS_CHECK(noteOns(ev).size() == 1);
+        int maxBend = 8192;
+        for (const auto& [t, e] : ev)
+            if ((e.status & 0xF0) == 0xE0)
+                maxBend = std::max(maxBend, e.data1 | (e.data2 << 7));
+        std::printf("    bend peak %d (one semitone of a 2-semitone range = ~12288)\n", maxBend);
+        ZS_CHECK(maxBend > 11500 && maxBend < 13200);
+    }
+
+    // Bass range: low E on a bass (E1, 41.2 Hz).
+    {
+        std::vector<float> in((size_t) (fs * 1.5f), 0.0f);
+        pluck(in, 0.2, 41.2f, 1.0f, 0.3f);
+        TrackerSettings s;
+        s.bass = true;
+        s.bendFollow = false;
+        const auto ons = noteOns(run(in, s));
+        ZS_CHECK(ons.size() == 1);
+        if (! ons.empty())
+        {
+            std::printf("    bass note %d at %.1f ms\n", ons[0].second, (ons[0].first - 0.2) * 1000.0);
+            ZS_CHECK(ons[0].second == 28);
+            ZS_CHECK_LT(ons[0].first - 0.2, 0.09);
+        }
     }
 }
 

@@ -665,7 +665,8 @@ ZS_TEST(layout_controls_inside_sections_and_not_overlapping)
                             || id == "comp.ratio" || id == "comp.attack" || id == "comp.release" || id == "comp.autorel"
                             || id == "comp.knee" || id == "comp.emph" || id == "comp.color"
                             || id.startsWith("fx.rev.eq.") || (id.startsWith("peq.") && id != "peq.on" && id != "peq.pre")
-                            || id.startsWith("wt.seq.") || id.startsWith("vec.");
+                            || id.startsWith("wt.seq.") || id.startsWith("vec.")
+                            || (id.startsWith("trk.") && id != "trk.on");
         ZS_CHECK(advanced == (c.page != ui::kMainPage));
     }
 }
@@ -998,6 +999,65 @@ ZS_TEST(activity_rules_examples)
 
 // ================================================================ editor ====
 
+ZS_TEST(pitch_track_plays_the_synth_from_the_audio_input)
+{
+    const auto dir = tempDir("track");
+    ZSynthProcessor p(dir, ZSynthProcessor::AudioInput::Enabled);
+    ZS_CHECK(p.hasAudioInput());
+    auto set = [&](const char* id, float v) {
+        auto* prm = p.getState().getParameter(id);
+        prm->setValueNotifyingHost(prm->convertTo0to1(v));
+    };
+    set("trk.on", 1.0f);
+    set("trk.dry", 0.0f);
+    p.prepareToPlay(48000.0, 256);
+
+    // An A string (110 Hz) on input 1, and an on-screen key that must be ignored.
+    p.getKeyboardState().noteOn(1, 72, 1.0f);
+    juce::AudioBuffer<float> buffer(2, 256);
+    double phase = 0.0;
+    float outPeak = 0.0f;
+    int maxVoices = 0;
+    for (int b = 0; b < 48000 / 256; ++b)
+    {
+        for (int i = 0; i < 256; ++i)
+        {
+            phase += 2.0 * juce::MathConstants<double>::pi * 110.0 / 48000.0;
+            const float t = (float) (b * 256 + i) / 48000.0f;
+            const float s = 0.3f * std::exp(-t * 2.0f) * (float) (std::sin(phase) + 0.5 * std::sin(2.0 * phase) + 0.25 * std::sin(3.0 * phase));
+            buffer.setSample(0, i, s);
+            buffer.setSample(1, i, 0.0f);
+        }
+        juce::MidiBuffer midi;
+        p.processBlock(buffer, midi);
+        outPeak = std::max(outPeak, buffer.getMagnitude(0, 256));
+        maxVoices = std::max(maxVoices, p.getEngine().getActiveVoices());
+    }
+    ZS_CHECK(p.getTracker().getNote() == 45 || p.getTracker().getNote() == -1);
+    std::printf("    tracked note %d, output peak %.3f, voices %d\n", p.getTracker().getNote(), outPeak, maxVoices);
+    ZS_CHECK(outPeak > 0.01f);
+    ZS_CHECK(maxVoices >= 1);
+    // The on-screen key was ignored: only the tracked note's voices played.
+    ZS_CHECK(maxVoices <= 2 * juce::roundToInt(p.getValue(P::UnisonVoices)) + 2);
+
+    // Switching off ends the note.
+    set("trk.on", 0.0f);
+    p.getKeyboardState().allNotesOff(1);
+    for (int b = 0; b < 48000 * 3 / 256; ++b)
+    {
+        buffer.clear();
+        juce::MidiBuffer midi;
+        p.processBlock(buffer, midi);
+    }
+    ZS_CHECK(p.getTracker().getNote() == -1);
+    ZS_CHECK(p.getEngine().getActiveVoices() == 0);
+
+    // The plug-in formats have no input: nothing to track.
+    ZSynthProcessor plugin(dir, ZSynthProcessor::AudioInput::Disabled);
+    ZS_CHECK(! plugin.hasAudioInput());
+    ZS_CHECK(! plugin.isTracking());
+}
+
 ZS_TEST(editor_layout_is_fixed_across_presets_and_modes)
 {
     juce::ScopedJuceInitialiser_GUI gui;
@@ -1271,7 +1331,8 @@ static int snapshots(const juce::File& dir)
 {
     juce::ScopedJuceInitialiser_GUI gui;
     dir.createDirectory();
-    ZSynthProcessor processor(juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("zynth-snap"));
+    ZSynthProcessor processor(juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("zynth-snap"),
+                              ZSynthProcessor::AudioInput::Enabled);
     std::unique_ptr<juce::AudioProcessorEditor> editor(processor.createEditor());
     auto* zeditor = dynamic_cast<ZSynthEditor*>(editor.get());
     if (zeditor == nullptr)
@@ -1306,6 +1367,9 @@ static int snapshots(const juce::File& dir)
         shoot("reverb" + juce::String(r), "reverb");
         shoot("reverbm" + juce::String(r), {});
     }
+    set("trk.on", 1.0f);
+    shoot("track", "track");
+    set("trk.on", 0.0f);
     panel.showPage({});
     return 0;
 }

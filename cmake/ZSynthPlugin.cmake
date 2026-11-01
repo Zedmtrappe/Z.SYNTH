@@ -39,7 +39,8 @@ juce_add_plugin(ZSynth
     PLUGIN_CODE Zsy1
     VST3_CATEGORIES Instrument Synth
     AU_MAIN_TYPE kAudioUnitType_MusicDevice
-    MICROPHONE_PERMISSION_ENABLED FALSE
+    MICROPHONE_PERMISSION_ENABLED TRUE
+    MICROPHONE_PERMISSION_TEXT "ZYNTH uses the audio input for PITCH TRACK: playing the synth from a guitar or bass."
     COPY_PLUGIN_AFTER_BUILD FALSE
     FORMATS ${ZSYNTH_FORMATS})
 

@@ -6,7 +6,8 @@
 //   * all MIDI inputs are opened automatically, so a connected keyboard plays
 //     immediately (they can still be deselected in Options > Audio/MIDI Settings),
 //   * the full plug-in state (sound, global settings, MIDI-learn map) is saved
-//     on quit and restored on the next launch.
+//     on quit and restored on the next launch,
+//   * the audio input is not muted (it feeds PITCH TRACK only).
 // The audio engine itself knows nothing about this layer.
 
 #include <JuceHeader.h>
@@ -89,9 +90,13 @@ private:
     std::unique_ptr<juce::StandalonePluginHolder> createPluginHolder()
     {
         constexpr bool autoOpenMidiDevices = true;
-        return std::make_unique<juce::StandalonePluginHolder>(appProperties.getUserSettings(), false, juce::String {},
-                                                              nullptr, juce::Array<juce::StandalonePluginHolder::PluginInOuts> {},
-                                                              autoOpenMidiDevices);
+        auto holder = std::make_unique<juce::StandalonePluginHolder>(appProperties.getUserSettings(), false, juce::String {},
+                                                                     nullptr, juce::Array<juce::StandalonePluginHolder::PluginInOuts> {},
+                                                                     autoOpenMidiDevices);
+        // The audio input only feeds PITCH TRACK (never the output, except the
+        // DRY level the player sets), so there is no feedback loop to guard against.
+        holder->getMuteInputValue().setValue(false);
+        return holder;
     }
 
     juce::ApplicationProperties appProperties;
