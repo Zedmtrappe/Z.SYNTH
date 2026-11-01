@@ -9,7 +9,7 @@
 #include "DSP/Effects/DriveAndOutput.h"
 #include "DSP/Effects/SmoothBand.h"
 #include "DSP/Effects/TimeEffects.h"
-#include "DSP/Effects/VintageGraphicEq.h"
+#include "DSP/Effects/OutputEq.h"
 #include "DSP/FM/FmAlgorithms.h"
 #include "DSP/FM/FmVoice.h"
 #include "DSP/Filters/Filters.h"
@@ -905,11 +905,11 @@ ZS_TEST(reverb_parametric_eq)
     ZS_CHECK_NEAR(10.0 * std::log10(out / in), 9.0, 0.1);
 }
 
-ZS_TEST(vintage_graphic_eq)
+ZS_TEST(output_parametric_eq)
 {
     const float fs = 48000.0f;
-    auto run = [&](const VintageGraphicEq::Settings& s, float freq, std::vector<float>& l) {
-        VintageGraphicEq eq;
+    auto run = [&](const OutputEqSettings& s, float freq, std::vector<float>& l) {
+        OutputEq eq;
         eq.prepare(fs);
         const int n = 24064;
         l.assign((size_t) n, 0.0f);
@@ -921,19 +921,35 @@ ZS_TEST(vintage_graphic_eq)
         return 20.0 * std::log10(rmsOf(l, 9600) / (0.1 / std::sqrt(2.0)));
     };
     // Flat = dry: bit-exact bypass.
-    VintageGraphicEq::Settings flat;
+    OutputEqSettings flat;
     std::vector<float> l;
     run(flat, 1000.0f, l);
     for (int i = 0; i < 2000; ++i)
         ZS_CHECK(l[(size_t) i] == 0.1f * std::sin(kTwoPi * 1000.0f * (float) i / fs));
-    // A boost lands where it should, matching the drawn response.
-    VintageGraphicEq::Settings s;
-    s.gainDb[5] = 9.0f; // 1 kHz
-    ZS_CHECK_NEAR(run(s, 1000.0f, l), 9.0, 0.8);
-    ZS_CHECK_NEAR(VintageGraphicEq::magnitudeDb(s, 1000.0, fs), 9.0, 0.1);
-    ZS_CHECK_LT(std::abs(run(s, 100.0f, l)), 1.5);
-    // Proportional Q: a bigger boost is narrower.
-    ZS_CHECK_GT(VintageGraphicEq::qFor(12.0f), VintageGraphicEq::qFor(3.0f));
+    // A bell lands where it should, matching the drawn response; Q sets its width.
+    OutputEqSettings s;
+    s.freq[2] = 1000.0f;
+    s.gainDb[2] = 9.0f;
+    ZS_CHECK_NEAR(run(s, 1000.0f, l), 9.0, 0.5);
+    ZS_CHECK_NEAR(OutputEq::magnitudeDb(s, 1000.0, fs), 9.0, 0.1);
+    s.q[2] = 0.5f;
+    const double wide = OutputEq::magnitudeDb(s, 2000.0, fs);
+    s.q[2] = 6.0f;
+    const double narrow = OutputEq::magnitudeDb(s, 2000.0, fs);
+    ZS_CHECK_GT(wide, narrow + 4.0);
+    ZS_CHECK_LT(std::abs(run(s, 100.0f, l)), 0.5);
+    // Cuts: 12 dB/oct, -3 dB at the corner.
+    OutputEqSettings cuts;
+    cuts.hpf = 200.0f;
+    cuts.lpf = 5000.0f;
+    ZS_CHECK_NEAR(run(cuts, 200.0f, l), -3.0, 0.6);
+    ZS_CHECK_LT(run(cuts, 50.0f, l), -20.0);
+    ZS_CHECK_LT(run(cuts, 20000.0f, l), -20.0);
+    ZS_CHECK_NEAR(run(cuts, 1000.0f, l), 0.0, 0.5);
+    // Output trim.
+    OutputEqSettings trim;
+    trim.outputDb = -6.0f;
+    ZS_CHECK_NEAR(run(trim, 1000.0f, l), -6.0, 0.1);
 }
 
 ZS_TEST(smooth_band_tames_only_the_presence_band)
@@ -1250,7 +1266,7 @@ ZS_TEST(valve_stage_warms_without_level_jumps)
         double thd = 0.0, level = 0.0;
         run(t, 0.5f, thd, level);
         ZS_CHECK_LT(thd, 1.0);
-        ZS_CHECK_GT(thd, 0.05); // it still colours
+        ZS_CHECK_GT(thd, 0.02); // it still colours (the power pairs least: clean until pushed)
         ZS_CHECK_NEAR(level, 0.0, 1.5);
         run(t, 0.8f, thd, level);
         ZS_CHECK_LT(thd, 2.5);
@@ -1258,6 +1274,40 @@ ZS_TEST(valve_stage_warms_without_level_jumps)
         ZS_CHECK_GT(thd, 10.0);
         ZS_CHECK_NEAR(level, 0.0, 6.0);
     }
+
+    // The types have different signatures at 90 % DRIVE: triodes lead with
+    // the 2nd harmonic or balance it, push-pull pairs are dominated by the 3rd.
+    auto harmonics = [&](int type, double& h2, double& h3) {
+        ValveStage valve;
+        valve.prepare(fs);
+        const int n = 48000;
+        std::vector<float> l((size_t) n), r((size_t) n);
+        for (int i = 0; i < n; ++i)
+            l[(size_t) i] = r[(size_t) i] = 0.5f * std::sin(kTwoPi * 220.0f * (float) i / fs);
+        for (int i = 0; i < n; i += 256)
+            valve.process(l.data() + i, r.data() + i, std::min(256, n - i), (ValveType) type, 0.9f, 0.5f, 0.3f, 0.5f, 1.0f);
+        auto amp = [&](double f) {
+            double c = 0.0, sn = 0.0;
+            for (int i = 9600; i < 9600 + 24000; ++i)
+            {
+                c += l[(size_t) i] * std::cos(2.0 * 3.14159265358979 * f * i / fs);
+                sn += l[(size_t) i] * std::sin(2.0 * 3.14159265358979 * f * i / fs);
+            }
+            return std::sqrt(c * c + sn * sn);
+        };
+        h2 = 20.0 * std::log10(amp(440.0) / amp(220.0));
+        h3 = 20.0 * std::log10(amp(660.0) / amp(220.0));
+    };
+    double h2[4], h3[4];
+    for (int t = 0; t < 4; ++t)
+    {
+        harmonics(t, h2[t], h3[t]);
+        std::printf("    valve %d at 90%%: H2 %.1f dB, H3 %.1f dB\n", t, h2[t], h3[t]);
+    }
+    ZS_CHECK_GT(h2[(int) ValveType::Preamp12AX7] - h3[(int) ValveType::Preamp12AX7], 3.0);
+    ZS_CHECK_GT(h3[(int) ValveType::PushPullEL84] - h2[(int) ValveType::PushPullEL84], 15.0);
+    ZS_CHECK_GT(h3[(int) ValveType::Power6L6] - h2[(int) ValveType::Power6L6], 15.0);
+    ZS_CHECK_GT(h3[(int) ValveType::PushPullEL84], h3[(int) ValveType::Power6L6] + 2.0); // EL84 breaks up earlier
 }
 
 ZS_TEST(arpeggiator_timing)

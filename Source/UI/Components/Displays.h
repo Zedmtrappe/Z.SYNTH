@@ -115,13 +115,15 @@ protected:
     uint64_t stateHash() const override;
 };
 
-/** Response curve of the reverb's parametric EQ. The large (interactive)
-    version lets you drag each band's node: left/right = frequency,
-    up/down = gain, mouse wheel = Q of a bell, double-click = flat band. */
-class ReverbEqCurve : public CachedDisplay, public juce::SettableTooltipClient
+/** Response curve of a parametric EQ (the reverb's wet EQ or the output EQ).
+    The large (interactive) version lets you drag each band's node:
+    left/right = frequency, up/down = gain, mouse wheel = Q of a bell,
+    double-click = flat band / filter off. The small one can open its page. */
+class EqCurve : public CachedDisplay, public juce::SettableTooltipClient
 {
 public:
-    ReverbEqCurve(ZSynthProcessor& p, bool isInteractive);
+    enum class Which { Reverb, Output };
+    EqCurve(ZSynthProcessor& p, Which which, bool isInteractive);
     void paint(juce::Graphics&) override;
     void mouseDown(const juce::MouseEvent&) override;
     void mouseDrag(const juce::MouseEvent&) override;
@@ -130,13 +132,15 @@ public:
     void mouseWheelMove(const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
     void mouseMove(const juce::MouseEvent&) override;
     void mouseExit(const juce::MouseEvent&) override;
+    /** Small, non-interactive curve: a click calls this (e.g. to open the page). */
+    std::function<void()> onClick;
 protected:
     uint64_t stateHash() const override;
 private:
-    struct Band { int freq, gain, q; };
-    static constexpr int kBands = 6;
-    static const Band bands[kBands];
-    dsp::EqSettings settings() const;
+    enum class Kind { Bell, Shelf, LowCut, HighCut };
+    struct Band { int freq, gain, q; Kind kind; const char* name; };
+    double responseDb(double freq) const;
+    bool filterOn(const Band&) const;
     juce::Point<float> nodeFor(int band) const;
     juce::Rectangle<float> plotArea() const;
     float xForFreq(float f) const;
@@ -146,6 +150,11 @@ private:
     int bandAt(juce::Point<float>) const;
     void setParam(int index, float value);
     void gesture(int index, bool begin);
+    Which which;
+    std::vector<Band> bands;
+    std::vector<int> hashParams;
+    int onParam;
+    juce::Colour colour;
     bool interactive;
     int dragging = -1, hoverBand = -1;
 };
@@ -170,20 +179,6 @@ private:
     void gesture(bool begin);
 };
 
-/** The vintage graphic EQ: its response with a bar per band. The panel
-    version is clickable and opens the full EQ window. */
-class GraphicEqDisplay : public CachedDisplay, public juce::SettableTooltipClient
-{
-public:
-    GraphicEqDisplay(ZSynthProcessor& p, bool isClickable);
-    void paint(juce::Graphics&) override;
-    void mouseUp(const juce::MouseEvent&) override { if (onClick) onClick(); }
-    std::function<void()> onClick;
-protected:
-    uint64_t stateHash() const override;
-private:
-    bool clickable;
-};
 
 /** Analogue VU meter showing the output compressor's gain reduction. */
 class CompMeter : public Display

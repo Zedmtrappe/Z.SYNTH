@@ -22,7 +22,7 @@ namespace
         if (section == "perf" || section.startsWith("seq"))         return juce::Colour(0xffe9d35a); // yellow
         if (section.startsWith("fx"))                               return juce::Colour(0xfff08fb0); // pink
         if (section.startsWith("smooth"))                           return juce::Colour(0xff8fd6c4); // teal
-        if (section.startsWith("geq"))                              return juce::Colour(0xffe8c26a); // brass
+        if (section.startsWith("peq"))                              return juce::Colour(0xffe8c26a); // brass
         if (section.startsWith("comp"))                             return juce::Colour(0xff78d4e6); // cyan
         if (section.startsWith("delay") || section.startsWith("reverb")) return juce::Colour(0xfff08fb0); // pink (effects)
         if (section.startsWith("valve"))                                     return juce::Colour(0xffff8c3a); // valve orange
@@ -123,6 +123,23 @@ PopupPage::PopupPage(const PageSpec& spec) : id(spec.id)
     closeButton.setTooltip("Close (Esc)");
     closeButton.onClick = [this] { if (onClose) onClose(); };
     setTitle(spec.title);
+    home = spec.boundsOnCanvas;
+    constrainer.setMinimumOnscreenAmounts(0xffffff, 0xffffff, 0xffffff, 0xffffff); // fully inside the panel
+    setMouseCursor(juce::MouseCursor::DraggingHandCursor);
+}
+
+void PopupPage::mouseDown(const juce::MouseEvent& e)
+{
+    toFront(false);
+    dragger.startDraggingComponent(this, e);
+}
+
+void PopupPage::mouseDrag(const juce::MouseEvent& e) { dragger.dragComponent(this, e, &constrainer); }
+
+void PopupPage::mouseDoubleClick(const juce::MouseEvent& e)
+{
+    if (e.y < 28)
+        setBounds(home); // double-click the title bar: back to the default place
 }
 
 void PopupPage::paint(juce::Graphics& g)
@@ -347,12 +364,16 @@ void MainPanel::buildUtilities()
         setValue(P::ReverbLowCut, 20.0f);
         setValue(P::RevEqLpf, 20000.0f);
     });
-    button("geqFlat", "FLAT", "Set all ten bands to 0 dB (flat = bypassed, completely dry)", [setValue] {
-        for (int i = P::GeqBand1; i <= P::GeqBand10; ++i)
-            setValue(i, 0.0f);
+    button("peqFlat", "FLAT", "Flatten the output EQ: all bands to 0 dB, cuts off, output 0 dB (= completely dry)", [setValue] {
+        for (int i = P::PeqB1Freq; i <= P::PeqB5Q; ++i)
+            if (juce::String(paramDef(i).id).endsWith(".g"))
+                setValue(i, 0.0f);
+        setValue(P::PeqHpf, 20.0f);
+        setValue(P::PeqLpf, 20000.0f);
+        setValue(P::PeqOutput, 0.0f);
     });
-    button("openGeq", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "All ten graphic EQ bands, transformer and output", [this] {
-        showPage(getVisiblePage() == "geq" ? juce::String() : juce::String("geq")); });
+    button("openPeq", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Edit the output EQ: five bands with variable Q, low cut, high cut, output", [this] {
+        showPage(getVisiblePage() == "peq" ? juce::String() : juce::String("peq")); });
     button("openWave", juce::String::fromUTF8("SEQ / VECTOR \xe2\x96\xb8"), "Wave sequencing and vector mixing (Wavestation style)", [this] {
         showPage(getVisiblePage() == "wave" ? juce::String() : juce::String("wave")); });
     button("openValve", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Valve type, bias, sag, warmth and mix", [this] {
@@ -377,10 +398,10 @@ void MainPanel::buildUtilities()
     displays.push_back(&addUtility<VoiceLeds>("voiceLeds", processor));
     displays.push_back(&addUtility<SmoothMeter>("smoothMeter", processor));
     displays.push_back(&addUtility<OutputInfo>("outputInfo", processor));
-    auto& geqCurve = addUtility<GraphicEqDisplay>("geqCurve", processor, true);
-    geqCurve.onClick = [this] { showPage(getVisiblePage() == "geq" ? juce::String() : juce::String("geq")); };
-    displays.push_back(&geqCurve);
-    displays.push_back(&addUtility<GraphicEqDisplay>("geqCurveBig", processor, false));
+    auto& peqCurve = addUtility<EqCurve>("peqCurve", processor, EqCurve::Which::Output, false);
+    peqCurve.onClick = [this] { showPage(getVisiblePage() == "peq" ? juce::String() : juce::String("peq")); };
+    displays.push_back(&peqCurve);
+    displays.push_back(&addUtility<EqCurve>("peqCurveBig", processor, EqCurve::Which::Output, true));
     displays.push_back(&addUtility<ValveDisplay>("valveDisplay", processor));
     displays.push_back(&addUtility<VectorPad>("vectorPad", processor));
     modSelector = &addUtility<ModEffectSelector>("modSelector", processor);
@@ -395,8 +416,8 @@ void MainPanel::buildUtilities()
     showModView(ModEffectSelector::views[modSelector->getCurrent()]);
     updateOscViews(true);
     displays.push_back(&addUtility<CompMeter>("compMeter", processor));
-    displays.push_back(&addUtility<ReverbEqCurve>("reverbEqCurve", processor, false));
-    displays.push_back(&addUtility<ReverbEqCurve>("reverbEqCurveBig", processor, true));
+    displays.push_back(&addUtility<EqCurve>("reverbEqCurve", processor, EqCurve::Which::Reverb, false));
+    displays.push_back(&addUtility<EqCurve>("reverbEqCurveBig", processor, EqCurve::Which::Reverb, true));
     displays.push_back(&addUtility<CompMeter>("compMeterBig", processor));
     displays.push_back(&addUtility<OutputMeter>("meter", processor));
     for (int op = 0; op < kNumOperators; ++op)
@@ -636,6 +657,11 @@ void MainPanel::timerCallback()
 
     if (++activityCounter % 3 == 0)
         updateActivity();
+    if (modSelector != nullptr)
+    {
+        const bool on = processor.getValue(ModEffectSelector::onParams[modSelector->getCurrent()]) >= 0.5f;
+        modSelector->setAlpha(on ? 1.0f : 0.32f); // matches the faded controls of a switched-off effect
+    }
 }
 
 void MainPanel::updateActivity()

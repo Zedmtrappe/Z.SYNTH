@@ -60,7 +60,7 @@ void SynthEngine::prepare(double sampleRate, int maxBlockSize)
     reverb.prepare(fs);
     valve.prepare(fs);
     compressor.prepare(fs);
-    graphicEq.prepare(fs);
+    outputEq.prepare(fs);
     smooth.prepare(fs);
     output.prepare(fs);
     for (auto& f : fades)
@@ -104,7 +104,7 @@ void SynthEngine::process(float* left, float* right, int numSamples,
         arp.reset();
         seq.reset();
         drive.reset(); phaser.reset(); flanger.reset(); chorus.reset();
-        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset(); compressor.reset(); graphicEq.reset(); smooth.reset();
+        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset(); compressor.reset(); outputEq.reset(); smooth.reset();
         for (auto& ch : playedNote)
             for (auto& n : ch)
                 n = -1;
@@ -215,7 +215,7 @@ void SynthEngine::processChunk(float* left, float* right, int n, const MidiEvent
         badBlocks.fetch_add(1, std::memory_order_relaxed);
         voices.killAll();
         drive.reset(); phaser.reset(); flanger.reset(); chorus.reset();
-        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset(); compressor.reset(); graphicEq.reset(); smooth.reset();
+        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset(); compressor.reset(); outputEq.reset(); smooth.reset();
     }
 
     activeVoices.store(voices.activeVoiceCount(), std::memory_order_relaxed);
@@ -341,6 +341,23 @@ void SynthEngine::updateBlockSettings(const TransportInfo& transport)
             }
         }
     }
+}
+
+// -----------------------------------------------------------------------------
+OutputEqSettings SynthEngine::outputEqSettings() const
+{
+    OutputEqSettings s;
+    s.hpf = p(P::PeqHpf);
+    s.lpf = p(P::PeqLpf);
+    for (int b = 0; b < OutputEqSettings::kBands; ++b)
+    {
+        const int base = P::PeqB1Freq + b * (P::PeqB2Freq - P::PeqB1Freq);
+        s.freq[b] = p(base);
+        s.gainDb[b] = p(base + 1);
+        s.q[b] = p(base + 2);
+    }
+    s.outputDb = p(P::PeqOutput);
+    return s;
 }
 
 // -----------------------------------------------------------------------------
@@ -741,19 +758,14 @@ void SynthEngine::runEffects(float* left, float* right, int n)
                       p(P::ValveWarmth), p(P::ValveMix));
     }, [&] { valve.reset(); });
 
-    // Vintage graphic EQ (console style: EQ, then the compressor).
-    runFaded(9, pb(P::GeqOn), [&](float* l, float* r) {
-        VintageGraphicEq::Settings gs;
-        for (int b = 0; b < VintageGraphicEq::kBands; ++b)
-            gs.gainDb[b] = p(P::GeqBand1 + b);
-        gs.colour = p(P::GeqColour);
-        gs.outputDb = p(P::GeqOutput);
-        graphicEq.process(l, r, n, gs);
-    }, [&] { graphicEq.reset(); });
+    // Parametric output EQ (before SMOOTH and the compressor).
+    runFaded(9, pb(P::PeqOn), [&](float* l, float* r) {
+        outputEq.process(l, r, n, outputEqSettings());
+    }, [&] { outputEq.reset(); });
 
 
     // SMOOTH: tames the 2.2 kHz presence band before the compressor (bypassed at 0).
-    smooth.process(left, right, n, p(P::Smooth));
+    smooth.process(left, right, n, pb(P::SmoothOn) ? p(P::Smooth) : 0.0f);
     smoothGrOut.store(smooth.takeGainReduction(), std::memory_order_relaxed);
 
     if (! compPre)

@@ -37,7 +37,9 @@ amber filter, red envelopes, violet LFOs and matrix, green FM, yellow
 arpeggiator and sequencer, pink effects, white voice and output.
 
 **Popup editors** keep the panel uncluttered. They float over the panel and
-close with their **x** button or **Esc**:
+close with their **x** button or **Esc**. Drag a window by any empty part of
+its plate to move it (it stays inside the panel); double-click its title bar
+to put it back in its usual place:
 
 | Button | Where | Opens |
 |---|---|---|
@@ -279,17 +281,18 @@ Each module has an **ON** switch and fades in/out smoothly.
 | REVERB | SIZE, DAMP, PRE-DLY, MIX, TYPE; **ADVANCED ▸** for the rest |
 | STEREO | WIDTH (0 = mono, 100 % = unchanged, 200 % = wide), CHAR (output warmth) |
 
-### Vintage graphic EQ
+### Parametric EQ (output)
 
-The **GRAPHIC EQ** block (effects row, before the compressor) shows the EQ
-curve with **ON**; click the curve or **ADVANCED ▸** to open all ten bands.
-It is a 10-band graphic EQ on the whole output, voiced after the API 560: octave bands
-from 31 Hz to 16 kHz, +/-12 dB, with proportional Q (each band narrows the
-harder it is pushed). It feeds an output transformer stage: **XFMR** sets its
-colour (soft saturation, a little low-end weight, a softened top), **OUTPUT**
-trims the level. **With every band at 0 dB the EQ is bypassed exactly**: no
-colour at all. **ON** (on the panel) switches it out for A/B; **FLAT** zeroes all bands. It
-sits after the valve and before the compressor, as on a console.
+The **PARAMETRIC EQ** block (effects row, before SMOOTH and the compressor)
+shows the EQ curve with **ON**; click the curve or **ADVANCED ▸** to edit it.
+It has five bell bands, each with **FREQ** (20 Hz-20 kHz), **GAIN**
+(+/-15 dB) and **Q** (0.3 broad to 10 narrow), a 12 dB/oct **LOW CUT** and
+**HIGH CUT** (off at their end stops), and an **OUTPUT** trim. Drag a band's
+node on the big curve (left/right = frequency, up/down = gain, mouse wheel = Q,
+double-click = flat / filter off) or use the knobs. **With every band at 0 dB,
+both cuts off and OUTPUT at 0 dB the EQ is bypassed exactly.** **FLAT**
+resets it; **ON** switches it out for A/B. It is clean (no colour): the valve,
+drive and compressor are there for character.
 
 ### Output compressor
 
@@ -370,8 +373,8 @@ move several things). **LIMITER** keeps peaks below 0 dBFS. The small display
 shows CPU load, voices, peak level and limiter gain reduction (or, in red, the
 output guard's count of automatic recoveries from invalid audio).
 
-**SMOOTH** — its own block in the effects row, between the graphic EQ and the
-compressor: a fixed 2.2 kHz dynamic compressor (4:1). It turns the presence
+**SMOOTH** — its own block in the effects row, between the parametric EQ and
+the compressor: a fixed 2.2 kHz dynamic compressor (4:1), with an **ON** switch. It turns the presence
 band down only when it gets loud, so harsh notes and
 resonances are tamed while the rest of the sound is untouched. **AMOUNT**
 lowers its threshold (0 = off, exactly bypassed); the LED ladder beside it
@@ -386,7 +389,7 @@ glow brighter as you turn it up. **ADVANCED ▸** opens the rest:
 
 | Control | What it does |
 |---|---|
-| VALVE TYPE | 12AX7 (high-gain preamp triode, even harmonics), 12AU7 (low-gain, clean warmth), EL84 (push-pull pair: odd harmonics, early compression), 6L6 (big power pair, most headroom) |
+| VALVE TYPE | Each has its own curve, harmonics and tone. **12AX7**: high-gain preamp triode; 2nd harmonic leads (sweet, singing), tight bass and a little presence; the first to fuzz. **12AU7**: low-gain triode; the softest, most gradual curve, warm low mids and a rounded top. **EL84**: push-pull pentodes; 3rd and 5th harmonics (gritty "chime"), forward upper mids, leaner bass, compresses early. **6L6**: big power pair; the most clean headroom, deep lows, scooped mids and sparkle, solid compression when pushed |
 | BIAS | Cold = cleaner and more symmetric; hot = richer, more even harmonics and grit. On push-pull types it unbalances the pair |
 | SAG | Power-supply droop: the valve compresses and blooms on loud notes |
 | WARMTH | Output transformer: rounds off the top end and adds low-end weight |

@@ -231,6 +231,7 @@ X(Macro,         "out.macro",      "Macro",         "Output", Float, 0.f, 1.f, 0
 X(Limiter,       "out.limiter",    "Limiter",       "Output", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "Output safety limiter (keeps peaks below 0 dBFS).") \
 X(Smooth,        "out.smooth",     "Smooth",        "Output", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "SMOOTH: fixed 2.2 kHz dynamic compressor (4:1) that tames harshness only when it appears. AMOUNT lowers the threshold; 0 = off.") \
 /* ------------------------------------- Super saws, wave sequence, vector */ \
+X(SmoothOn,      "out.smooth.on",  "Smooth On",     "Output", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "Switches the SMOOTH dynamic compressor in or out.") \
 X(Osc1Detune,    "osc1.detune",    "Osc 1 Detune",  "Oscillators", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "SuperSaw / HyperSaw: spread of the detuned saws.") \
 X(Osc1SuperMix,  "osc1.smix",      "Osc 1 Saw Mix", "Oscillators", Float, 0.f, 1.f, 0.6f, LIN, "", nullptr, "SuperSaw / HyperSaw: level of the side saws against the centre one.") \
 X(Osc2Detune,    "osc2.detune",    "Osc 2 Detune",  "Oscillators", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "SuperSaw / HyperSaw: spread of the detuned saws.") \
@@ -267,19 +268,25 @@ X(CompAutoRel,   "comp.autorel",   "Comp Auto Release","Output", Bool, 0.f, 1.f,
 X(CompKnee,      "comp.knee",      "Comp Knee",     "Output", Float, 0.f, 1.f, 0.3f, LIN, "", nullptr, "Knee softness (SSL).") \
 X(CompEmph,      "comp.emph",      "Comp Emphasis", "Output", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "LA-2A only: side-chain HF emphasis, so bright and harsh sounds are compressed harder.") \
 X(CompColour,    "comp.color",     "Comp Colour",   "Output", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Analogue colour of the model (valve / FET / VCA saturation): gentle at 0.5, clearly driven at full.") \
-X(GeqOn,         "geq.on",         "Graphic EQ On", "Output", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "Vintage graphic EQ in/out (with all bands at 0 dB it is bypassed anyway).") \
-X(GeqBand1,     "geq.b1",        "Graphic EQ 31 Hz", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ band at 31 Hz (proportional Q: narrower as it is pushed).") \
-X(GeqBand2,     "geq.b2",        "Graphic EQ 63 Hz", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ band at 63 Hz (proportional Q: narrower as it is pushed).") \
-X(GeqBand3,     "geq.b3",        "Graphic EQ 125 Hz", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ band at 125 Hz (proportional Q: narrower as it is pushed).") \
-X(GeqBand4,     "geq.b4",        "Graphic EQ 250 Hz", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ band at 250 Hz (proportional Q: narrower as it is pushed).") \
-X(GeqBand5,     "geq.b5",        "Graphic EQ 500 Hz", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ band at 500 Hz (proportional Q: narrower as it is pushed).") \
-X(GeqBand6,     "geq.b6",        "Graphic EQ 1 kHz", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ band at 1 kHz (proportional Q: narrower as it is pushed).") \
-X(GeqBand7,     "geq.b7",        "Graphic EQ 2 kHz", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ band at 2 kHz (proportional Q: narrower as it is pushed).") \
-X(GeqBand8,     "geq.b8",        "Graphic EQ 4 kHz", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ band at 4 kHz (proportional Q: narrower as it is pushed).") \
-X(GeqBand9,     "geq.b9",        "Graphic EQ 8 kHz", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ band at 8 kHz (proportional Q: narrower as it is pushed).") \
-X(GeqBand10,     "geq.b10",        "Graphic EQ 16 kHz", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ band at 16 kHz (proportional Q: narrower as it is pushed).") \
-X(GeqColour,     "geq.color",      "Graphic EQ Transformer", "Output", Float, 0.f, 1.f, 0.3f, LIN, "", nullptr, "Output transformer colour (saturation and low-end weight) while the EQ is in use.") \
-X(GeqOutput,     "geq.out",        "Graphic EQ Output", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Graphic EQ output trim.")
+X(PeqOn,         "peq.on",         "Output EQ On",  "Output", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "Parametric output EQ in/out (flat with both cuts off = completely dry).") \
+X(PeqHpf,        "peq.hpf",        "Output EQ Low Cut", "Output", Float, 20.f, 2000.f, 20.f, LOG, "Hz", nullptr, "12 dB/oct low cut (high-pass). Fully left = off.") \
+X(PeqLpf,        "peq.lpf",        "Output EQ High Cut", "Output", Float, 1000.f, 20000.f, 20000.f, LOG, "Hz", nullptr, "12 dB/oct high cut (low-pass). Fully right = off.") \
+X(PeqB1Freq,     "peq.b1.f",       "Output EQ 1 Freq", "Output", Float, 20.f, 20000.f, 80.f, LOG, "Hz", nullptr, "Output EQ band 1 centre frequency.") \
+X(PeqB1Gain,     "peq.b1.g",       "Output EQ 1 Gain", "Output", Float, -15.f, 15.f, 0.f, LIN, "dB", nullptr, "Output EQ band 1 boost / cut.") \
+X(PeqB1Q,        "peq.b1.q",       "Output EQ 1 Q", "Output", Float, 0.3f, 10.f, 0.9f, LOG, "", nullptr, "Output EQ band 1 width: low = broad, high = narrow.") \
+X(PeqB2Freq,     "peq.b2.f",       "Output EQ 2 Freq", "Output", Float, 20.f, 20000.f, 250.f, LOG, "Hz", nullptr, "Output EQ band 2 centre frequency.") \
+X(PeqB2Gain,     "peq.b2.g",       "Output EQ 2 Gain", "Output", Float, -15.f, 15.f, 0.f, LIN, "dB", nullptr, "Output EQ band 2 boost / cut.") \
+X(PeqB2Q,        "peq.b2.q",       "Output EQ 2 Q", "Output", Float, 0.3f, 10.f, 0.9f, LOG, "", nullptr, "Output EQ band 2 width: low = broad, high = narrow.") \
+X(PeqB3Freq,     "peq.b3.f",       "Output EQ 3 Freq", "Output", Float, 20.f, 20000.f, 1000.f, LOG, "Hz", nullptr, "Output EQ band 3 centre frequency.") \
+X(PeqB3Gain,     "peq.b3.g",       "Output EQ 3 Gain", "Output", Float, -15.f, 15.f, 0.f, LIN, "dB", nullptr, "Output EQ band 3 boost / cut.") \
+X(PeqB3Q,        "peq.b3.q",       "Output EQ 3 Q", "Output", Float, 0.3f, 10.f, 0.9f, LOG, "", nullptr, "Output EQ band 3 width: low = broad, high = narrow.") \
+X(PeqB4Freq,     "peq.b4.f",       "Output EQ 4 Freq", "Output", Float, 20.f, 20000.f, 3500.f, LOG, "Hz", nullptr, "Output EQ band 4 centre frequency.") \
+X(PeqB4Gain,     "peq.b4.g",       "Output EQ 4 Gain", "Output", Float, -15.f, 15.f, 0.f, LIN, "dB", nullptr, "Output EQ band 4 boost / cut.") \
+X(PeqB4Q,        "peq.b4.q",       "Output EQ 4 Q", "Output", Float, 0.3f, 10.f, 0.9f, LOG, "", nullptr, "Output EQ band 4 width: low = broad, high = narrow.") \
+X(PeqB5Freq,     "peq.b5.f",       "Output EQ 5 Freq", "Output", Float, 20.f, 20000.f, 10000.f, LOG, "Hz", nullptr, "Output EQ band 5 centre frequency.") \
+X(PeqB5Gain,     "peq.b5.g",       "Output EQ 5 Gain", "Output", Float, -15.f, 15.f, 0.f, LIN, "dB", nullptr, "Output EQ band 5 boost / cut.") \
+X(PeqB5Q,        "peq.b5.q",       "Output EQ 5 Q", "Output", Float, 0.3f, 10.f, 0.9f, LOG, "", nullptr, "Output EQ band 5 width: low = broad, high = narrow.") \
+X(PeqOutput,     "peq.out",        "Output EQ Output", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Output EQ level trim.") \
 
 #define ZS_LFO_PARAMS(X, n, unused) \
 X(Lfo##n##Wave,  "lfo" #n ".wave",  "LFO " #n " Wave",  "LFO", Choice, 0, 0, 0.f, LIN, "", ZS_CH_LFO_WAVE, "LFO waveform.") \

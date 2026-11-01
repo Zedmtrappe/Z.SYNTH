@@ -591,7 +591,7 @@ ZS_TEST(layout_controls_inside_sections_and_not_overlapping)
                             || id == "fx.rev.mod" || id == "fx.rev.early" || id == "fx.rev.width"
                             || id == "comp.ratio" || id == "comp.attack" || id == "comp.release" || id == "comp.autorel"
                             || id == "comp.knee" || id == "comp.emph" || id == "comp.color"
-                            || id.startsWith("fx.rev.eq.") || (id.startsWith("geq.") && id != "geq.on")
+                            || id.startsWith("fx.rev.eq.") || (id.startsWith("peq.") && id != "peq.on")
                             || id.startsWith("wt.seq.") || id.startsWith("vec.");
         ZS_CHECK(advanced == (c.page != ui::kMainPage));
     }

@@ -28,7 +28,15 @@ public:
     const juce::String& getPageId() const { return id; }
     std::function<void()> onClose;
 
+    // Drag the window by any empty part of its plate (it stays inside the panel).
+    void mouseDown(const juce::MouseEvent&) override;
+    void mouseDrag(const juce::MouseEvent&) override;
+    void mouseDoubleClick(const juce::MouseEvent&) override;
+
 private:
+    juce::ComponentDragger dragger;
+    juce::ComponentBoundsConstrainer constrainer;
+    juce::Rectangle<int> home;
     juce::String id;
     juce::Image cache;
     float cacheScale = 0.0f;

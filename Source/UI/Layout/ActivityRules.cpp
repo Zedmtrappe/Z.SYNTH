@@ -23,8 +23,8 @@ Activity activityFor(int i, const float* v, bool hostTempo)
     if (inRange(i, P::ValveType, P::ValveMix) && ! on(v, P::ValveOn))
         return inactive("The valve stage is off. Switch VALVE on.");
 
-    if (inRange(i, P::GeqBand1, P::GeqOutput) && ! on(v, P::GeqOn))
-        return inactive("The graphic EQ is switched out. Switch it ON.");
+    if (inRange(i, P::PeqHpf, P::PeqOutput) && ! on(v, P::PeqOn))
+        return inactive("The output EQ is switched out. Switch it ON.");
 
     if (i == P::CompPre && ! on(v, P::CompOn))
         return inactive("The output compressor is off. Switch COMP on.");
@@ -194,6 +194,10 @@ Activity activityFor(int i, const float* v, bool hostTempo)
     for (const auto& f : fx)
         if (inRange(i, f.first, f.last) && ! on(v, f.on))
             return inactive(juce::String(f.name) + " is switched off.");
+    if (i == P::Smooth && ! on(v, P::SmoothOn))
+        return inactive("SMOOTH is switched off.");
+    if (i == P::ChorusType && ! on(v, P::ChorusOn))
+        return inactive("Chorus is switched off.");
     if (i == P::DelayTime && on(v, P::DelaySync))
         return inactive("Delay is tempo-synced: use DIVISION.");
     if (i == P::DelayDiv && ! on(v, P::DelaySync))

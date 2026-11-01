@@ -286,17 +286,17 @@ PanelLayout::PanelLayout()
     // SMOOTH, compressor (PRE FX moves the compressor before delay/reverb).
     struct Module { const char* id; const char* title; int width; };
     const Module modules[7] = { { "fxDrive", "DRIVE", 236 }, { "fxMod", "MODULATION", 264 }, { "fxDelay", "DELAY", 264 },
-                                { "fxReverb", "REVERB", 264 }, { "geqModule", "GRAPHIC EQ", 0 }, { "smoothModule", "SMOOTH", 108 },
+                                { "fxReverb", "REVERB", 264 }, { "peqModule", "PARAMETRIC EQ", 0 }, { "smoothModule", "SMOOTH", 108 },
                                 { "compModule", "OUTPUT COMP", 418 } };
     int fixedWidth = 0;
     for (const auto& m : modules)
         fixedWidth += m.width;
-    const int geqWidth = 1884 - 6 * 6 - fixedWidth; // the graphic EQ takes what is left
+    const int peqWidth = 1884 - 6 * 6 - fixedWidth; // the parametric EQ takes what is left
     int mx[7], mw[7];
     for (int i = 0, x = 18; i < 7; ++i)
     {
         mx[i] = x;
-        mw[i] = modules[i].width > 0 ? modules[i].width : geqWidth;
+        mw[i] = modules[i].width > 0 ? modules[i].width : peqWidth;
         sectionAt(modules[i].id, modules[i].title, mx[i], 788, mw[i], 170, true);
         x += mw[i] + 6;
     }
@@ -353,14 +353,15 @@ PanelLayout::PanelLayout()
     utilityAt("openReverb", mx[3] + 158, 862, 100, 24);
     utilityAt("reverbEqCurve", mx[3] + 158, 892, 100, 58);
 
-    // Graphic EQ: the curve at a glance; ADVANCED opens all ten bands.
-    inSection("geqModule");
-    compact("geq.on", mx[4] + mw[4] - 42, 789, "ON");
-    utilityAt("geqCurve", mx[4] + 8, 808, mw[4] - 16, 112);
-    utilityAt("openGeq", mx[4] + 8, 926, mw[4] - 16, 24);
+    // Parametric output EQ: the curve at a glance; ADVANCED opens the editor.
+    inSection("peqModule");
+    compact("peq.on", mx[4] + mw[4] - 42, 789, "ON");
+    utilityAt("peqCurve", mx[4] + 8, 808, mw[4] - 16, 112);
+    utilityAt("openPeq", mx[4] + 8, 926, mw[4] - 16, 24);
 
     // SMOOTH: fixed 2.2 kHz dynamic compressor; AMOUNT and its GR ladder.
     inSection("smoothModule");
+    fxOn(5, "out.smooth.on");
     add("out.smooth", K::Knob, mx[5] + 6, 840, "AMOUNT");
     utilityAt("smoothMeter", mx[5] + 64, 808, 36, 144);
 
@@ -566,21 +567,30 @@ PanelLayout::PanelLayout()
          20, 262, 260, 70, juce::Justification::topLeft);
 
     // ---------------------------------------------------------- graphic EQ
-    pageList.push_back({ "geq", "GRAPHIC EQ", { 880, 300, 1000, 420 } });
-    page("geq");
-    sectionAt("geqPage", "VINTAGE GRAPHIC EQ  -  OUTPUT", 0, 0, 1000, 420);
-    utilityAt("geqClose", 960, 3, 34, 20);
-    utilityAt("geqFlat", 20, 44, 52, 22);
-    utilityAt("geqCurveBig", 90, 40, 890, 120);
-    const char* geqLabels[10] = { "31", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k" };
-    for (int b = 0; b < 10; ++b)
-        fader("geq.b" + juce::String(b + 1), 100 + b * 64, 180, geqLabels[b]);
-    fader("geq.color", 790, 180, "XFMR");
-    fader("geq.out", 850, 180, "OUTPUT");
-    text("Ten octave bands of +/-12 dB with proportional Q (each band narrows the harder it is pushed), voiced after the API 560, "
-         "into an output transformer.  All bands at 0 dB = completely dry.  XFMR sets the transformer colour; OUTPUT trims the level.  "
-         "ON is on the panel.",
-         20, 370, 960, 40, juce::Justification::topLeft);
+    pageList.push_back({ "peq", "PARAMETRIC EQ", { 880, 300, 1000, 430 } });
+    page("peq");
+    sectionAt("peqPage", "PARAMETRIC EQ  -  OUTPUT", 0, 0, 1000, 430);
+    utilityAt("peqClose", 960, 3, 34, 20);
+    utilityAt("peqFlat", 884, 4, 66, 18);
+    utilityAt("peqCurveBig", 20, 36, 960, 200);
+    heading("LOW CUT", 20, 248, 80);
+    add("peq.hpf", K::Knob, 24, 270, "FREQ", 48);
+    for (int b = 0; b < 5; ++b)
+    {
+        const juce::String n(b + 1);
+        const int x = 116 + b * 120;
+        heading("BAND " + n, x, 248, 110);
+        add("peq.b" + n + ".f", K::Knob, x - 2, 270, "FREQ", 48);
+        add("peq.b" + n + ".g", K::Knob, x + 50, 270, "GAIN", 48);
+        add("peq.b" + n + ".q", K::Knob, x + 24, 346, "Q", 48);
+    }
+    heading("HIGH CUT", 726, 248, 80);
+    add("peq.lpf", K::Knob, 730, 270, "FREQ", 48);
+    heading("OUTPUT", 822, 248, 80);
+    add("peq.out", K::Knob, 826, 270, "LEVEL", 48);
+    text("Drag the nodes on the curve (wheel = Q, double-click = flat / off) or use the knobs.  "
+         "Cuts are 12 dB/oct; fully out = off.  Everything flat = completely dry.  ON is on the panel.",
+         726, 346, 254, 70, juce::Justification::topLeft);
 
     // ------------------------------------------------------- sequencer steps
     pageList.push_back({ "seq", "STEP SEQUENCER", { 400, 300, 1120, 340 } });

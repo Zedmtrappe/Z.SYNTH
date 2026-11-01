@@ -22,7 +22,7 @@
 #include "../Effects/Compressor.h"
 #include "../Effects/DriveAndOutput.h"
 #include "../Effects/SmoothBand.h"
-#include "../Effects/VintageGraphicEq.h"
+#include "../Effects/OutputEq.h"
 #include "../Effects/ModulationEffects.h"
 #include "../Effects/TimeEffects.h"
 #include "../Performance/Arpeggiator.h"
@@ -94,6 +94,7 @@ private:
     void computeShared(int internalSamples);
     void runEffects(float* left, float* right, int n);
     float p(int index) const { return smoothed[index]; }
+    OutputEqSettings outputEqSettings() const;
     int pi(int index) const { return (int) std::lround(smoothed[index]); }
     bool pb(int index) const { return smoothed[index] >= 0.5f; }
 
@@ -142,7 +143,7 @@ private:
     Reverb reverb;
     ValveStage valve;
     OutputCompressor compressor;
-    VintageGraphicEq graphicEq;
+    OutputEq outputEq;
     SmoothBand smooth;
     OutputStage output;
     // Each effect fades in/out over 20 ms when switched, so toggling never clicks.

@@ -13,7 +13,7 @@ advanced sections.
 |---|---|
 | Formats | Standalone app, VST3 and Audio Unit (macOS universal builds from CI, AU checked with auval) |
 | Engine | JUCE-free C++17 library, usable without any GUI |
-| Parameters | 387, all host-automatable, one authoritative table |
+| Parameters | 393, all host-automatable, one authoritative table |
 | Factory library | 272 presets: *ZYNTH Originals* (160, 15 categories) and *Classic Machines* (112 sounds in 26 instrument folders), level-matched by measurement |
 | Tests | 50 DSP tests, 23 state/preset/layout/editor tests, a VST3 host test |
 | Tested on | Ubuntu 24.04, x86-64, GCC 13.3, CMake 3.28, JUCE 8.0.9 |
@@ -63,14 +63,15 @@ advanced sections.
   MIDI learn, on-screen keyboard with pitch and modulation wheels.
 * **Valve stage** — an oversampled valve output stage seen through a glass
   window on the panel (the valve glows brighter as DRIVE goes up): 12AX7,
-  12AU7, EL84 push-pull and 6L6 models with bias, supply sag, output-transformer
+  12AU7, EL84 push-pull and 6L6 models (each with its own transfer curve,
+  harmonic signature and tone voicing) with bias, supply sag, output-transformer
   warmth and mix. Gentle by design: warmth and soft peak compression through
   most of the DRIVE travel, audible distortion from about 90 %.
-* **Vintage graphic EQ** — a 10-band output EQ voiced after the API 560
-  (proportional Q, output transformer); flat = completely dry. Its block in
-  the effects row shows the curve; ADVANCED opens all ten bands.
+* **Parametric output EQ** — five bell bands with variable Q, 12 dB/oct low
+  and high cuts and an output trim; flat = completely dry. Its block in the
+  effects row shows the curve; ADVANCED opens a draggable-node editor.
 * **SMOOTH** — a fixed 2.2 kHz dynamic compressor on the output that tames
-  harshness only when it appears; one AMOUNT knob and an LED GR ladder.
+  harshness only when it appears; ON, one AMOUNT knob and an LED GR ladder.
 * **Output compressor** — PRE FX places it before or after the delay and
   reverb; LA-2A-style opto leveller, SSL-style VCA bus
   compressor, 1176-style FET limiter (with all-buttons mode) and
@@ -222,7 +223,7 @@ These are honest gaps in the current version, not hidden features:
   circuits or copies of their factory patches. Instrument names are trademarks
   of their owners, used descriptively; ZYNTH is not affiliated with them.
 * The VST3 exposes JUCE's 2048 hidden MIDI-CC proxy parameters in addition to
-  the 387 synth parameters (needed for controller input in VST3 hosts).
+  the 393 synth parameters (needed for controller input in VST3 hosts).
 
 ## Licence
 
