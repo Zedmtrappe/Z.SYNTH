@@ -82,6 +82,23 @@ Activity activityFor(int i, const float* v, bool hostTempo)
         }
     }
 
+    if (inRange(i, P::WtSeqMode, P::WtSeqXfade))
+    {
+        bool used = false;
+        for (const auto& o : oscs)
+            used = used || (on(v, o.on) && (OscWave) choice(v, o.wave) == OscWave::Wavetable);
+        if (! used)
+            return inactive("Wave sequencing plays the WAVETABLE: set an oscillator's wave to Wavetable.");
+        if (i != P::WtSeqMode && choice(v, P::WtSeqMode) == 0)
+            return inactive("The wave sequence is off. Choose a MODE.");
+        if (i == P::WtSeqTime && on(v, P::WtSeqSync))
+            return inactive("Steps are tempo-synced: use DIVISION.");
+        if (i == P::WtSeqDiv && ! on(v, P::WtSeqSync))
+            return inactive("Steps are free-running: use TIME (or switch SYNC on).");
+    }
+    if ((i == P::VecX || i == P::VecY) && ! on(v, P::VecOn))
+        return inactive("Vector mixing is off. Switch VECTOR on.");
+
     if (i == P::SubWave && v[P::SubLevel] <= 0.0f)
         return inactive("Sub-oscillator level is zero.");
     if (i == P::NoiseType && v[P::NoiseLevel] <= 0.0f)

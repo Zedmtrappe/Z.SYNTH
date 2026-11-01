@@ -140,11 +140,17 @@ PanelLayout::PanelLayout()
         add("osc" + n + ".octave", K::Selector, x + 110, 154, "RANGE", 62);
         fader("osc" + n + ".semi",  x,       206, "SEMI");
         fader("osc" + n + ".fine",  x + 36,  206, "FINE");
-        fader("osc" + n + ".pw",    x + 72,  206, "PW");
         fader("osc" + n + ".level", x + 108, 206, "LEVEL");
         fader("osc" + n + ".fm",    x + 144, 206, i == 0 ? "FM 3>1" : "FM 1>" + n);
+        // PW and RING give way to DETUNE and MIX when the wave is SuperSaw / HyperSaw.
+        view("osc" + n + ":std");
+        fader("osc" + n + ".pw",    x + 72,  206, "PW");
         if (i > 0)
             fader("osc" + n + ".xmod", x + 180, 206, "RING");
+        view("osc" + n + ":super");
+        fader("osc" + n + ".detune", x + 72, 206, "DETUNE");
+        fader("osc" + n + ".smix",   x + 180, 206, "MIX");
+        view({});
     }
     heading("MIXER", 716, 134, 80);
     add("osc.sub.wave",   K::Selector, 716, 154, "SUB WAVE", 72);
@@ -159,6 +165,7 @@ PanelLayout::PanelLayout()
     utilityAt("wtDisplay", 876, 198, 102, 44);
     shortFader("wt.pos",    884, 250, "POS");
     shortFader("wt.spread", 932, 250, "SPRD");
+    utilityAt("openWave", 876, 394, 102, 20);
 
     // ------------------------------------------------------------- filter
     sectionAt("filter", "FILTER", 998, 104, 332, 320);
@@ -317,6 +324,8 @@ PanelLayout::PanelLayout()
     {
         view(fx.view);
         fxOn(1, fx.on);
+        if (juce::String(fx.view) == "mod:chorus")
+            add("fx.cho.type", K::Selector, mx[1] + 8, 872, "TYPE", 100);
         for (size_t k = 0; k < fx.faders.size(); ++k)
             shortFader(fx.faders[k].first, mx[1] + 120 + (int) k * 36, 810, fx.faders[k].second);
     }
@@ -419,6 +428,31 @@ PanelLayout::PanelLayout()
         for (int c = 0; c < 3; ++c)
             shortFader("fm.op" + n + "." + scaleSuffix[c], bx + 178 + c * 36, 280, scaleCols[c]);
     }
+
+    // ------------------------------------------- wave sequence and vector
+    pageList.push_back({ "wave", "WAVE SEQUENCE & VECTOR", { 560, 140, 740, 340 } });
+    page("wave");
+    sectionAt("wavePage", "WAVE SEQUENCE  &  VECTOR", 0, 0, 740, 340);
+    utilityAt("waveClose", 700, 3, 34, 20);
+    heading("WAVE SEQUENCE", 20, 34, 300);
+    add("wt.seq.mode", K::Selector, 20, 56, "MODE", 120);
+    add("wt.seq.div",  K::Selector, 150, 56, "DIVISION", 84);
+    add("wt.seq.sync", K::Switch,   244, 56, "SYNC");
+    fader("wt.seq.steps", 24, 116, "STEPS");
+    fader("wt.seq.time",  70, 116, "TIME");
+    fader("wt.seq.xfade", 116, 116, "XFADE");
+    text("Steps through the WAVETABLE section's table from every note-on, like a Wavestation wave sequence.  "
+         "The waves are spread evenly through the table starting at POS (SPRD offsets osc 2 and 3).  "
+         "XFADE 0 = hard, rhythmic steps; 1 = continuous blending.  "
+         "The SEQ tables hold 32 different waves made for sequencing.",
+         164, 116, 176, 200, juce::Justification::topLeft);
+    heading("VECTOR", 360, 34, 200);
+    add("vec.on", K::Switch, 650, 56, "ON");
+    utilityAt("vectorPad", 370, 60, 220, 220);
+    add("vec.y", K::VSlider, 600, 60, "Y", 28, 220);
+    add("vec.x", K::HSlider, 370, 290, "X", 220, 24);
+    text("A  OSC 1\nB  OSC 2\nC  OSC 3\nD  FM part\n\nDrag the joystick, or move it with an LFO / ENV 3 (VECTOR X / Y).",
+         640, 110, 92, 200, juce::Justification::topLeft);
 
     // ------------------------------------------------------- valve advanced
     pageList.push_back({ "valve", "VALVE STAGE", { 1080, 300, 560, 330 } });

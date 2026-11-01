@@ -353,6 +353,8 @@ void MainPanel::buildUtilities()
     });
     button("openGeq", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "All ten graphic EQ bands, transformer and output", [this] {
         showPage(getVisiblePage() == "geq" ? juce::String() : juce::String("geq")); });
+    button("openWave", juce::String::fromUTF8("SEQ / VECTOR \xe2\x96\xb8"), "Wave sequencing and vector mixing (Wavestation style)", [this] {
+        showPage(getVisiblePage() == "wave" ? juce::String() : juce::String("wave")); });
     button("openValve", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Valve type, bias, sag, warmth and mix", [this] {
         showPage(getVisiblePage() == "valve" ? juce::String() : juce::String("valve")); });
 
@@ -380,6 +382,7 @@ void MainPanel::buildUtilities()
     displays.push_back(&geqCurve);
     displays.push_back(&addUtility<GraphicEqDisplay>("geqCurveBig", processor, false));
     displays.push_back(&addUtility<ValveDisplay>("valveDisplay", processor));
+    displays.push_back(&addUtility<VectorPad>("vectorPad", processor));
     modSelector = &addUtility<ModEffectSelector>("modSelector", processor);
     modSelector->onChange = [this](int i) { showModView(ModEffectSelector::views[i]); };
     // Start on the first modulation effect that is switched on.
@@ -390,6 +393,7 @@ void MainPanel::buildUtilities()
             break;
         }
     showModView(ModEffectSelector::views[modSelector->getCurrent()]);
+    updateOscViews(true);
     displays.push_back(&addUtility<CompMeter>("compMeter", processor));
     displays.push_back(&addUtility<ReverbEqCurve>("reverbEqCurve", processor, false));
     displays.push_back(&addUtility<ReverbEqCurve>("reverbEqCurveBig", processor, true));
@@ -435,9 +439,25 @@ juce::String MainPanel::getVisiblePage() const
 
 void MainPanel::showModView(const juce::String& view)
 {
+    // Views are "group:name"; only controls of the same group are affected.
+    const auto group = view.upToFirstOccurrenceOf(":", true, false);
     for (size_t i = 0; i < controls.size(); ++i)
-        if (controlViews[i].isNotEmpty())
+        if (controlViews[i].startsWith(group))
             controls[i]->setVisible(controlViews[i] == view);
+}
+
+void MainPanel::updateOscViews(bool force)
+{
+    static constexpr int waves[3] = { P::Osc1Wave, P::Osc2Wave, P::Osc3Wave };
+    for (int i = 0; i < 3; ++i)
+    {
+        const bool super = isSuperWave((OscWave) (int) std::lround(processor.getValue(waves[i])));
+        if (force || super != oscSuperShown[i])
+        {
+            oscSuperShown[i] = super;
+            showModView("osc" + juce::String(i + 1) + (super ? ":super" : ":std"));
+        }
+    }
 }
 
 void MainPanel::showMusicalTyping(bool show)
@@ -602,6 +622,7 @@ void MainPanel::timerCallback()
             d->refresh();
     for (auto* w : wheels)
         w->refresh();
+    updateOscViews(false);
 
     const int step = processor.getEngine().getSeqStep();
     const bool seqRunning = std::lround(processor.getValue(P::SeqMode)) != 0;

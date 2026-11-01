@@ -18,6 +18,7 @@ void Voice::prepare(float internalSampleRate, int voiceIndex)
     vintagePan = rng.bipolar();
 
     noise.setSeed((uint32_t) (voiceIndex * 31 + 5));
+    superRng.setSeed((uint32_t) (voiceIndex * 977 + 3));
     lfo[0].setSeed((uint32_t) (voiceIndex * 131 + 7));
     lfo[1].setSeed((uint32_t) (voiceIndex * 257 + 11));
 
@@ -42,7 +43,11 @@ void Voice::begin(const NoteStart& ns)
     polyAftertouch = 0.0f;
 
     for (int i = 0; i < 3; ++i)
+    {
         osc[i].reset(ns.randomPhase ? rng.unipolar() : 0.0f);
+        superSaw[i].reset(superRng); // free-running phases, as on the JP-8000
+    }
+    noteTime = 0.0f;
     sub.reset(0.0f);
     lastOsc3 = 0.0f;
 
@@ -120,6 +125,7 @@ void Voice::retrigger(int newNote, float vel, float glideSeconds, uint32_t newAg
     fm.noteOn(velocity, false);
     randomValue = rng.bipolar();
     firstBlockLfoReset = true;
+    noteTime = 0.0f; // ROM attacks and wave sequences restart with the envelopes
 }
 
 void Voice::release()
@@ -155,9 +161,19 @@ float Voice::pitchForOsc(int i, const VoiceShared& s) const
          + drift[i] * s.drift * 0.12f;        // up to +/-12 cents of slow wander
 }
 
+void Voice::setTableFrames(int i, const Wavetable& table, int key, int fa, int fb, float mix, float fmAmount)
+{
+    const int mip = Wavetable::mipForIncrement(incEnd[i] * (1.0f + 2.0f * fmAmount));
+    osc[i].setWavetableFrames(table.frame(fa, mip), table.frame(fb, mip));
+    wtMixStart[i] = (key == wtFrame[i]) ? wtMixEnd[i] : mix;
+    wtMixEnd[i] = mix;
+    wtFrame[i] = key;
+}
+
 void Voice::updateControl(int n, const VoiceShared& s)
 {
     const float dt = (float) n * s.invSampleRate;
+    noteTime += dt;
 
     if (firstBlock || firstBlockLfoReset)
     {
@@ -284,18 +300,101 @@ void Voice::updateControl(int n, const VoiceShared& s)
         fmAmt[i] = clampf(o.fm + m[ModDest::OscFm], 0.0f, 1.0f);
         ring[i] = o.ring;
 
-        if (o.wave == OscWave::Wavetable && s.wavetable != nullptr)
+        superOn[i] = isSuperWave(o.wave);
+        if (superOn[i])
+        {
+            osc[i].setWave(OscWave::Saw); // still runs: osc 1's wraps drive sync and the sub
+            superSaw[i].setup(o.wave == OscWave::HyperSaw, o.detune + m[ModDest::Detune], o.superMix);
+        }
+        else if (isRomWave(o.wave) && s.bank != nullptr)
+        {
+            // The ROM wave's own evolution: attack frames once, then a slow
+            // back-and-forth loop. Higher notes run through the attack faster,
+            // as a multisample's upper samples do.
+            const int r = (int) o.wave - (int) OscWave::RomAhhChoir;
+            const auto ev = WavetableBank::romEvolution(r);
+            const float attack = ev.attackSec * fastExp2(-((float) note - 60.0f) / 36.0f);
+            float pos;
+            if (noteTime < attack)
+            {
+                pos = ev.loopStart * noteTime / attack;
+            }
+            else
+            {
+                const float ph = std::fmod((noteTime - attack) / ev.loopSec, 1.0f);
+                const float tri = ph < 0.5f ? 2.0f * ph : 2.0f - 2.0f * ph;
+                pos = ev.loopStart + (ev.loopEnd - ev.loopStart) * tri;
+            }
+            pos = clampf(pos, 0.0f, (float) (Wavetable::kFrames - 1));
+            const int f0 = std::min((int) pos, Wavetable::kFrames - 2);
+            osc[i].setWave(OscWave::Wavetable);
+            setTableFrames(i, s.bank->rom(r), (r + 1) << 12 | f0, f0, f0 + 1, pos - (float) f0, fmAmt[i]);
+        }
+        else if (o.wave == OscWave::Wavetable && s.wavetable != nullptr && s.seqMode != WaveSeqMode::Off)
+        {
+            // Wave sequence: steps spread evenly through the table from POS.
+            const int nSteps = std::max(2, s.seqSteps);
+            const float u = noteTime / std::max(0.005f, s.seqStepSec);
+            const int whole = (int) u;
+            float frac = u - (float) whole;
+            int idx, next;
+            if (s.seqMode == WaveSeqMode::Loop)
+            {
+                idx = whole % nSteps;
+                next = (idx + 1) % nSteps;
+            }
+            else if (s.seqMode == WaveSeqMode::PingPong)
+            {
+                const int period = 2 * nSteps - 2;
+                const int j = whole % period, jn = (j + 1) % period;
+                idx = j < nSteps ? j : period - j;
+                next = jn < nSteps ? jn : period - jn;
+            }
+            else
+            {
+                idx = std::min(whole, nSteps - 1);
+                next = std::min(idx + 1, nSteps - 1);
+                if (whole >= nSteps - 1)
+                    frac = 0.0f;
+            }
+            const float xf = std::max(s.seqXfade, std::min(1.0f, 0.004f / std::max(0.005f, s.seqStepSec)));
+            float mix = frac < 1.0f - xf ? 0.0f : (frac - (1.0f - xf)) / xf;
+            mix = mix * mix * (3.0f - 2.0f * mix);
+            const int stride = std::max(1, Wavetable::kFrames / nSteps);
+            const float pos = clampf(s.wtPos + m[ModDest::WavetablePos], 0.0f, 1.0f);
+            const int base = (int) std::lround(pos * (float) (Wavetable::kFrames - 1))
+                           + (int) std::lround(s.wtSpread * spreadFactor[i] * 16.0f) + Wavetable::kFrames * 4;
+            const int fa = (base + idx * stride) % Wavetable::kFrames;
+            const int fb = (base + next * stride) % Wavetable::kFrames;
+            setTableFrames(i, *s.wavetable, fa * 64 + fb, fa, fb, mix, fmAmt[i]);
+        }
+        else if (o.wave == OscWave::Wavetable && s.wavetable != nullptr)
         {
             const float pos = clampf(s.wtPos + m[ModDest::WavetablePos] + s.wtSpread * spreadFactor[i], 0.0f, 1.0f);
             const float fpos = pos * (float) (Wavetable::kFrames - 1);
             const int f0 = std::min((int) fpos, Wavetable::kFrames - 2);
-            const float mix = fpos - (float) f0;
-            const int mip = Wavetable::mipForIncrement(incEnd[i] * (1.0f + 2.0f * fmAmt[i]));
-            osc[i].setWavetableFrames(s.wavetable->frame(f0, mip), s.wavetable->frame(f0 + 1, mip));
-            wtMixStart[i] = (f0 == wtFrame[i]) ? wtMixEnd[i] : mix;
-            wtMixEnd[i] = mix;
-            wtFrame[i] = f0;
+            setTableFrames(i, *s.wavetable, f0, f0, f0 + 1, fpos - (float) f0, fmAmt[i]);
         }
+    }
+
+    // Vector mixing: equal-power bilinear blend of the four corners of the
+    // joystick diamond (A left, B top, C right, D bottom).
+    vectorGainD = 1.0f;
+    if (s.vectorOn)
+    {
+        float x = clampf(s.vectorX + m[ModDest::VectorX], -1.0f, 1.0f);
+        float y = clampf(s.vectorY + m[ModDest::VectorY], -1.0f, 1.0f);
+        const float l1 = std::abs(x) + std::abs(y);
+        if (l1 > 1.0f)
+        {
+            x /= l1;
+            y /= l1;
+        }
+        const float u = 0.5f * (x + y) + 0.5f, v = 0.5f * (y - x) + 0.5f;
+        level[0] *= std::sqrt(std::max(0.0f, (1.0f - u) * v));
+        level[1] *= std::sqrt(std::max(0.0f, u * v));
+        level[2] *= std::sqrt(std::max(0.0f, u * (1.0f - v)));
+        vectorGainD = std::sqrt(std::max(0.0f, (1.0f - u) * (1.0f - v)));
     }
     sub.setWave(s.subWave);
     subLevel = clampf(s.subLevel + m[ModDest::SubLevel], 0.0f, 1.0f);
@@ -303,7 +402,7 @@ void Voice::updateControl(int n, const VoiceShared& s)
 
     if (s.fmActive)
         fm.prepareBlock(s.fm, m[ModDest::FmDepth], m[ModDest::FmFeedback], notePitch);
-    fmGain = s.fmLevel;
+    fmGain = s.fmLevel * vectorGainD;
 
     // ---- filter
     const float cutoffNote = s.cutoffNote
@@ -368,7 +467,8 @@ void Voice::render(float* left, float* right, int n, const VoiceShared& s)
     const bool fmOn = s.fmActive;
     const bool osc2On = level[1] > 0.0f;
     const bool osc3On = level[2] > 0.0f || fmAmt[0] > 0.0f;
-    const bool wt[3] = { s.osc[0].wave == OscWave::Wavetable, s.osc[1].wave == OscWave::Wavetable, s.osc[2].wave == OscWave::Wavetable };
+    auto usesTable = [&](int k) { return s.osc[k].wave == OscWave::Wavetable || isRomWave(s.osc[k].wave); };
+    const bool wt[3] = { usesTable(0), usesTable(1), usesTable(2) };
     const FilterType type = s.filterType;
     const FilterSlope slope = s.filterSlope;
     // Mixer overdrive. The makeup is chosen so a typical full-level mix (0.5
@@ -389,21 +489,23 @@ void Voice::render(float* left, float* right, int n, const VoiceShared& s)
                     osc[k].setWavetableMix(lerp(wtMixStart[k], wtMixEnd[k], t));
 
             const float inc1 = lerp(incStart[0], incEnd[0], t) * (1.0f + fmAmt[0] * 4.0f * lastOsc3);
-            const float o1 = osc[0].process(inc1, -1.0f);
+            float o1 = osc[0].process(inc1, -1.0f);
             const float wrap = osc[0].wrapAfter();
+            if (superOn[0])
+                o1 = superSaw[0].process(inc1);
             sum += o1 * level[0];
 
             if (osc2On)
             {
-                float o2 = osc[1].process(lerp(incStart[1], incEnd[1], t) * (1.0f + fmAmt[1] * 4.0f * o1),
-                                          s.osc[1].sync ? wrap : -1.0f);
+                const float inc2 = lerp(incStart[1], incEnd[1], t) * (1.0f + fmAmt[1] * 4.0f * o1);
+                float o2 = superOn[1] ? superSaw[1].process(inc2) : osc[1].process(inc2, s.osc[1].sync ? wrap : -1.0f);
                 o2 += (o2 * o1 - o2) * ring[1];
                 sum += o2 * level[1];
             }
             if (osc3On)
             {
-                float o3 = osc[2].process(lerp(incStart[2], incEnd[2], t) * (1.0f + fmAmt[2] * 4.0f * o1),
-                                          s.osc[2].sync ? wrap : -1.0f);
+                const float inc3 = lerp(incStart[2], incEnd[2], t) * (1.0f + fmAmt[2] * 4.0f * o1);
+                float o3 = superOn[2] ? superSaw[2].process(inc3) : osc[2].process(inc3, s.osc[2].sync ? wrap : -1.0f);
                 lastOsc3 = o3;
                 o3 += (o3 * o1 - o3) * ring[2];
                 sum += o3 * level[2];

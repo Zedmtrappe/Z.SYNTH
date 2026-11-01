@@ -58,6 +58,9 @@ inline ModDest lfoDestToModDest(LfoDest d)
         case LfoDest::FmDepth:      return ModDest::FmDepth;
         case LfoDest::Osc2Pitch:    return ModDest::Osc2Pitch;
         case LfoDest::Resonance:    return ModDest::Resonance;
+        case LfoDest::VectorX:      return ModDest::VectorX;
+        case LfoDest::VectorY:      return ModDest::VectorY;
+        case LfoDest::Detune:       return ModDest::Detune;
         default:                    return ModDest::Off;
     }
 }
@@ -75,6 +78,9 @@ inline ModDest env3DestToModDest(Env3Dest d)
         case Env3Dest::FmDepth:      return ModDest::FmDepth;
         case Env3Dest::Pan:          return ModDest::Pan;
         case Env3Dest::Noise:        return ModDest::NoiseLevel;
+        case Env3Dest::VectorX:      return ModDest::VectorX;
+        case Env3Dest::VectorY:      return ModDest::VectorY;
+        case Env3Dest::Detune:       return ModDest::Detune;
         default:                     return ModDest::Off;
     }
 }

@@ -12,8 +12,20 @@ namespace zsynth
 #define ZS_CH_ENGINE "Analog|Hybrid|FM"
 enum class EngineMode : int { Analog, Hybrid, FM, Count };
 
-#define ZS_CH_OSC_WAVE "Sine|Triangle|Saw|Square|Pulse|Wavetable"
-enum class OscWave : int { Sine, Triangle, Saw, Square, Pulse, Wavetable, Count };
+// SuperSaw: seven detuned saws (JP-8000 style). HyperSaw: nine saws with a
+// sub an octave down (Virus style). ROM waves: single-cycle multi-frame waves
+// voiced after the PCM ROMs of the 90s workstations; each plays its own
+// built-in evolution (attack frames, then a slow loop) from every note-on.
+#define ZS_CH_OSC_WAVE "Sine|Triangle|Saw|Square|Pulse|Wavetable|SuperSaw|HyperSaw|ROM Ahh Choir|ROM Ooh Voices|ROM Glass Pad|ROM Digital Bell|ROM Spectrum|ROM Digi Pad|ROM Strings|ROM E.Piano|ROM Brass|ROM Mallet|ROM Pluck|ROM Heaven|ROM Metal|ROM Bowed Glass|ROM Air Vox|ROM Synth Pad"
+enum class OscWave : int
+{
+    Sine, Triangle, Saw, Square, Pulse, Wavetable, SuperSaw, HyperSaw,
+    RomAhhChoir, RomOohVoices, RomGlassPad, RomDigitalBell, RomSpectrum, RomDigiPad, RomStrings, RomEPiano,
+    RomBrass, RomMallet, RomPluck, RomHeaven, RomMetal, RomBowedGlass, RomAirVox, RomSynthPad, Count
+};
+constexpr int kNumRomWaves = (int) OscWave::Count - (int) OscWave::RomAhhChoir;
+inline bool isRomWave(OscWave w) { return (int) w >= (int) OscWave::RomAhhChoir; }
+inline bool isSuperWave(OscWave w) { return w == OscWave::SuperSaw || w == OscWave::HyperSaw; }
 
 #define ZS_CH_OCTAVE "32'|16'|8'|4'|2'"
 enum class OscOctave : int { Ft32, Ft16, Ft8, Ft4, Ft2, Count };
@@ -24,11 +36,17 @@ enum class SubWave : int { SquareMinus1, SquareMinus2, SineMinus1, PulseMinus1, 
 #define ZS_CH_NOISE "White|Pink"
 enum class NoiseType : int { White, Pink, Count };
 
-#define ZS_CH_WAVETABLE "Analog Morph|Harmonic Sweep|Vocal Formant|PWM Scan|Digital Bell|Sync Sweep|Wavefolder|Drawbar Organ"
-enum class WavetableId : int { AnalogMorph, HarmonicSweep, VocalFormant, PwmScan, DigitalBell, SyncSweep, Wavefolder, DrawbarOrgan, Count };
+// The "Seq" tables hold 32 distinct waves (not a smooth morph), made for wave
+// sequencing (Wavestation style); they also scan.
+#define ZS_CH_WAVETABLE "Analog Morph|Harmonic Sweep|Vocal Formant|PWM Scan|Digital Bell|Sync Sweep|Wavefolder|Drawbar Organ|Seq Harmonics|Seq Digital|Seq Vocal|Seq Bells|Spectral"
+enum class WavetableId : int { AnalogMorph, HarmonicSweep, VocalFormant, PwmScan, DigitalBell, SyncSweep, Wavefolder, DrawbarOrgan,
+                               SeqHarmonics, SeqDigital, SeqVocal, SeqBells, Spectral, Count };
 
-#define ZS_CH_FILTER_MODEL "Ladder|OTA|SEM|K35"
-enum class FilterModel : int { Ladder, Ota, Sem, K35, Count };
+#define ZS_CH_WAVE_SEQ "Off|Loop|Ping-Pong|One Shot"
+enum class WaveSeqMode : int { Off, Loop, PingPong, OneShot, Count };
+
+#define ZS_CH_FILTER_MODEL "Ladder|OTA|SEM|K35|JP-8000|Virus|Roland TVF|Korg Digital|Alesis QS"
+enum class FilterModel : int { Ladder, Ota, Sem, K35, Jp8000, Virus, RolandTvf, KorgDigital, AlesisQs, Count };
 
 #define ZS_CH_FILTER_TYPE "LP|BP|HP|Notch"
 enum class FilterType : int { LowPass, BandPass, HighPass, Notch, Count };
@@ -42,11 +60,11 @@ enum class LfoWave : int { Sine, Triangle, SawUp, RampDown, Square, SampleHold, 
 #define ZS_CH_LFO_MODE "Free|Retrig|One Shot"
 enum class LfoMode : int { Free, Retrigger, OneShot, Count };
 
-#define ZS_CH_LFO_DEST "Off|Pitch|Cutoff|PW|Amp|Pan|WT Pos|FM Depth|Osc2 Pitch|Resonance"
-enum class LfoDest : int { Off, Pitch, Cutoff, PulseWidth, Amp, Pan, WavetablePos, FmDepth, Osc2Pitch, Resonance, Count };
+#define ZS_CH_LFO_DEST "Off|Pitch|Cutoff|PW|Amp|Pan|WT Pos|FM Depth|Osc2 Pitch|Resonance|Vector X|Vector Y|Detune"
+enum class LfoDest : int { Off, Pitch, Cutoff, PulseWidth, Amp, Pan, WavetablePos, FmDepth, Osc2Pitch, Resonance, VectorX, VectorY, Detune, Count };
 
-#define ZS_CH_ENV3_DEST "Off|Pitch|Osc2 Pitch|PW|Cutoff|WT Pos|FM Depth|Pan|Noise"
-enum class Env3Dest : int { Off, Pitch, Osc2Pitch, PulseWidth, Cutoff, WavetablePos, FmDepth, Pan, Noise, Count };
+#define ZS_CH_ENV3_DEST "Off|Pitch|Osc2 Pitch|PW|Cutoff|WT Pos|FM Depth|Pan|Noise|Vector X|Vector Y|Detune"
+enum class Env3Dest : int { Off, Pitch, Osc2Pitch, PulseWidth, Cutoff, WavetablePos, FmDepth, Pan, Noise, VectorX, VectorY, Detune, Count };
 
 // Tempo divisions shared by LFOs, arpeggiator, sequencer and delay.
 // The beat lengths live in DSP/Common/TempoDivisions.h.
@@ -78,13 +96,13 @@ enum class ModSource : int
     Aftertouch, PolyAftertouch, Expression, Random, SampleHold, SeqStep, Macro, Count
 };
 
-#define ZS_CH_MOD_DST "Off|Pitch|Osc1 Pitch|Osc2 Pitch|Osc3 Pitch|Pulse Width|Osc1 Level|Osc2 Level|Osc3 Level|Sub Level|Noise Level|Osc FM|WT Position|FM Depth|FM Feedback|Cutoff|Resonance|Filter Drive|HPF Cutoff|Amp Level|Pan|LFO1 Rate|LFO2 Rate|LFO1 Amount|LFO2 Amount|FX Drive|Chorus Mix|Delay Mix|Reverb Mix|Delay Feedback"
+#define ZS_CH_MOD_DST "Off|Pitch|Osc1 Pitch|Osc2 Pitch|Osc3 Pitch|Pulse Width|Osc1 Level|Osc2 Level|Osc3 Level|Sub Level|Noise Level|Osc FM|WT Position|FM Depth|FM Feedback|Cutoff|Resonance|Filter Drive|HPF Cutoff|Amp Level|Pan|LFO1 Rate|LFO2 Rate|LFO1 Amount|LFO2 Amount|FX Drive|Chorus Mix|Delay Mix|Reverb Mix|Delay Feedback|Vector X|Vector Y|Detune"
 enum class ModDest : int
 {
     Off, Pitch, Osc1Pitch, Osc2Pitch, Osc3Pitch, PulseWidth, Osc1Level, Osc2Level, Osc3Level,
     SubLevel, NoiseLevel, OscFm, WavetablePos, FmDepth, FmFeedback, Cutoff, Resonance,
     FilterDrive, HpfCutoff, AmpLevel, Pan, Lfo1Rate, Lfo2Rate, Lfo1Amount, Lfo2Amount,
-    FxDrive, ChorusMix, DelayMix, ReverbMix, DelayFeedback, Count
+    FxDrive, ChorusMix, DelayMix, ReverbMix, DelayFeedback, VectorX, VectorY, Detune, Count
 };
 
 #define ZS_CH_ARP_MODE "Up|Down|Up/Down|Random|As Played|Chord"
@@ -95,6 +113,9 @@ enum class SeqMode : int { Off, Mod, Note, Count };
 
 #define ZS_CH_DELAY_TYPE "Digital|Tape RE-201|Tape EP-3|Analog DM-2|Diffuse|Lo-Fi"
 enum class DelayType : int { Digital, TapeRE201, TapeEP3, AnalogDM2, Diffuse, LoFi, Count };
+
+#define ZS_CH_CHORUS_TYPE "Classic BBD|Roland Digital|Korg Stereo|Virus"
+enum class ChorusType : int { ClassicBbd, RolandDigital, KorgStereo, Virus, Count };
 
 #define ZS_CH_REVERB_TYPE "Hall|Room|EMT 140 Plate|Echo Chamber|Spring|Lexicon 224|Lexicon 480L|Bricasti M7|Shimmer|AMS Nonlin|AMS Reverse|Yamaha REV7|Eventide SP2016|Quantec QRS|Lexicon PCM70"
 enum class ReverbType : int { Hall, Room, Plate, Chamber, Spring, Lex224, Lex480, BricastiM7, Shimmer,

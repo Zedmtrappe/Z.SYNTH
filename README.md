@@ -1,7 +1,8 @@
 # ZYNTH
 
 A hybrid virtual synthesiser: three band-limited analogue-style oscillators,
-wavetables, a six-operator FM engine, four distinct filter models, a full
+SuperSaw / HyperSaw stacks, wavetables with wave sequencing, 90s-workstation
+style ROM waves and vector mixing, a six-operator FM engine, nine filter models, a full
 modulation matrix, arpeggiator, step sequencer and seven effects — on one fixed,
 hardware-style front panel of colour-coded faders, with popup editors for the
 advanced sections.
@@ -12,9 +13,9 @@ advanced sections.
 |---|---|
 | Formats | Standalone app, VST3 and Audio Unit (macOS universal builds from CI, AU checked with auval) |
 | Engine | JUCE-free C++17 library, usable without any GUI |
-| Parameters | 371, all host-automatable, one authoritative table |
-| Factory library | 228 presets: *ZYNTH Originals* (160, 15 categories) and *Classic Machines* (68 sounds in 20 instrument folders), level-matched by measurement |
-| Tests | 45 DSP tests, 23 state/preset/layout/editor tests, a VST3 host test |
+| Parameters | 387, all host-automatable, one authoritative table |
+| Factory library | 272 presets: *ZYNTH Originals* (160, 15 categories) and *Classic Machines* (112 sounds in 26 instrument folders), level-matched by measurement |
+| Tests | 50 DSP tests, 23 state/preset/layout/editor tests, a VST3 host test |
 | Tested on | Ubuntu 24.04, x86-64, GCC 13.3, CMake 3.28, JUCE 8.0.9 |
 
 ## What it does
@@ -22,8 +23,22 @@ advanced sections.
 * **Oscillators** — 3 oscillators (sine, triangle, saw, square, pulse, wavetable),
   PolyBLEP/PolyBLAMP band-limiting including hard sync, audio-rate FM, ring
   modulation, sub-oscillator, white/pink noise, drift, mixer overdrive.
-* **Wavetables** — 8 original procedurally generated tables, 32 frames each,
-  11 band-limited mipmaps per frame, smooth position scanning and spread.
+* **Super saws** — SuperSaw (seven saws with the JP-8000's uneven detune and
+  non-linear DETUNE / MIX curves, high-passed at the fundamental like the
+  original) and HyperSaw (nine evenly spread saws, Virus style), each with its
+  own DETUNE and MIX faders.
+* **ROM waves** — 16 original multi-frame waves voiced after the PCM ROMs of
+  90s workstations (choirs, voices, glass, bells, spectrum, strings, e-piano,
+  brass, mallet, pluck, metal, pads); each plays an attack and then a slowly
+  moving loop from every note-on, faster on higher notes, like a multisample.
+* **Wavetables** — 13 original procedurally generated tables, 32 frames each,
+  11 band-limited mipmaps per frame, smooth position scanning and spread; four
+  "Seq" tables of 32 distinct waves and a Virus-style Spectral table.
+* **Wave sequencing and vector mixing** (Wavestation style) — the wavetable
+  can step through its waves from each note-on (loop, ping-pong or one-shot,
+  2-32 steps, free or tempo-synced, hard to fully blended crossfades); a
+  joystick mixes osc 1 / osc 2 / osc 3 / FM part, movable by LFOs, ENV 3 or
+  the matrix.
 * **FM** — 6 operators, 16 algorithms, per-operator ratio/fine/level/ADSR,
   velocity sensitivity and keyboard rate/level scaling, operator-6 feedback,
   velocity-to-index. **DX mode** switches to DX7-style maths (logarithmic
@@ -79,7 +94,8 @@ advanced sections.
   lead, chords, e-piano, pads, arpeggio, plucks, brass, bells, Jump) or any standard
   MIDI file, merged to one part that plays poly or mono as the patch decides.
 * **Effects** — drive (2x oversampled overdrive/distortion/wavefolder), a
-  modulation block (chorus, string ensemble, phaser, flanger; stackable), ping-pong delay, FDN reverb,
+  modulation block (chorus with Classic BBD / Roland digital / Korg stereo /
+  Virus voicings, string ensemble, phaser, flanger; stackable), ping-pong delay, FDN reverb,
   stereo width and output character, safety limiter.
 
 See [docs/USER_MANUAL.md](docs/USER_MANUAL.md) for how to play it and
@@ -194,6 +210,9 @@ These are honest gaps in the current version, not hidden features:
   the DX7's maths but is not a bit-exact emulation (no DAC/EG step quantisation).
 * The filter models are inspired by classic circuits; none is a validated
   circuit model.
+* The ROM waves are original single-cycle multi-frame waves, not samples: pads,
+  bells, voices and sweeps come close to the 90s workstations, but sounds that
+  are really recordings (pianos, realistic strings and choirs) do not.
 * MIDI CC 11 (expression) is a modulation source, not hard-wired to volume.
 * No undo, no "preset modified" indicator, no user wavetable import.
 * The arpeggiator and the sequencer's Note mode are mutually exclusive
@@ -203,7 +222,7 @@ These are honest gaps in the current version, not hidden features:
   circuits or copies of their factory patches. Instrument names are trademarks
   of their owners, used descriptively; ZYNTH is not affiliated with them.
 * The VST3 exposes JUCE's 2048 hidden MIDI-CC proxy parameters in addition to
-  the 371 synth parameters (needed for controller input in VST3 hosts).
+  the 387 synth parameters (needed for controller input in VST3 hosts).
 
 ## Licence
 

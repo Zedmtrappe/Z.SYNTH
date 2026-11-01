@@ -4,6 +4,7 @@
 #include "../Common/FFT.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <cmath>
 #include <complex>
 #include <functional>
@@ -209,6 +210,240 @@ namespace
             h.b[(size_t) harmonic[d]] += level > 0.0 ? std::pow(10.0, (level - 8.0) * 3.0 / 20.0) : 0.0;
         }
     }
+
+    // ======================================================== sequence tables
+    // Small deterministic hash so every build makes the same tables.
+    double hash01(int a, int b)
+    {
+        uint32_t h = (uint32_t) a * 0x9E3779B1u ^ ((uint32_t) b + 0x7F4A7C15u) * 0x85EBCA77u;
+        h ^= h >> 15; h *= 0x2C1B3C6Du; h ^= h >> 12; h *= 0x297A2D39u; h ^= h >> 15;
+        return (double) (h & 0xFFFFFF) / (double) 0x1000000;
+    }
+
+    int frameOf(double t) { return (int) std::lround(t * (Wavetable::kFrames - 1)); }
+
+    /** A * sin(2 pi k p + phi). */
+    void addPartial(Harmonics& h, int k, double amp, double phi = 0.0)
+    {
+        if (k < 1 || k > Wavetable::kMaxHarmonics)
+            return;
+        h.a[(size_t) k] += amp * std::sin(phi);
+        h.b[(size_t) k] += amp * std::cos(phi);
+    }
+
+    double formant(double f, double fc, double bw, double g) { const double d = (f - fc) / bw; return g * std::exp(-d * d); }
+
+    // Each frame is the fundamental plus one strong harmonic (2nd .. 33rd):
+    // sequenced, it plays the harmonic series as a melody.
+    void seqHarmonics(double t, Harmonics& h)
+    {
+        const int f = frameOf(t);
+        addPartial(h, 1, 0.55);
+        addPartial(h, f + 2, 1.0);
+        addPartial(h, 2 * (f + 2), 0.18);
+    }
+
+    // 32 unrelated digital waves of varied brightness and holes.
+    void seqDigital(double t, Harmonics& h)
+    {
+        const int f = frameOf(t);
+        const double tilt = 0.5 + 1.2 * hash01(f, 1);
+        const int top = 8 + (int) (hash01(f, 2) * 120.0);
+        const int holeEvery = 2 + (int) (hash01(f, 3) * 5.0);
+        const bool oddOnly = hash01(f, 4) > 0.7;
+        for (int k = 1; k <= top; ++k)
+        {
+            if (k > 1 && k % holeEvery == 0) continue;
+            if (oddOnly && k % 2 == 0) continue;
+            const double peak = formant((double) k, 4.0 + hash01(f, 5) * 30.0, 3.0 + hash01(f, 6) * 6.0, 1.5 * hash01(f, 7));
+            addPartial(h, k, (1.0 / std::pow((double) k, tilt)) * (1.0 + peak), hash01(f, 100 + k) > 0.5 ? 0.0 : kPiD);
+        }
+    }
+
+    // 32 vowel colours scattered through the vowel space.
+    void seqVocal(double t, Harmonics& h)
+    {
+        const int f = frameOf(t);
+        const double f1 = 250.0 + 650.0 * hash01(f, 11);
+        const double f2 = 700.0 + 1700.0 * hash01(f, 12);
+        const double f3 = 2300.0 + 900.0 * hash01(f, 13);
+        for (int k = 1; k <= 140; ++k)
+        {
+            const double fr = 130.0 * k;
+            addPartial(h, k, (formant(fr, f1, 100, 1.0) + formant(fr, f2, 140, 0.55) + formant(fr, f3, 200, 0.3) + 0.02) / std::sqrt((double) k), kPiD * 0.5);
+        }
+    }
+
+    // 32 bell / metal spectra (sparse, high partial sets).
+    void seqBells(double t, Harmonics& h)
+    {
+        const int f = frameOf(t);
+        addPartial(h, 1, 0.7);
+        const int n = 3 + (int) (hash01(f, 21) * 5.0);
+        for (int i = 0; i < n; ++i)
+        {
+            const int k = 2 + (int) (hash01(f, 30 + i) * 30.0);
+            addPartial(h, k, 0.25 + 0.7 * hash01(f, 50 + i), hash01(f, 70 + i) * 2.0 * kPiD);
+        }
+    }
+
+    // Spectral waves (in the manner of the Virus's): a bright saw spectrum
+    // with a resonant band that walks up the harmonics frame by frame.
+    void spectral(double t, Harmonics& h)
+    {
+        const double centre = 1.0 + t * 40.0;
+        const double width = 1.0 + t * 4.0;
+        for (int k = 1; k <= 256; ++k)
+            addPartial(h, k, (0.35 / k) + formant((double) k, centre, width, 1.0) / std::sqrt((double) k));
+    }
+
+    // ============================================================ ROM waves
+    // Frames are moments in time: the first ones form the attack, the later
+    // ones a slowly moving loop (see romEvolution). Partials whose phase
+    // drifts from frame to frame make the loop shimmer like a multi-voice
+    // sample.
+    double drift(int k, double t, double rate, int seed) { return 2.0 * kPiD * (hash01(k, seed) + t * rate * (0.5 + hash01(k, seed + 1))); }
+
+    void vowelRom(double t, Harmonics& h, double f1, double f2, double f3, double breath)
+    {
+        const double att = std::max(0.0, 1.0 - t * 4.0);    // brightness of the first frames
+        const double wob = std::sin(2.0 * kPiD * t * 1.5);  // vowel wobble in the loop
+        for (int k = 1; k <= 120; ++k)
+        {
+            const double fr = 220.0 * k;
+            double a = formant(fr, f1 * (1.0 + 0.04 * wob), 110, 1.0) + formant(fr, f2 * (1.0 - 0.05 * wob), 150, 0.5)
+                     + formant(fr, f3, 220, 0.25) + breath * (0.6 * att + 0.15) / (1.0 + 0.02 * k);
+            addPartial(h, k, a / std::sqrt((double) k), drift(k, t, 3.0, 7));
+        }
+    }
+    void romAhhChoir(double t, Harmonics& h)  { vowelRom(t, h, 730, 1100, 2550, 0.05); }
+    void romOohVoices(double t, Harmonics& h) { vowelRom(t, h, 330, 800, 2300, 0.03); }
+    void romAirVox(double t, Harmonics& h)    { vowelRom(t, h, 600, 1400, 2900, 0.18); }
+
+    void romGlassPad(double t, Harmonics& h)
+    {
+        static const int ks[] = { 1, 2, 3, 5, 8, 11, 13, 17, 23, 29 };
+        for (int i = 0; i < 10; ++i)
+        {
+            const int k = ks[i];
+            const double attack = std::exp(-t * 6.0 * (i + 1) / 4.0);
+            const double sweep = 0.5 + 0.5 * std::sin(2.0 * kPiD * (t * 1.2 + i * 0.13));
+            addPartial(h, k, (i == 0 ? 1.0 : 0.5 / std::sqrt((double) i)) * (0.4 * attack + 0.6 * sweep), drift(k, t, 2.0, 9));
+        }
+    }
+
+    void romDigitalBell(double t, Harmonics& h)
+    {
+        static const int ks[] = { 1, 3, 7, 11, 14, 19, 26, 34 };
+        for (int i = 0; i < 8; ++i)
+            addPartial(h, ks[i], (i == 0 ? 1.0 : 0.8 / (0.6 * i + 0.4)) * std::exp(-t * 0.7 * ks[i]), 0.3 * i);
+    }
+
+    void romSpectrum(double t, Harmonics& h)
+    {
+        const double c = 0.18 + 0.12 * std::sin(2.0 * kPiD * t);
+        const double bright = std::exp(-t * 3.0);
+        for (int k = 1; k <= 200; ++k)
+            addPartial(h, k, std::abs(std::cos(kPiD * k * c)) / std::pow((double) k, 0.9 - 0.3 * bright));
+    }
+
+    void romDigiPad(double t, Harmonics& h)
+    {
+        const int shift = (int) (t * 6.0);
+        for (int k = 1; k <= 48; ++k)
+        {
+            if ((k + shift) % 4 == 0) continue;
+            addPartial(h, k, 1.0 / std::pow((double) k, 0.75), drift(k, t, 2.0, 13));
+        }
+    }
+
+    void romStrings(double t, Harmonics& h)
+    {
+        const double scratch = std::max(0.0, 1.0 - t * 5.0);
+        for (int k = 1; k <= 160; ++k)
+        {
+            const double fr = 220.0 * k;
+            const double body = 0.4 + formant(fr, 500, 200, 0.8) + formant(fr, 1500, 400, 0.6) + formant(fr, 3200, 700, 0.4);
+            const double s = scratch * hash01(k, 31) * (k > 12 ? 1.5 : 0.0);
+            addPartial(h, k, (body + s) / k, drift(k, t, 4.0, 17));
+        }
+    }
+
+    void romEPiano(double t, Harmonics& h)
+    {
+        addPartial(h, 1, 1.0);
+        addPartial(h, 2, 0.35 * std::exp(-t * 3.0) + 0.06);
+        addPartial(h, 3, 0.2 * std::exp(-t * 5.0));
+        addPartial(h, 4, 0.12 * std::exp(-t * 6.0));
+        addPartial(h, 7, 0.5 * std::exp(-t * 12.0)); // the tine "ping"
+        addPartial(h, 15, 0.2 * std::exp(-t * 20.0));
+    }
+
+    void romBrass(double t, Harmonics& h)
+    {
+        // Dark start, quick blat to bright, then settles.
+        const double bright = t < 0.3 ? t / 0.3 : 1.0 - 0.35 * std::min(1.0, (t - 0.3) / 0.3);
+        const double count = 3.0 + 40.0 * bright;
+        for (int k = 1; k <= 64; ++k)
+        {
+            const double w = std::clamp(count - (double) k + 1.0, 0.0, 1.0);
+            addPartial(h, k, w * (1.0 + formant((double) k * 220.0, 1200, 500, 0.8)) / k, drift(k, t, 1.0, 19));
+        }
+    }
+
+    void romMallet(double t, Harmonics& h)
+    {
+        addPartial(h, 1, 1.0);
+        addPartial(h, 4, 0.6 * std::exp(-t * 8.0));
+        addPartial(h, 10, 0.35 * std::exp(-t * 16.0));
+        addPartial(h, 3, 0.08);
+    }
+
+    void romPluck(double t, Harmonics& h)
+    {
+        for (int k = 1; k <= 120; ++k)
+            addPartial(h, k, std::exp(-t * 0.25 * k * (1.0 + 0.02 * k)) / k);
+    }
+
+    void romHeaven(double t, Harmonics& h)
+    {
+        addPartial(h, 1, 1.0);
+        addPartial(h, 2, 0.3);
+        for (int k = 6; k <= 32; ++k)
+        {
+            const double m = 0.5 + 0.5 * std::sin(2.0 * kPiD * (t * 2.0 + k * 0.071));
+            addPartial(h, k, 0.25 * m * m / std::sqrt((double) k - 4.0), drift(k, t, 2.5, 23));
+        }
+    }
+
+    void romMetal(double t, Harmonics& h)
+    {
+        static const int ks[] = { 1, 5, 9, 13, 17, 23, 31, 41 };
+        for (int i = 0; i < 8; ++i)
+        {
+            const double m = 0.6 + 0.4 * std::sin(2.0 * kPiD * (t * 1.5 + i * 0.21));
+            addPartial(h, ks[i], (i == 0 ? 0.8 : 0.6) * m * (i == 0 ? 1.0 : std::exp(-t * 0.5 * i) * 0.6 + 0.4), drift(ks[i], t, 3.0, 29));
+        }
+    }
+
+    void romBowedGlass(double t, Harmonics& h)
+    {
+        addPartial(h, 1, 1.0);
+        const double centre = 6.0 + 18.0 * (0.5 + 0.5 * std::sin(2.0 * kPiD * t));
+        for (int k = 2; k <= 48; ++k)
+            addPartial(h, k, 0.45 * formant((double) k, centre, 2.0, 1.0) + 0.02 / k, drift(k, t, 1.5, 37));
+    }
+
+    void romSynthPad(double t, Harmonics& h)
+    {
+        for (int k = 1; k <= 200; ++k)
+        {
+            // Two saws a little apart in "phase", drifting: a PWM-like pad.
+            const double pw = 0.5 + 0.3 * std::sin(2.0 * kPiD * t);
+            const double a = (1.0 - std::cos(2.0 * kPiD * k * pw)) * 0.5;
+            addPartial(h, k, (0.5 + 0.5 * a) / k, drift(k, t, 1.0, 41));
+        }
+    }
 } // namespace
 
 int Wavetable::mipForIncrement(float inc)
@@ -237,6 +472,48 @@ WavetableBank::WavetableBank()
     tables[(size_t) WavetableId::SyncSweep]     = buildTimeDomain(syncSweep);
     tables[(size_t) WavetableId::Wavefolder]    = buildTimeDomain(wavefolder);
     tables[(size_t) WavetableId::DrawbarOrgan]  = buildSpectral(drawbarOrgan);
+    tables[(size_t) WavetableId::SeqHarmonics]  = buildSpectral(seqHarmonics);
+    tables[(size_t) WavetableId::SeqDigital]    = buildSpectral(seqDigital);
+    tables[(size_t) WavetableId::SeqVocal]      = buildSpectral(seqVocal);
+    tables[(size_t) WavetableId::SeqBells]      = buildSpectral(seqBells);
+    tables[(size_t) WavetableId::Spectral]      = buildSpectral(spectral);
+
+    // ROM waves, in OscWave order.
+    const SpectralFn romFns[] = { romAhhChoir, romOohVoices, romGlassPad, romDigitalBell, romSpectrum, romDigiPad,
+                                  romStrings, romEPiano, romBrass, romMallet, romPluck, romHeaven, romMetal,
+                                  romBowedGlass, romAirVox, romSynthPad };
+    static_assert(sizeof(romFns) / sizeof(romFns[0]) == (size_t) kNumRomWaves, "one generator per ROM wave");
+    for (const auto& fn : romFns)
+        roms.push_back(buildSpectral(fn));
+}
+
+RomEvolution WavetableBank::romEvolution(int i)
+{
+    // attack (s), loop start, loop end (frames), loop period (s)
+    static const RomEvolution e[] = {
+        { 0.18f, 6.0f, 31.0f, 3.2f },   // Ahh Choir
+        { 0.20f, 6.0f, 31.0f, 3.6f },   // Ooh Voices
+        { 0.45f, 10.0f, 31.0f, 5.0f },  // Glass Pad
+        { 1.40f, 26.0f, 31.0f, 6.0f },  // Digital Bell
+        { 0.30f, 8.0f, 31.0f, 4.0f },   // Spectrum
+        { 0.25f, 4.0f, 31.0f, 5.5f },   // Digi Pad
+        { 0.22f, 7.0f, 31.0f, 3.0f },   // Strings
+        { 0.90f, 27.0f, 31.0f, 4.0f },  // E.Piano
+        { 0.35f, 18.0f, 31.0f, 4.5f },  // Brass
+        { 0.50f, 28.0f, 31.0f, 4.0f },  // Mallet
+        { 1.60f, 30.0f, 31.0f, 4.0f },  // Pluck
+        { 0.50f, 4.0f, 31.0f, 7.0f },   // Heaven
+        { 0.30f, 6.0f, 31.0f, 3.5f },   // Metal
+        { 0.60f, 2.0f, 31.0f, 8.0f },   // Bowed Glass
+        { 0.15f, 4.0f, 31.0f, 2.4f },   // Air Vox
+        { 0.20f, 4.0f, 31.0f, 4.5f },   // Synth Pad
+    };
+    return e[std::clamp(i, 0, kNumRomWaves - 1)];
+}
+
+const Wavetable& WavetableBank::rom(int i) const
+{
+    return roms[(size_t) std::clamp(i, 0, (int) roms.size() - 1)];
 }
 
 const WavetableBank& WavetableBank::get()

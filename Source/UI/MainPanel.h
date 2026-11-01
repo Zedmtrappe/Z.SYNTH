@@ -89,6 +89,8 @@ private:
     void savePreset();
     void showPresetMenu();
     void showModView(const juce::String& view);
+    void updateOscViews(bool force);
+    bool oscSuperShown[3] {};
     void showFxPresetMenu(const std::vector<FxPreset>& list, const juce::String& anchor, int onParam);
     juce::Component& parentForPage(const juce::String& page);
 

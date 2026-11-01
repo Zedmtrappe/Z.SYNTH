@@ -375,6 +375,10 @@ void SynthEngine::computeShared(int internalSamples)
         o.fm = p(fm[i]);
         o.sync = i == 1 ? pb(P::Osc2Sync) : (i == 2 ? pb(P::Osc3Sync) : false);
         o.ring = i == 1 ? p(P::Osc2Xmod) : (i == 2 ? p(P::Osc3Xmod) : 0.0f);
+        static constexpr int detune[3] = { P::Osc1Detune, P::Osc2Detune, P::Osc3Detune };
+        static constexpr int smix[3]   = { P::Osc1SuperMix, P::Osc2SuperMix, P::Osc3SuperMix };
+        o.detune = p(detune[i]);
+        o.superMix = p(smix[i]);
     }
     s.subLevel = p(P::SubLevel);
     s.subWave = (SubWave) pi(P::SubWave);
@@ -386,6 +390,15 @@ void SynthEngine::computeShared(int internalSamples)
     s.wavetable = &WavetableBank::get().table(pi(P::WtTable));
     s.wtPos = p(P::WtPos);
     s.wtSpread = p(P::WtSpread);
+    s.bank = &WavetableBank::get();
+    s.seqMode = (WaveSeqMode) pi(P::WtSeqMode);
+    s.seqSteps = pi(P::WtSeqSteps);
+    s.seqStepSec = pb(P::WtSeqSync) ? (float) (divisionBeats(pi(P::WtSeqDiv)) * 60.0 / std::max(1.0, (double) bpm))
+                                    : p(P::WtSeqTime);
+    s.seqXfade = p(P::WtSeqXfade);
+    s.vectorOn = pb(P::VecOn);
+    s.vectorX = p(P::VecX);
+    s.vectorY = p(P::VecY);
 
     // ---- filter
     s.filterModel = (FilterModel) pi(P::FltModel);
@@ -654,7 +667,7 @@ void SynthEngine::runEffects(float* left, float* right, int n)
     }, [&] { flanger.reset(); });
 
     runFaded(3, pb(P::ChorusOn), [&](float* l, float* r) {
-        chorus.process(l, r, n, p(P::ChorusRate), p(P::ChorusDepth), clampf(p(P::ChorusMix) + fx[1], 0.0f, 1.0f));
+        chorus.process(l, r, n, (ChorusType) pi(P::ChorusType), p(P::ChorusRate), p(P::ChorusDepth), clampf(p(P::ChorusMix) + fx[1], 0.0f, 1.0f));
     }, [&] { chorus.reset(); });
 
     runFaded(4, pb(P::EnsOn), [&](float* l, float* r) {

@@ -46,5 +46,15 @@ int main(int argc, char** argv)
     bench("1 saw, Eco 1x", 16, [](EngineRig& r) { r.set(P::Oversampling, 1.0f); }, s);
     bench("1 saw + all effects", 16, [](EngineRig& r) {
         for (int p : { P::DriveOn, P::ChorusOn, P::EnsOn, P::PhaserOn, P::FlangerOn, P::DelayOn, P::ReverbOn }) r.set(p, 1.0f); }, s);
+    bench("3 HyperSaw osc (27 saws), Virus filter", 16, [](EngineRig& r) {
+        r.set(P::Osc2On, 1.0f); r.set(P::Osc3On, 1.0f); r.set(P::FltModel, (float) FilterModel::Virus);
+        for (int p : { P::Osc1Wave, P::Osc2Wave, P::Osc3Wave }) r.set(p, (float) OscWave::HyperSaw); }, s);
+    bench("1 SuperSaw, JP-8000 filter", 16, [](EngineRig& r) {
+        r.set(P::FltModel, (float) FilterModel::Jp8000); r.set(P::Osc1Wave, (float) OscWave::SuperSaw); }, s);
+    bench("3 ROM waves + vector, Roland TVF", 16, [](EngineRig& r) {
+        r.set(P::Osc2On, 1.0f); r.set(P::Osc3On, 1.0f); r.set(P::VecOn, 1.0f); r.set(P::FltModel, (float) FilterModel::RolandTvf);
+        for (int p : { P::Osc1Wave, P::Osc2Wave, P::Osc3Wave }) r.set(p, (float) OscWave::RomAhhChoir); }, s);
+    bench("wave sequence, Korg Digital", 16, [](EngineRig& r) {
+        r.set(P::Osc1Wave, (float) OscWave::Wavetable); r.set(P::WtSeqMode, 1.0f); r.set(P::FltModel, (float) FilterModel::KorgDigital); }, s);
     return 0;
 }

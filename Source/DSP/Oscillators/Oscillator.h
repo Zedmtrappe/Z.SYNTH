@@ -212,6 +212,124 @@ private:
 };
 
 // -----------------------------------------------------------------------------
+/** Stacks of detuned sawtooths.
+
+    SuperSaw (after the JP-8000): seven saws with Roland's uneven detune
+    spacing and non-linear DETUNE / MIX curves (from Adam Szabo's analysis of
+    the original), free-running phases, and a high-pass at the fundamental
+    that removes the stack's sub-fundamental aliasing as the original does.
+
+    HyperSaw (Virus style): nine saws spread evenly, a smoother, wider and
+    more even detune curve, and no fundamental high-pass (fuller low end).
+
+    Each saw is a 2-point PolyBLEP saw; the stack is mono (stereo width comes
+    from unison spread and the chorus, as on the hardware). */
+class SuperSaw
+{
+public:
+    static constexpr int kMaxSaws = 9;
+
+    void reset(Random& rng)
+    {
+        for (auto& p : phase)
+            p = rng.unipolar();
+        hp = 0.0f;
+    }
+
+    /** detune and mix are 0..1 knob positions. */
+    void setup(bool hyper, float detune, float mix)
+    {
+        hyperMode = hyper;
+        detune = clampf(detune, 0.0f, 1.0f);
+        mix = clampf(mix, 0.0f, 1.0f);
+        float centre, side;
+        if (! hyper)
+        {
+            static constexpr float offsets[7] = { -0.11002313f, -0.06288439f, -0.01952356f, 0.0f, 0.01991221f, 0.06216538f, 0.10745242f };
+            const double x = detune;
+            // Szabo's 11th-order fit of the JP-8000 detune knob.
+            const double d = ((((((((((10028.7312891634 * x - 50818.8652045924) * x + 111363.4808729368) * x - 138150.6761080548) * x
+                              + 106649.6679158292) * x - 53046.9642751875) * x + 17019.9518580080) * x - 3425.0836591318) * x
+                              + 404.2703938388) * x - 24.1878824391) * x + 0.6717417634) * x + 0.0030115596;
+            count = 7;
+            for (int i = 0; i < 7; ++i)
+                ratio[i] = 1.0f + offsets[i] * (float) d;
+            centre = -0.55366f * mix + 0.99785f;
+            side = -0.73764f * mix * mix + 1.2841f * mix + 0.044372f;
+            for (int i = 0; i < 7; ++i)
+                gain[i] = i == 3 ? centre : side;
+        }
+        else
+        {
+            count = 9;
+            const float spread = 0.0015f + 0.075f * detune * detune; // up to about +/- 1.3 semitones
+            for (int i = 0; i < 9; ++i)
+            {
+                const float pos = ((float) i - 4.0f) / 4.0f;            // -1 .. 1
+                ratio[i] = 1.0f + spread * pos * (0.6f + 0.4f * std::abs(pos));
+            }
+            centre = 1.0f - 0.45f * mix;
+            side = 0.1f + 0.8f * mix;
+            for (int i = 0; i < 9; ++i)
+                gain[i] = i == 4 ? centre : side * (1.0f - 0.15f * std::abs((float) i - 4.0f) / 4.0f);
+        }
+        // Keep loudness roughly constant across MIX (random-phase sum).
+        float power = 0.0f;
+        for (int i = 0; i < count; ++i)
+            power += gain[i] * gain[i];
+        norm = 1.0f / std::sqrt(std::max(1.0e-6f, power));
+    }
+
+    float process(float inc)
+    {
+        inc = clampf(inc, 0.0f, 0.45f);
+        float sum = 0.0f;
+        for (int i = 0; i < count; ++i)
+        {
+            const float dt = std::min(0.45f, inc * ratio[i]);
+            float p = phase[i] + dt;
+            if (p >= 1.0f)
+                p -= 1.0f;
+            phase[i] = p;
+            float saw = 2.0f * p - 1.0f;
+            if (p < dt)
+            {
+                const float x = p / dt;
+                saw -= x + x - x * x - 1.0f;
+            }
+            else if (p > 1.0f - dt)
+            {
+                const float x = (p - 1.0f) / dt;
+                saw -= x * x + x + x + 1.0f;
+            }
+            sum += saw * gain[i];
+        }
+        float y = sum * norm;
+        if (! hyperMode)
+        {
+            // One-pole high-pass at the fundamental (TPT form).
+            const float g = kPi * inc; // tan(pi f/fs) ~ pi f/fs at audio pitches
+            const float G = g / (1.0f + g);
+            const float v = (y - hp) * G;
+            const float lp = v + hp;
+            hp = undenormalise(lp + v);
+            y -= lp;
+            y *= 1.15f;
+        }
+        return y;
+    }
+
+private:
+    float phase[kMaxSaws] {};
+    float ratio[kMaxSaws] {};
+    float gain[kMaxSaws] {};
+    int count = 7;
+    float norm = 1.0f;
+    float hp = 0.0f;
+    bool hyperMode = false;
+};
+
+// -----------------------------------------------------------------------------
 /** Sub-oscillator locked to oscillator 1. It is a band-limited oscillator
     running at 1/2 (or 1/4) of osc 1's frequency that is hard-synced every
     2 (or 4) master cycles, exactly where it would wrap anyway. This keeps it

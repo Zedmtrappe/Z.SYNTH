@@ -119,8 +119,19 @@ Global settings are *not* changed by loading presets.
 ## Oscillators
 
 Three oscillators with **ON**, **WAVE** (sine, triangle, saw, square, pulse,
-wavetable), **RANGE** (32' to 2'), **SEMI**, **FINE** (cents), **PW** (pulse
-width, Pulse wave only) and **LEVEL**.
+wavetable, SuperSaw, HyperSaw and the ROM waves), **RANGE** (32' to 2'),
+**SEMI**, **FINE** (cents), **PW** (pulse width, Pulse wave only) and **LEVEL**.
+
+* **SuperSaw** (JP-8000 style) and **HyperSaw** (Virus style) — stacks of 7 or
+  9 detuned saws. When one is selected, PW and RING give way to **DETUNE**
+  (spread of the saws) and **MIX** (side saws against the centre one). The
+  matrix, LFOs and ENV 3 can modulate DETUNE.
+* **ROM waves** (ROM Ahh Choir ... ROM Synth Pad) — multi-frame waves voiced
+  after 90s workstation ROMs. Each plays its own "sample": an attack, then a
+  slowly moving loop, restarting with every note (higher notes run through
+  the attack faster). Layer two or three, detune them with FINE, and use the
+  Roland TVF / Korg Digital / Alesis QS filters and digital chorus voicings
+  for the classic workstation sound.
 
 * **FM 3>1, FM 1>2, FM 1>3** — audio-rate frequency modulation.
 * **SYNC** (osc 2 and 3) — hard sync to oscillator 1. Sweep the synced
@@ -137,16 +148,41 @@ width, Pulse wave only) and **LEVEL**.
 
 Oscillators set to **Wavetable** play the selected **TABLE**: Analog Morph,
 Harmonic Sweep, Vocal Formant, PWM Scan, Digital Bell, Sync Sweep,
-Wavefolder, Drawbar Organ. **POSITION** scans through the table (modulate it
-from LFOs, envelopes or the matrix for movement). **SPREAD** offsets
-oscillator 2 and 3 positions.
+Wavefolder, Drawbar Organ, Seq Harmonics, Seq Digital, Seq Vocal, Seq Bells
+and Spectral. **POSITION** scans through the table (modulate it from LFOs,
+envelopes or the matrix for movement). **SPREAD** offsets oscillator 2 and 3
+positions. The four **Seq** tables hold 32 *different* waves, made for wave
+sequencing (Seq Harmonics: each wave is the fundamental plus one harmonic, so
+a sequence plays the harmonic series as a melody).
+
+### Wave sequence and vector (SEQ / VECTOR ▸)
+
+The button under the wavetable opens a window with two Wavestation-style tools.
+
+* **WAVE SEQUENCE** — from every note-on, the wavetable steps through **STEPS**
+  waves (2-32, spread evenly through the table from POSITION). **MODE**: Off,
+  Loop, Ping-Pong, One Shot. **TIME** sets each step's length, or switch
+  **SYNC** on and choose a **DIVISION** of the tempo. **XFADE** 0 = hard,
+  rhythmic switching; 1 = continuous blending (pads). Hold a chord on
+  *Wavestation - Rhythmic Seq* to hear it.
+* **VECTOR** — switch **ON**, then drag the joystick (or the X / Y sliders)
+  to balance four sources: **A** osc 1 (left), **B** osc 2 (top), **C** osc 3
+  (right), **D** the FM part (bottom; HYBRID engine). Double-click centres
+  it. For vector *movement*, route an LFO, ENV 3 or the matrix to
+  **Vector X** / **Vector Y** (as in *Wavestation - Vector Choir*).
 
 ## Filter
 
 * **MODEL** — Ladder (warm 4-pole transistor ladder), OTA (punchy cascade),
-  SEM (smooth state-variable multimode), K35 (aggressive, screaming).
+  SEM (smooth state-variable multimode), K35 (aggressive, screaming), and the
+  digital classics: **JP-8000** (resonance thins the bass, gritty whistling
+  top, self-oscillates), **Virus** (saturated input, fat low end at high
+  resonance, self-oscillates), **Roland TVF** (JD-800 / JV: clean and
+  precise, strong resonance that stops short of oscillation), **Korg
+  Digital** (Wavestation / Trinity / Triton: clean, moderate resonance) and
+  **Alesis QS** (smooth, slightly dark, no resonant peak).
 * **TYPE** LP/BP/HP/Notch, **SLOPE** 12/24 dB (K35 has a fixed slope).
-* **CUTOFF**, **RESONANCE** (Ladder, OTA and K35 self-oscillate near maximum).
+* **CUTOFF**, **RESONANCE** (Ladder, OTA, K35, JP-8000 and Virus self-oscillate near maximum).
 * **ENV AMT** — envelope 2 modulation (up to 8 octaves); **INVERT** flips it.
 * **HPF** — gentle high-pass before the main filter (thins basses, cleans pads).
 * **DRIVE**, **KEY** (100 % = cutoff follows the keyboard), **VELO**,
@@ -238,7 +274,7 @@ Each module has an **ON** switch and fades in/out smoothly.
 | Module | Controls |
 |---|---|
 | DRIVE | TYPE (overdrive, distortion, fold), DRIVE, TONE, MIX |
-| MODULATION | EFFECT selects which modulation effect is shown: Chorus (RATE, DEPTH, MIX), Ensemble (three-phase string ensemble: RATE, DEPTH, MIX), Phaser (RATE, DEPTH, FDBK, MIX) or Flanger (RATE, DEPTH, FDBK, MIX). Each keeps its own ON, so they can be stacked; the EFFECT menu marks the ones that are on |
+| MODULATION | EFFECT selects which modulation effect is shown: Chorus (TYPE: Classic BBD, Roland Digital (JD-800 / JV, bright), Korg Stereo (Wavestation / Triton, wide), Virus (short, with feedback); RATE, DEPTH, MIX), Ensemble (three-phase string ensemble: RATE, DEPTH, MIX), Phaser (RATE, DEPTH, FDBK, MIX) or Flanger (RATE, DEPTH, FDBK, MIX). Each keeps its own ON, so they can be stacked; the EFFECT menu marks the ones that are on |
 | DELAY | SYNC, P.PONG, TIME or DIVISION, FDBK, TONE, MIX, TYPE; **ADV ▸** for the rest |
 | REVERB | SIZE, DAMP, PRE-DLY, MIX, TYPE; **ADVANCED ▸** for the rest |
 | STEREO | WIDTH (0 = mono, 100 % = unchanged, 200 % = wide), CHAR (output warmth) |
@@ -375,6 +411,9 @@ Presets are organised in banks and folders:
 * **Classic Machines** — one folder per famous instrument (Moog Minimoog,
   Sequential Prophet-5, Yamaha DX7, Roland Juno, TB-303, PPG Wave...), each with
   signature sounds in its style, e.g. *DX7 - E.Piano*, *Prophet-5 - Sync Lead*.
+  The 90s digital and virtual-analogue machines have their own folders:
+  Roland JP-8000, Access Virus, Korg Wavestation, Roland JD-800, Roland
+  JV-1080, Korg Trinity-Triton and Alesis QS.
 * **User** — your own sounds.
 
 Factory presets are read-only; save a copy with SAVE AS. In the browser:

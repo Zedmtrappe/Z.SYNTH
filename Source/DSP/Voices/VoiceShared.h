@@ -34,6 +34,8 @@ struct VoiceShared
         bool sync = false;
         float fm = 0.0f;
         float ring = 0.0f;
+        float detune = 0.5f;   // SuperSaw / HyperSaw
+        float superMix = 0.6f;
     } osc[3];
 
     float subLevel = 0.0f;
@@ -46,6 +48,17 @@ struct VoiceShared
     const Wavetable* wavetable = nullptr;
     float wtPos = 0.0f;
     float wtSpread = 0.0f;
+    const WavetableBank* bank = nullptr; // ROM waves
+
+    // Wave sequencing of the wavetable (per voice, from note-on).
+    WaveSeqMode seqMode = WaveSeqMode::Off;
+    int seqSteps = 8;
+    float seqStepSec = 0.25f;
+    float seqXfade = 0.3f;
+
+    // Vector mixing: A = osc 1, B = osc 2, C = osc 3, D = FM part.
+    bool vectorOn = false;
+    float vectorX = 0.0f, vectorY = 0.0f;
 
     FilterModel filterModel = FilterModel::Ladder;
     FilterType filterType = FilterType::LowPass;

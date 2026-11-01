@@ -230,6 +230,23 @@ X(Character,     "out.character",  "Character",     "Output", Float, 0.f, 1.f, 0
 X(Macro,         "out.macro",      "Macro",         "Output", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "Performance macro: a modulation-matrix source.") \
 X(Limiter,       "out.limiter",    "Limiter",       "Output", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "Output safety limiter (keeps peaks below 0 dBFS).") \
 X(Smooth,        "out.smooth",     "Smooth",        "Output", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "SMOOTH: fixed 2.2 kHz dynamic compressor (4:1) that tames harshness only when it appears. AMOUNT lowers the threshold; 0 = off.") \
+/* ------------------------------------- Super saws, wave sequence, vector */ \
+X(Osc1Detune,    "osc1.detune",    "Osc 1 Detune",  "Oscillators", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "SuperSaw / HyperSaw: spread of the detuned saws.") \
+X(Osc1SuperMix,  "osc1.smix",      "Osc 1 Saw Mix", "Oscillators", Float, 0.f, 1.f, 0.6f, LIN, "", nullptr, "SuperSaw / HyperSaw: level of the side saws against the centre one.") \
+X(Osc2Detune,    "osc2.detune",    "Osc 2 Detune",  "Oscillators", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "SuperSaw / HyperSaw: spread of the detuned saws.") \
+X(Osc2SuperMix,  "osc2.smix",      "Osc 2 Saw Mix", "Oscillators", Float, 0.f, 1.f, 0.6f, LIN, "", nullptr, "SuperSaw / HyperSaw: level of the side saws against the centre one.") \
+X(Osc3Detune,    "osc3.detune",    "Osc 3 Detune",  "Oscillators", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "SuperSaw / HyperSaw: spread of the detuned saws.") \
+X(Osc3SuperMix,  "osc3.smix",      "Osc 3 Saw Mix", "Oscillators", Float, 0.f, 1.f, 0.6f, LIN, "", nullptr, "SuperSaw / HyperSaw: level of the side saws against the centre one.") \
+X(WtSeqMode,     "wt.seq.mode",    "Wave Seq",      "Wavetable", Choice, 0, 0, 0.f, LIN, "", ZS_CH_WAVE_SEQ, "Wave sequence: steps through the wavetable's frames from each note-on (Wavestation style).") \
+X(WtSeqSteps,    "wt.seq.steps",   "Seq Steps",     "Wavetable", Int, 2.f, 32.f, 8.f, LIN, "", nullptr, "Number of waves in the sequence, spread evenly through the table from POS.") \
+X(WtSeqTime,     "wt.seq.time",    "Seq Step Time", "Wavetable", Float, 0.02f, 4.f, 0.25f, LOG, "s", nullptr, "Duration of each step (when not synced).") \
+X(WtSeqSync,     "wt.seq.sync",    "Seq Sync",      "Wavetable", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "Locks the step duration to the tempo.") \
+X(WtSeqDiv,      "wt.seq.div",     "Seq Division",  "Wavetable", Choice, 0, 0, 13.f, LIN, "", ZS_CH_DIVISION, "Step duration when synced.") \
+X(WtSeqXfade,    "wt.seq.xfade",   "Seq Crossfade", "Wavetable", Float, 0.f, 1.f, 0.3f, LIN, "", nullptr, "Crossfade between steps: 0 = hard switching (rhythmic), 1 = continuous blending (pads).") \
+X(VecOn,         "vec.on",         "Vector On",     "Vector", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "Vector mixing: the joystick balances osc 1 (A), osc 2 (B), osc 3 (C) and the FM part (D).") \
+X(VecX,          "vec.x",          "Vector X",      "Vector", Float, -1.f, 1.f, 0.f, LIN, "", nullptr, "Joystick left (A) to right (C).") \
+X(VecY,          "vec.y",          "Vector Y",      "Vector", Float, -1.f, 1.f, 0.f, LIN, "", nullptr, "Joystick bottom (D) to top (B).") \
+X(ChorusType,    "fx.cho.type",    "Chorus Type",   "Effects", Choice, 0, 0, 0.f, LIN, "", ZS_CH_CHORUS_TYPE, "Chorus voicing: classic analogue BBD, or the digital choruses of the 90s workstations.") \
 X(ValveOn,       "out.valve.on",   "Valve On",      "Output", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "Valve output stage (oversampled triode / power-valve saturation).") \
 X(ValveType,     "out.valve.type", "Valve Type",    "Output", Choice, 0, 0, 0.f, LIN, "", ZS_CH_VALVE_TYPE, "12AX7: high-gain preamp triode (even harmonics). 12AU7: low-gain, clean warmth. EL84: push-pull power pair (odd harmonics, early compression). 6L6: big, smooth power valve with more headroom.") \
 X(ValveDrive,    "out.valve.drive","Valve Drive",   "Output", Float, 0.f, 1.f, 0.3f, LIN, "", nullptr, "How hard the valve is driven: warmth and gentle peak compression up to about 80 %, audible distortion from about 90 %.") \

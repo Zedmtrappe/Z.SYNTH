@@ -125,6 +125,99 @@ void WavetableDisplay::paint(juce::Graphics& g)
     for (int k = 5; k >= 1; --k)
         drawFrame((float) k / 5.0f, (float) k * 2.0f, (float) k * 1.6f, Colours::lcdDim.withAlpha(0.6f), 1.0f);
     drawFrame(pos, 0.0f, 0.0f, Colours::lcdText, 1.8f);
+    if (iv(P::WtSeqMode) != 0)
+        drawLcdText(g, "SEQ", getLocalBounds().reduced(4, 2).removeFromTop(12), 9.0f, Colours::lcdText, juce::Justification::topRight);
+}
+
+// ================================================================= vector ====
+VectorPad::VectorPad(ZSynthProcessor& p) : CachedDisplay(p)
+{
+    setInterceptsMouseClicks(true, false);
+    setTooltip("Vector joystick: drag to balance osc 1 (A), osc 2 (B), osc 3 (C) and the FM part (D). Double-click = centre.");
+}
+
+uint64_t VectorPad::stateHash() const
+{
+    uint64_t h = 1469598103934665603ull;
+    h = mix(h, v(P::VecX));
+    h = mix(h, v(P::VecY));
+    h = mix(h, v(P::VecOn));
+    return h;
+}
+
+juce::Rectangle<float> VectorPad::diamond() const { return getLocalBounds().toFloat().reduced(24.0f); }
+
+void VectorPad::paint(juce::Graphics& g)
+{
+    const auto r = getLocalBounds().toFloat();
+    fillPanelInset(g, r);
+    const auto d = diamond();
+    const bool on = v(P::VecOn) >= 0.5f;
+    const auto c = d.getCentre();
+    juce::Path dia;
+    dia.startNewSubPath(d.getX(), c.y);
+    dia.lineTo(c.x, d.getY());
+    dia.lineTo(d.getRight(), c.y);
+    dia.lineTo(c.x, d.getBottom());
+    dia.closeSubPath();
+    g.setColour(Colours::lcdText.withAlpha(0.08f));
+    g.fillPath(dia);
+    g.setColour(Colours::lcdDim);
+    g.strokePath(dia, juce::PathStrokeType(1.2f));
+    g.drawLine(d.getX(), c.y, d.getRight(), c.y, 0.6f);
+    g.drawLine(c.x, d.getY(), c.x, d.getBottom(), 0.6f);
+
+    const auto ib = getLocalBounds();
+    drawLcdText(g, "A", { ib.getX() + 4, ib.getCentreY() - 8, 16, 16 }, 13.0f, Colours::lcdText, juce::Justification::centred);
+    drawLcdText(g, "B", { ib.getCentreX() - 8, ib.getY() + 4, 16, 16 }, 13.0f, Colours::lcdText, juce::Justification::centred);
+    drawLcdText(g, "C", { ib.getRight() - 20, ib.getCentreY() - 8, 16, 16 }, 13.0f, Colours::lcdText, juce::Justification::centred);
+    drawLcdText(g, "D", { ib.getCentreX() - 8, ib.getBottom() - 20, 16, 16 }, 13.0f, Colours::lcdText, juce::Justification::centred);
+
+    float x = v(P::VecX), y = v(P::VecY);
+    const float l1 = std::abs(x) + std::abs(y);
+    if (l1 > 1.0f) { x /= l1; y /= l1; }
+    const juce::Point<float> dot(c.x + x * d.getWidth() * 0.5f, c.y - y * d.getHeight() * 0.5f);
+    g.setColour(Colours::lcdText.withAlpha(on ? 0.35f : 0.15f));
+    g.drawLine(c.x, c.y, dot.x, dot.y, 1.0f);
+    g.setColour(on ? Colours::lcdText : Colours::lcdDim);
+    g.fillEllipse(juce::Rectangle<float>(12.0f, 12.0f).withCentre(dot));
+    if (! on)
+        drawLcdText(g, "VECTOR OFF", ib.reduced(6).removeFromBottom(14), 9.0f, Colours::lcdDim, juce::Justification::bottomRight);
+}
+
+void VectorPad::setParam(int index, float value)
+{
+    if (auto* param = processor.getState().getParameter(paramDef(index).id))
+        param->setValueNotifyingHost(param->convertTo0to1(juce::jlimit(-1.0f, 1.0f, value)));
+}
+
+void VectorPad::gesture(bool begin)
+{
+    for (int index : { (int) P::VecX, (int) P::VecY })
+        if (auto* param = processor.getState().getParameter(paramDef(index).id))
+            begin ? param->beginChangeGesture() : param->endChangeGesture();
+}
+
+void VectorPad::setFrom(juce::Point<float> pt)
+{
+    const auto d = diamond();
+    float x = (pt.x - d.getCentreX()) / (d.getWidth() * 0.5f);
+    float y = (d.getCentreY() - pt.y) / (d.getHeight() * 0.5f);
+    const float l1 = std::abs(x) + std::abs(y);
+    if (l1 > 1.0f) { x /= l1; y /= l1; }
+    setParam(P::VecX, x);
+    setParam(P::VecY, y);
+}
+
+void VectorPad::mouseDown(const juce::MouseEvent& e) { gesture(true); setFrom(e.position); }
+void VectorPad::mouseDrag(const juce::MouseEvent& e) { setFrom(e.position); }
+void VectorPad::mouseUp(const juce::MouseEvent&) { gesture(false); }
+void VectorPad::mouseDoubleClick(const juce::MouseEvent&)
+{
+    gesture(true);
+    setParam(P::VecX, 0.0f);
+    setParam(P::VecY, 0.0f);
+    gesture(false);
 }
 
 // =================================================================== FM ====

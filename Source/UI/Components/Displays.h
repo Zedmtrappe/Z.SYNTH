@@ -150,6 +150,26 @@ private:
     int dragging = -1, hoverBand = -1;
 };
 
+/** The vector joystick: a diamond with sources A (left) B (top) C (right)
+    D (bottom). Dragging sets VECTOR X / Y; double-click centres it. */
+class VectorPad : public CachedDisplay, public juce::SettableTooltipClient
+{
+public:
+    explicit VectorPad(ZSynthProcessor& p);
+    void paint(juce::Graphics&) override;
+    void mouseDown(const juce::MouseEvent&) override;
+    void mouseDrag(const juce::MouseEvent&) override;
+    void mouseUp(const juce::MouseEvent&) override;
+    void mouseDoubleClick(const juce::MouseEvent&) override;
+protected:
+    uint64_t stateHash() const override;
+private:
+    juce::Rectangle<float> diamond() const;
+    void setFrom(juce::Point<float>);
+    void setParam(int index, float value);
+    void gesture(bool begin);
+};
+
 /** The vintage graphic EQ: its response with a bar per band. The panel
     version is clickable and opens the full EQ window. */
 class GraphicEqDisplay : public CachedDisplay, public juce::SettableTooltipClient

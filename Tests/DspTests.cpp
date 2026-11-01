@@ -214,8 +214,9 @@ namespace
 
 ZS_TEST(filter_responses_all_models)
 {
-    for (FilterModel m : { FilterModel::Ladder, FilterModel::Ota, FilterModel::Sem, FilterModel::K35 })
+    for (int mi = 0; mi < (int) FilterModel::Count; ++mi)
     {
+        const auto m = (FilterModel) mi;
         const FilterSlope slope = m == FilterModel::K35 ? FilterSlope::Pole2 : FilterSlope::Pole4;
         const double pass = sineGainDb(m, FilterType::LowPass, slope, 1000.0f, 0.0f, 100.0);
         const double stop = sineGainDb(m, FilterType::LowPass, slope, 1000.0f, 0.0f, 8000.0);
@@ -235,10 +236,10 @@ ZS_TEST(filter_models_sound_different)
 {
     // Same settings, resonant: the four models must not produce near-identical output.
     std::vector<std::vector<float>> outs;
-    for (FilterModel m : { FilterModel::Ladder, FilterModel::Ota, FilterModel::Sem, FilterModel::K35 })
+    for (int mi = 0; mi < (int) FilterModel::Count; ++mi)
     {
         FilterUnit f;
-        f.setModel(m);
+        f.setModel((FilterModel) mi);
         Oscillator osc;
         osc.setWave(OscWave::Saw);
         std::vector<float> y(48000);
@@ -255,6 +256,8 @@ ZS_TEST(filter_models_sound_different)
                 diff += (outs[a][i] - outs[b][i]) * (outs[a][i] - outs[b][i]);
                 ref += outs[a][i] * outs[a][i];
             }
+            if (10.0 * std::log10(diff / ref) <= -20.0)
+                std::printf("    models %d and %d sound alike\n", (int) a, (int) b);
             ZS_CHECK_GT(10.0 * std::log10(diff / ref), -20.0);
         }
 }
@@ -262,7 +265,7 @@ ZS_TEST(filter_models_sound_different)
 ZS_TEST(filter_stability_under_abuse)
 {
     Random rng(77);
-    for (int m = 0; m < 4; ++m)
+    for (int m = 0; m < (int) FilterModel::Count; ++m)
         for (int t = 0; t < 4; ++t)
             for (int s = 0; s < 2; ++s)
             {
@@ -290,7 +293,7 @@ ZS_TEST(filter_stability_under_abuse)
 
 ZS_TEST(filter_self_oscillation)
 {
-    for (FilterModel m : { FilterModel::Ladder, FilterModel::Ota, FilterModel::K35 })
+    for (FilterModel m : { FilterModel::Ladder, FilterModel::Ota, FilterModel::K35, FilterModel::Jp8000, FilterModel::Virus })
     {
         FilterUnit f;
         f.setModel(m);
@@ -304,6 +307,160 @@ ZS_TEST(filter_self_oscillation)
         ZS_CHECK_GT(level, 0.05);
         ZS_CHECK_NEAR(freq, 1000.0, 120.0);
     }
+}
+
+ZS_TEST(digital_filters_resonance_character)
+{
+    // The QS filter has no resonant peak, the Korg Digital a moderate one, and the
+    // Roland TVF stops short of self-oscillation.
+    auto peakDb = [](FilterModel m) {
+        return sineGainDb(m, FilterType::LowPass, FilterSlope::Pole4, 1000.0f, 1.0f, 1000.0)
+             - sineGainDb(m, FilterType::LowPass, FilterSlope::Pole4, 1000.0f, 1.0f, 100.0);
+    };
+    const double qs = peakDb(FilterModel::AlesisQs), korg = peakDb(FilterModel::KorgDigital), tvf = peakDb(FilterModel::RolandTvf);
+    std::printf("    resonant peak at max RES: QS %.1f  Korg %.1f  TVF %.1f dB\n", qs, korg, tvf);
+    ZS_CHECK_LT(qs, 1.0);
+    ZS_CHECK_GT(korg, 6.0);
+    ZS_CHECK_GT(tvf, 10.0);
+    for (FilterModel m : { FilterModel::RolandTvf, FilterModel::KorgDigital, FilterModel::AlesisQs })
+    {
+        FilterUnit f;
+        f.setModel(m);
+        std::vector<float> y(65536);
+        for (size_t i = 0; i < y.size(); ++i)
+            y[i] = f.process(i < 10 ? 0.5f : 0.0f, prewarp(1000.0f, 96000.0f), 1.0f, 0.0f, FilterType::LowPass, FilterSlope::Pole4);
+        ZS_CHECK_LT(rmsOf(y, 40000), 1.0e-4); // rings out: no self-oscillation
+    }
+}
+
+// ============================================================ super saws ====
+
+ZS_TEST(supersaw_level_detune_and_pitch)
+{
+    const float fs = 96000.0f, f0 = 220.0f;
+    for (bool hyper : { false, true })
+    {
+        double minDb = 1e9, maxDb = -1e9;
+        for (float mix : { 0.0f, 0.5f, 1.0f })
+        {
+            Random rng(5);
+            SuperSaw ss;
+            ss.reset(rng);
+            ss.setup(hyper, 0.5f, mix);
+            std::vector<float> y(96000);
+            for (auto& v : y)
+                v = ss.process(f0 / fs);
+            ZS_CHECK(allFinite(y));
+            const double db = 20.0 * std::log10(rmsOf(y, 9600));
+            minDb = std::min(minDb, db);
+            maxDb = std::max(maxDb, db);
+        }
+        std::printf("    %s: level across MIX %.1f .. %.1f dB\n", hyper ? "HyperSaw" : "SuperSaw", minDb, maxDb);
+        ZS_CHECK_LT(maxDb - minDb, 4.0);
+
+        // No detune: a plain saw at the right pitch. Full detune: the stack spreads
+        // (the waveform beats, so short-term level varies much more).
+        Random rng(9);
+        SuperSaw tight, wide;
+        tight.reset(rng);
+        wide.reset(rng);
+        tight.setup(hyper, 0.0f, 0.0f);
+        wide.setup(hyper, 1.0f, 1.0f);
+        std::vector<float> a(96000), b(96000);
+        for (size_t i = 0; i < a.size(); ++i)
+        {
+            a[i] = tight.process(f0 / fs);
+            b[i] = wide.process(f0 / fs);
+        }
+        ZS_CHECK_NEAR(dominantFrequency(a.data() + 16384, 65536, fs), f0, 6.0);
+        double diff = 0.0, ref = 0.0;
+        for (size_t i = 9600; i < a.size(); ++i)
+        {
+            diff += (a[i] - b[i]) * (a[i] - b[i]);
+            ref += a[i] * a[i];
+        }
+        ZS_CHECK_GT(diff / ref, 0.3);
+    }
+}
+
+// ============================================== ROM waves, sequence, vector ====
+
+ZS_TEST(rom_waves_evolve_and_render)
+{
+    const auto& bank = WavetableBank::get();
+    for (int r = 0; r < kNumRomWaves; ++r)
+    {
+        // The attack frame differs from the loop: each ROM wave has a "sample" attack.
+        const auto ev = WavetableBank::romEvolution(r);
+        const float* first = bank.rom(r).frame(0, 0);
+        const float* loop = bank.rom(r).frame((int) ev.loopEnd, 0);
+        double diff = 0.0;
+        for (int i = 0; i < Wavetable::kSize; ++i)
+            diff += (first[i] - loop[i]) * (first[i] - loop[i]);
+        ZS_CHECK_GT(diff / Wavetable::kSize, 1.0e-3);
+
+        EngineRig rig;
+        rig.set(P::Osc1Wave, (float) ((int) OscWave::RomAhhChoir + r));
+        rig.set(P::Env1S, 1.0f);
+        rig.noteOn(0.0, 60);
+        const auto y = rig.render(1.0);
+        ZS_CHECK(allFinite(y));
+        ZS_CHECK_GT(rmsOf(y, 4800), 0.01);
+        ZS_CHECK_LT(peakOf(y), 1.0f);
+    }
+}
+
+ZS_TEST(wave_sequence_steps_through_the_table)
+{
+    // Seq Harmonics: frame f is the fundamental plus harmonic f + 2. Four steps
+    // spread through the table play frames 0, 8, 16, 24: harmonics 2, 10, 18, 26.
+    EngineRig rig(48000.0, 256);
+    rig.set(P::Osc1Wave, (float) OscWave::Wavetable);
+    rig.set(P::WtTable, (float) WavetableId::SeqHarmonics);
+    rig.set(P::WtSeqMode, (float) WaveSeqMode::Loop);
+    rig.set(P::WtSeqSteps, 4.0f);
+    rig.set(P::WtSeqTime, 0.5f);
+    rig.set(P::WtSeqXfade, 0.0f);
+    rig.set(P::FltCutoff, 20000.0f);
+    rig.set(P::Env1S, 1.0f);
+    rig.noteOn(0.0, 36); // 65.4 Hz
+    const auto y = rig.render(2.0);
+    const double f0 = 440.0 * std::pow(2.0, (36 - 69) / 12.0);
+    const int harmonic[4] = { 2, 10, 18, 26 };
+    for (int k = 0; k < 4; ++k)
+    {
+        const size_t start = (size_t) ((k * 0.5 + 0.1) * 48000.0);
+        const double f = dominantFrequency(y.data() + start, 16384, 48000.0);
+        std::printf("    step %d: %.0f Hz (expected %.0f)\n", k, f, f0 * harmonic[k]);
+        ZS_CHECK_NEAR(f, f0 * harmonic[k], f0 * 0.6);
+    }
+}
+
+ZS_TEST(vector_mixing_corners)
+{
+    // A = osc 1 (sine 8'), B = osc 2 (sine 4'): the joystick picks between them.
+    auto dominant = [](float x, float y) {
+        EngineRig rig(48000.0, 256);
+        rig.set(P::Osc1Wave, (float) OscWave::Sine);
+        rig.set(P::Osc2On, 1.0f);
+        rig.set(P::Osc2Wave, (float) OscWave::Sine);
+        rig.set(P::Osc2Octave, (float) OscOctave::Ft4);
+        rig.set(P::VecOn, 1.0f);
+        rig.set(P::VecX, x);
+        rig.set(P::VecY, y);
+        rig.set(P::Env1S, 1.0f);
+        rig.noteOn(0.0, 57); // 220 Hz
+        const auto out = rig.render(1.0);
+        return dominantFrequency(out.data() + 16384, 16384, 48000.0);
+    };
+    ZS_CHECK_NEAR(dominant(-1.0f, 0.0f), 220.0, 8.0);
+    ZS_CHECK_NEAR(dominant(0.0f, 1.0f), 440.0, 8.0);
+    // C (osc 3, off) and D (FM part, Analog engine): silence.
+    EngineRig rig;
+    rig.set(P::VecOn, 1.0f);
+    rig.set(P::VecX, 1.0f);
+    rig.noteOn(0.0, 60);
+    ZS_CHECK_LT(rmsOf(rig.render(0.5), 4800), 1.0e-4);
 }
 
 // =============================================================== envelopes ====

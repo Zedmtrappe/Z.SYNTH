@@ -236,6 +236,106 @@ private:
 };
 
 // -----------------------------------------------------------------------------
+/** Four linear one-poles in a zero-delay feedback loop: the digital
+    "ladder" of the 90s Roland and Alesis synths. Used three ways:
+      JP-8000     resonance thins the bass (no compensation) and the feedback
+                  path is clipped, giving the JP's slightly gritty, whistling
+                  top at high resonance; self-oscillates.
+      Roland TVF  (JD-800 / JV) clean and precise, resonance stops short of
+                  self-oscillation, partly compensated low end.
+      Alesis QS   no resonance at all: a smooth, slightly dark 4-pole low-pass
+                  (resonance only adds a touch of warmth). */
+class DigitalLadder
+{
+public:
+    void reset() { for (auto& p : poles) p.s = 0.0f; lastY4 = 0.0f; }
+
+    float process(float in, float g, float k, float comp, float fbClip, FilterType type, FilterSlope slope)
+    {
+        const float G = g / (1.0f + g);
+        const float inv = 1.0f / (1.0f + g);
+        float kEff = k;
+        if (fbClip > 0.0f)
+            kEff = k * tanhRatio(lastY4 * fbClip);
+        const float b1 = poles[0].s * inv, b2 = poles[1].s * inv, b3 = poles[2].s * inv, b4 = poles[3].s * inv;
+        const float G2 = G * G;
+        const float S = G2 * G * b1 + G2 * b2 + G * b3 + b4;
+        const float x = (in * (1.0f + comp * k) - kEff * S) / (1.0f + kEff * G2 * G2);
+        const float y1 = poles[0].lowpass(x, G);
+        const float y2 = poles[1].lowpass(y1, G);
+        const float y3 = poles[2].lowpass(y2, G);
+        const float y4 = poles[3].lowpass(y3, G);
+        lastY4 = y4;
+        return LadderFilter::mixPoles(x, y1, y2, y3, y4, type, slope);
+    }
+
+private:
+    OnePoleTpt poles[4];
+    float lastY4 = 0.0f;
+};
+
+// -----------------------------------------------------------------------------
+/** Linear state-variable filter, 12 dB or two cascaded sections for 24 dB.
+      Virus:        a soft saturation in front (the Virus's punchy input
+                    stage), resonance up to self-oscillation, the low end held
+                    up as resonance rises (fat, "analog-modelled" character).
+      Korg Digital: (Wavestation / Trinity / Triton) clean; moderate maximum
+                    resonance, never self-oscillates. */
+class DigitalSvf
+{
+public:
+    void reset() { a = {}; b = {}; }
+
+    float process(float in, float g, float res, float maxQ, bool saturate, FilterType type, FilterSlope slope)
+    {
+        float x = in;
+        if (saturate)
+            x = 1.25f * fastTanh(x * 0.8f);
+        const float q = 0.5f + (maxQ - 0.5f) * res * res;
+        float k = 1.0f / q;
+        if (saturate)
+            k -= 0.03f * clampf((res - 0.95f) * 20.0f, 0.0f, 1.0f); // the last 5 %: self-oscillation
+        a.limit = b.limit = saturate;
+        if (slope == FilterSlope::Pole4)
+        {
+            // Butterworth first section, resonant second.
+            const float y = a.process(x, g, 1.8478f, type);
+            return b.process(y, g, std::min(k, 0.7654f), type) * (saturate ? 1.0f + 0.3f * res : 1.0f);
+        }
+        return a.process(x, g, std::min(k, 1.4142f), type) * (saturate ? 1.0f + 0.3f * res : 1.0f);
+    }
+
+private:
+    struct Section
+    {
+        float ic1 = 0.0f, ic2 = 0.0f;
+        bool limit = false;
+        float process(float v0, float g, float k, FilterType type)
+        {
+            const float a1 = 1.0f / (1.0f + g * (g + k));
+            const float a2 = g * a1;
+            const float a3 = g * a2;
+            const float v3 = v0 - ic2;
+            float v1 = a1 * ic1 + a2 * v3;
+            const float v2 = ic2 + a2 * ic1 + a3 * v3;
+            if (limit)
+                v1 = 2.5f * fastTanh(v1 * 0.4f); // only acts on large swings: holds self-oscillation
+            ic1 = undenormalise(2.0f * v1 - ic1);
+            ic2 = undenormalise(2.0f * v2 - ic2);
+            switch (type)
+            {
+                case FilterType::LowPass:  return v2;
+                case FilterType::BandPass: return v1 * std::abs(k);
+                case FilterType::HighPass: return v0 - k * v1 - v2;
+                case FilterType::Notch:    return v0 - k * v1;
+                default: return v2;
+            }
+        }
+    };
+    Section a, b;
+};
+
+// -----------------------------------------------------------------------------
 /** Non-resonant 12 dB Butterworth high-pass (TPT SVF), used before the main filter. */
 class HighPass12
 {
@@ -268,7 +368,7 @@ class FilterUnit
 public:
     void reset()
     {
-        ladder.reset(); ota.reset(); sem.reset(); k35.reset();
+        ladder.reset(); ota.reset(); sem.reset(); k35.reset(); digital.reset(); svf.reset();
     }
 
     void setModel(FilterModel m)
@@ -296,6 +396,11 @@ public:
             case FilterModel::Ota:    y = ota.process(x, g, res * 4.25f, type, slope); break;
             case FilterModel::Sem:    y = sem.process(x, g, res, type, slope); break;
             case FilterModel::K35:    y = k35.process(x, g, res, type); break;
+            case FilterModel::Jp8000:     y = digital.process(x, g, res * 4.15f, 0.0f, 0.9f, type, slope) * 1.1f; break;
+            case FilterModel::RolandTvf:  y = digital.process(x, g, res * 3.7f, 0.45f, 0.0f, type, slope); break;
+            case FilterModel::AlesisQs:   y = digital.process(x, g, res * 0.6f, 0.5f, 0.0f, type, slope); break;
+            case FilterModel::Virus:      y = svf.process(x, g, res, 60.0f, true, type, slope); break;
+            case FilterModel::KorgDigital:y = svf.process(x, g, res, 7.0f, false, type, slope); break;
             default: y = x; break;
         }
         return y * makeup;
@@ -307,6 +412,8 @@ private:
     OtaFilter ota;
     SemFilter sem;
     K35Filter k35;
+    DigitalLadder digital;
+    DigitalSvf svf;
 };
 
 /** Prewarped TPT coefficient for a cutoff in Hz at sample rate fs (clamped). */

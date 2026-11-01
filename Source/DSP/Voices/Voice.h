@@ -85,6 +85,10 @@ private:
 
     // ---- generators
     Oscillator osc[3];
+    SuperSaw superSaw[3];
+    Random superRng; // own generator, so existing sounds' random sequences are unchanged
+    bool superOn[3] {};
+    float noteTime = 0.0f; // seconds since note-on (ROM evolution, wave sequence)
     SubOscillator sub;
     NoiseGenerator noise;
     FmVoice fm;
@@ -113,10 +117,14 @@ private:
     float level[3] {};
     float subLevel = 0.0f, noiseLevel = 0.0f;
     float fmGain = 0.0f;
+    float vectorGainD = 1.0f;
     float ring[3] {}, fmAmt[3] {};
     float res = 0.0f, fltDrive = 0.0f;
     float wtMixStart[3] {}, wtMixEnd[3] {};
     int wtFrame[3] { -1, -1, -1 };
+
+    /** Points osc i at frames fa/fb of table (with interpolation state). */
+    void setTableFrames(int i, const Wavetable& table, int key, int fa, int fb, float mix, float fmAmount);
 };
 
 } // namespace zsynth::dsp

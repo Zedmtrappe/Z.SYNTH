@@ -2,6 +2,7 @@
 
 // Chorus, string ensemble and flanger: modulated short delays.
 
+#include "../../Parameters/ParamChoices.h"
 #include "DelayLine.h"
 
 namespace zsynth::dsp
@@ -34,21 +35,57 @@ public:
 
     void reset() { for (auto& d : lines) d.reset(); phase = 0.0f; }
 
-    void process(float* L, float* R, int n, float rateHz, float depth, float mix)
+    /** Voicings:
+          Classic BBD     triangle sweep, channels in anti-phase, dark wet path.
+          Roland Digital  (JD-800 / JV) sine sweep, shorter delay, bright wet
+                          path, channels in anti-phase: the glassy 90s chorus.
+          Korg Stereo     (Wavestation / Trinity / Triton) sine, channels 90
+                          degrees apart, longer delay: wide and lush.
+          Virus           sine, short delay with feedback: a thick, slightly
+                          flanged chorus. */
+    void process(float* L, float* R, int n, ChorusType type, float rateHz, float depth, float mix)
     {
+        float base = 0.007f, range = 0.0045f, offset = 0.5f, fb = 0.0f;
+        bool sine = false, dark = true;
+        switch (type)
+        {
+            case ChorusType::RolandDigital: base = 0.0055f; range = 0.0032f; sine = true; dark = false; break;
+            case ChorusType::KorgStereo:    base = 0.0110f; range = 0.0050f; offset = 0.25f; sine = true; dark = false; break;
+            case ChorusType::Virus:         base = 0.0045f; range = 0.0030f; sine = true; fb = 0.35f; break;
+            default: break;
+        }
+        base *= fs;
+        range *= fs * depth;
         const float inc = rateHz / fs;
-        const float base = 0.007f * fs;
-        const float range = 0.0045f * fs * depth;
+        auto shape = [sine](float ph) {
+            ph = wrapPhase(ph);
+            return sine ? fastSin(ph) : 4.0f * std::abs(ph - 0.5f) - 1.0f;
+        };
         for (int i = 0; i < n; ++i)
         {
             phase += inc;
             phase = wrapPhase(phase);
-            const float tri = 4.0f * std::abs(phase - 0.5f) - 1.0f;
-
-            lines[0].push(L[i]);
-            lines[1].push(R[i]);
-            const float wl = wet[0].process(lines[0].read(base + range * tri));
-            const float wr = wet[1].process(lines[1].read(base - range * tri));
+            const float ml = shape(phase), mr = shape(phase + offset);
+            float wl, wr;
+            if (fb > 0.0f)
+            {
+                wl = lines[0].read(base + range * ml);
+                wr = lines[1].read(base + range * mr);
+                lines[0].push(L[i] + fb * wl);
+                lines[1].push(R[i] + fb * wr);
+            }
+            else
+            {
+                lines[0].push(L[i]);
+                lines[1].push(R[i]);
+                wl = lines[0].read(base + range * ml);
+                wr = lines[1].read(base + range * mr);
+            }
+            if (dark)
+            {
+                wl = wet[0].process(wl);
+                wr = wet[1].process(wr);
+            }
             L[i] += (wl - L[i]) * mix;
             R[i] += (wr - R[i]) * mix;
         }

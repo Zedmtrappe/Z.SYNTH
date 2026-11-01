@@ -34,9 +34,23 @@ public:
     std::vector<float> data;
 };
 
+/** How a ROM wave evolves from note-on: frames 0 .. loopStart play once over
+    attackSec (the "attack sample"), then loopStart .. loopEnd are scanned back
+    and forth with a period of loopSec (the "loop"). */
+struct RomEvolution
+{
+    float attackSec = 0.2f;
+    float loopStart = 8.0f, loopEnd = 31.0f; // frames
+    float loopSec = 3.0f;
+};
+
 class WavetableBank
 {
 public:
+    /** ROM wave i (0 .. kNumRomWaves-1) and its evolution. */
+    const Wavetable& rom(int i) const;
+    static RomEvolution romEvolution(int i);
+
     /** Thread-safe lazily-built singleton. First call takes ~100-300 ms;
         the plug-in calls it from the constructor, never from audio. */
     static const WavetableBank& get();
@@ -46,7 +60,7 @@ public:
 
 private:
     WavetableBank();
-    std::vector<Wavetable> tables;
+    std::vector<Wavetable> tables, roms;
 };
 
 } // namespace zsynth::dsp
