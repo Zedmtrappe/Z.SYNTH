@@ -1082,6 +1082,7 @@ out.valve.sag = 0.3
 out.valve.warmth = 0.5
 out.valve.mix = 1
 comp.on = on
+comp.pre = off
 comp.model = SSL Bus
 comp.thresh = -6.23077
 comp.makeup = 0

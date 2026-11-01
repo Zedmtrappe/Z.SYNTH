@@ -296,17 +296,17 @@ It has five bell bands, each with **FREQ** (20 Hz-20 kHz), **GAIN**
 node on the big curve (left/right = frequency, up/down = gain, mouse wheel = Q,
 double-click = flat / filter off) or use the knobs. **With every band at 0 dB,
 both cuts off and OUTPUT at 0 dB the EQ is bypassed exactly.** **FLAT**
-resets it; **ON** switches it out for A/B. **PRE FX** moves it in front of
-the delay and reverb, so it shapes the synth itself (and feeds a PRE FX
-compressor) rather than the whole output. It is clean (no colour): the valve,
+resets it; **ON** switches it out for A/B. **PRE FX** (on by default) puts it
+in front of the delay and reverb, so it shapes the synth itself (and feeds a
+PRE FX compressor); switch it off to EQ the whole output instead. It is clean (no colour): the valve,
 drive and compressor are there for character.
 
 ### Output compressor
 
-**OUTPUT COMP** (right end of the effects row) is normally the last dynamics
-stage before the master section; **PRE FX** moves it in front of the delay and
-reverb, so only the dry synth is compressed and echoes and tails are left
-alone. On the panel: **ON**, **PRE FX**, a gain-reduction VU meter,
+**OUTPUT COMP** (right end of the effects row) sits in front of the delay and
+reverb by default (**PRE FX** on), so only the dry synth is compressed and
+echoes and tails are left alone; switch PRE FX off to make it the last
+dynamics stage on the whole mix, before the master section. On the panel: **ON**, **PRE FX**, a gain-reduction VU meter,
 **THRESH**, **MIX** (parallel compression), **MAKEUP** (output gain) and
 **MODEL**; **COLOUR** in the advanced popup adds the model's analogue
 saturation (gentle at 0.5, clearly driven at full); **ADVANCED ▸** opens

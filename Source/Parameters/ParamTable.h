@@ -260,7 +260,7 @@ X(ValveSag,      "out.valve.sag",  "Valve Sag",     "Output", Float, 0.f, 1.f, 0
 X(ValveWarmth,   "out.valve.warmth","Valve Warmth", "Output", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "Output transformer: rounds off the top end and adds low-end weight.") \
 X(ValveMix,      "out.valve.mix",  "Valve Mix",     "Output", Float, 0.f, 1.f, 1.f, LIN, "", nullptr, "Dry/valve blend.") \
 X(CompOn,        "comp.on",        "Comp On",       "Output", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "Output compressor (after the valve stage, before the master).") \
-X(CompPre,       "comp.pre",       "Comp Pre FX",   "Output", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "PRE FX: compress before the delay and reverb (the dry synth only), instead of the whole mix at the end.") \
+X(CompPre,       "comp.pre",       "Comp Pre FX",   "Output", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "PRE FX: compress before the delay and reverb (the dry synth only), instead of the whole mix at the end.") \
 X(CompModel,     "comp.model",     "Comp Model",    "Output", Choice, 0, 0, 1.f, LIN, "", ZS_CH_COMP_MODEL, "LA-2A optical leveller, SSL-style VCA bus compressor, 1176-style FET limiter or Fairchild-style variable-mu.") \
 X(CompThresh,    "comp.thresh",    "Comp Threshold","Output", Float, -40.f, 0.f, -12.f, LIN, "dB", nullptr, "Level where compression starts (on the LA-2A this is PEAK REDUCTION, on the 1176 the INPUT drive).") \
 X(CompMakeup,    "comp.makeup",    "Comp Makeup",   "Output", Float, 0.f, 24.f, 0.f, LIN, "dB", nullptr, "Output gain after compression (the LA-2A's GAIN, the 1176's OUTPUT).") \
@@ -291,7 +291,7 @@ X(PeqB5Freq,     "peq.b5.f",       "Output EQ 5 Freq", "Output", Float, 20.f, 20
 X(PeqB5Gain,     "peq.b5.g",       "Output EQ 5 Gain", "Output", Float, -15.f, 15.f, 0.f, LIN, "dB", nullptr, "Output EQ band 5 boost / cut.") \
 X(PeqB5Q,        "peq.b5.q",       "Output EQ 5 Q", "Output", Float, 0.3f, 10.f, 0.9f, LOG, "", nullptr, "Output EQ band 5 width: low = broad, high = narrow.") \
 X(PeqOutput,     "peq.out",        "Output EQ Output", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Output EQ level trim.") \
-X(PeqPre,        "peq.pre",        "Output EQ Pre FX", "Output", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "PRE FX: EQ the synth before the delay and reverb (and before the compressor when that is PRE FX too), instead of the whole output.") \
+X(PeqPre,        "peq.pre",        "Output EQ Pre FX", "Output", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "PRE FX: EQ the synth before the delay and reverb (and before the compressor when that is PRE FX too), instead of the whole output.") \
 
 #define ZS_LFO_PARAMS(X, n, unused) \
 X(Lfo##n##Wave,  "lfo" #n ".wave",  "LFO " #n " Wave",  "LFO", Choice, 0, 0, 0.f, LIN, "", ZS_CH_LFO_WAVE, "LFO waveform.") \
