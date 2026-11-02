@@ -45,7 +45,7 @@ public:
     {
         float nominalIps;   // the speed the figures below are for
         float headroom;     // input-referred saturation level (0 dBFS peak = 1)
-        float hysteresis;   // loop width (fraction of the headroom)
+        float hysteresis;   // loop width at saturation (fraction of the level; shrinks at low levels)
         float even;         // asymmetry: 2nd-harmonic share
         float bumpHz, bumpDb, bumpQ;
         float hfHz;         // playback -3 dB point at the nominal speed
@@ -58,12 +58,15 @@ public:
     static const Model& model(TapeModel m)
     {
         static const Model models[(int) TapeModel::Count] = {
+            // Headroom: the level (re 0 dBFS peak) where the tape starts to compress hard. Real
+            // machines are aligned with 0 VU well below that (MOL ~ +9 to +14 dB), so at DRIVE 0
+            // a full-scale synth is still clean; DRIVE +12 dB gives clear saturation, +24 dB heavy.
             // ips   head  hyst  even  bump Hz/dB/Q      HF      emph  wow    flut   hiss  colour
-            { 15.0f, 1.00f, 0.012f, 0.04f, 55.0f, 2.0f, 1.3f, 18000.0f, 6.0f, 0.03f, 0.04f, -66.0f, 0.0f },  // Studer A800: punchy, big lows
-            { 15.0f, 1.40f, 0.008f, 0.05f, 48.0f, 1.2f, 1.1f, 22000.0f, 5.0f, 0.02f, 0.025f, -70.0f, 0.2f }, // Ampex ATR-102: clean, extended
-            { 15.0f, 0.85f, 0.018f, 0.12f, 70.0f, 2.5f, 1.2f, 13000.0f, 7.0f, 0.08f, 0.06f, -60.0f, -0.8f }, // Studer J37: valve, warm, soft top
-            { 15.0f, 1.10f, 0.010f, 0.03f, 60.0f, 1.6f, 1.4f, 20000.0f, 6.0f, 0.035f, 0.04f, -66.0f, 0.6f }, // Otari MTR-90: tight, a touch bright
-            { 1.875f, 0.70f, 0.024f, 0.08f, 50.0f, 1.5f, 1.0f, 10000.0f, 9.0f, 0.12f, 0.10f, -54.0f, -0.5f },  // Cassette 4-track
+            { 15.0f, 4.5f, 0.030f, 0.020f, 55.0f, 2.0f, 1.3f, 18000.0f, 6.0f, 0.03f, 0.04f, -66.0f, 0.0f },  // Studer A800: punchy, big lows
+            { 15.0f, 6.0f, 0.020f, 0.025f, 48.0f, 1.2f, 1.1f, 22000.0f, 5.0f, 0.02f, 0.025f, -70.0f, 0.2f }, // Ampex ATR-102: clean, extended
+            { 15.0f, 3.2f, 0.045f, 0.060f, 70.0f, 2.5f, 1.2f, 13000.0f, 7.0f, 0.08f, 0.06f, -60.0f, -0.8f }, // Studer J37: valve, warm, soft top
+            { 15.0f, 5.0f, 0.025f, 0.015f, 60.0f, 1.6f, 1.4f, 20000.0f, 6.0f, 0.035f, 0.04f, -66.0f, 0.6f }, // Otari MTR-90: tight, a touch bright
+            { 1.875f, 2.6f, 0.060f, 0.040f, 50.0f, 1.5f, 1.0f, 10000.0f, 9.0f, 0.12f, 0.10f, -54.0f, -0.5f },  // Cassette 4-track
         };
         return models[std::clamp((int) m, 0, (int) TapeModel::Count - 1)];
     }
@@ -93,6 +96,7 @@ public:
             up[c].reset();
             down[c].reset();
             play[c] = 0.0f;
+            env[c] = 0.0f;
         }
         std::fill(delay.begin(), delay.end(), 0.0f);
         writePos = 0;
@@ -136,7 +140,8 @@ public:
             const auto& m = model(s.model);
             const float bias = std::clamp(s.bias, 0.0f, 1.0f);
             headroom = m.headroom * (0.7f + 0.6f * bias);
-            hystW = m.hysteresis * (1.6f - 1.2f * bias) * headroom;
+            hystK = m.hysteresis * (1.6f - 1.2f * bias);
+            envRel = std::exp(-1.0f / (0.05f * 2.0f * fs));
             even = m.even;
             const float scale = ipsFor(s.model, s.speed) / m.nominalIps;
             const float wf = 1.0f / std::sqrt(std::max(0.1f, scale));
@@ -241,8 +246,13 @@ private:
     float tapeTick(float x, int c, float biasOut)
     {
         float y = biquad(x, c, 0); // pre-emphasis
-        // Magnetisation: a play operator gives the loop (lag at low levels), then the soft limit of the tape.
-        play[c] = std::clamp(play[c], y - hystW, y + hystW);
+        // Magnetisation: a play operator gives the loop, then the soft limit of the tape. The
+        // loop width follows the level relative to the headroom (bias keeps low levels linear,
+        // the loop opens up as the tape nears saturation), so quiet signals stay clean.
+        const float ay = std::abs(y);
+        env[c] = ay > env[c] ? ay : env[c] * envRel;
+        const float w = hystK * env[c] * std::min(1.0f, env[c] / headroom);
+        play[c] = std::clamp(play[c], y - w, y + w);
         const float m = 0.85f * y + 0.15f * play[c];
         y = (shape(m / headroom + even) - biasOut) * headroom;
         y = biquad(y, c, 1); // de-emphasis
@@ -261,7 +271,8 @@ private:
     HalfBandInterpolator up[2];
     HalfBandDecimator down[2];
     float play[2] {};
-    float headroom = 1.0f, hystW = 0.05f, even = 0.1f;
+    float headroom = 1.0f, hystK = 0.05f, envRel = 0.999f, even = 0.1f;
+    float env[2] {};
     float wowDev = 0.0f, flutterDev = 0.0f;
     float hissLevel = 0.0f, hissLpA = 0.5f, hissHpA = 0.9f;
     float hissLp[2] {}, hissHp[2] {}, hissPrev[2] {};

@@ -1809,6 +1809,19 @@ ZS_TEST(tape_machines)
         std::printf("    tape %d: THD %.2f %% at 0 dB, %.2f %% at +18 dB\n", (int) m, lo.thd, hi.thd);
         ZS_CHECK_LT(lo.thd, 3.0);
         ZS_CHECK_GT(hi.thd, lo.thd * 2.0);
+
+        // Studio headroom: a near full-scale signal (-3 dBFS) is clean at DRIVE 0 and still only
+        // warm at +6 dB; it takes +24 dB to really saturate.
+        auto thdAt = [&](float drive) {
+            tm.reset();
+            s.driveDb = drive;
+            return harmonicsOf([&](float* l, float* r, int n) { tm.process(l, r, n, s); }, 220.0, 0.7f, fs).thd;
+        };
+        const double t0 = thdAt(0.0f), t6 = thdAt(6.0f), t24 = thdAt(24.0f);
+        std::printf("    tape %d at -3 dBFS: THD %.2f %% (0 dB), %.2f %% (+6), %.1f %% (+24)\n", (int) m, t0, t6, t24);
+        ZS_CHECK_LT(t0, 1.0);
+        ZS_CHECK_LT(t6, 3.0);
+        ZS_CHECK_GT(t24, 10.0);
     }
     s.model = TapeModel::StuderA800;
     s.driveDb = 0.0f;

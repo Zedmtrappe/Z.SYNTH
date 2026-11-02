@@ -362,10 +362,10 @@ They run at twice the sample rate so the top octave is accurate.
 
 The **TAPE** block (effects row) records the mix (with its echoes and reverb
 tails) to a tape machine before the output section. On the panel: **ON**,
-**MACHINE**, **DRIVE** (level into the tape, compensated: more saturation and
-softer, compressed highs) and **WOW/FLUT** (0 = none, middle = the machine as
-specified, full = a worn transport). **ADVANCED ▸** opens the transport (the
-reels turn at tape speed while TAPE is on) with **SPEED**, **BIAS** (0.5 =
+**MACHINE**, **DRIVE** (level into the tape, compensated. The machines are
+aligned with plenty of headroom, like a real studio: clean at 0 dB, warm from
+about +6, clearly saturated by +12 and heavy at +24) and **WOW/FLUT** (0 = none, middle = the machine as
+specified, full = a worn transport). **ADVANCED ▸** opens **SPEED**, **BIAS** (0.5 =
 calibrated; under = brighter and dirtier, over = cleaner and darker), **HISS**
 (off by default; middle = the machine's noise floor) and **OUTPUT**.
 

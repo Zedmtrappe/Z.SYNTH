@@ -418,12 +418,43 @@ void MainPanel::buildUtilities()
         setValue(P::ReverbLowCut, 20.0f);
         setValue(P::RevEqLpf, 20000.0f);
     });
-    button("peqFlat", "FLAT", "Flatten the output EQ: all bands to 0 dB, cuts off, output 0 dB (= completely dry)", [setValue] {
-        for (int i = P::PeqB1Freq; i <= P::PeqB5Q; ++i)
-            if (juce::String(paramDef(i).id).endsWith(".g"))
-                setValue(i, 0.0f);
-        setValue(P::PeqHpf, 20.0f);
-        setValue(P::PeqLpf, 20000.0f);
+    button("peqFlat", "FLAT", "Flatten the EQ model in use: every boost / cut to 0, filters off, drive and output to 0", [this, setValue] {
+        auto* model = processor.getState().getRawParameterValue(paramDef(P::EqModel).id);
+        const auto m = model != nullptr ? (EqModel) juce::roundToInt(model->load()) : EqModel::Pristine;
+        // Gains back to their (flat) defaults; frequency choices are left where they are.
+        auto toDefault = [&setValue](std::initializer_list<int> ids) {
+            for (int i : ids)
+                setValue(i, paramDef(i).def);
+        };
+        switch (m)
+        {
+            case EqModel::Pristine:
+                for (int i = P::PeqB1Freq; i <= P::PeqB5Q; ++i)
+                    if (juce::String(paramDef(i).id).endsWith(".g"))
+                        setValue(i, 0.0f);
+                setValue(P::PeqHpf, 20.0f);
+                setValue(P::PeqLpf, 20000.0f);
+                break;
+            case EqModel::Pultec:
+                toDefault({ P::PulLowBoost, P::PulLowAtten, P::PulHighBoost, P::PulHighAtten });
+                break;
+            case EqModel::Neve1073:
+                toDefault({ P::NeveHpf, P::NeveLowGain, P::NeveMidGain, P::NeveHighGain });
+                break;
+            case EqModel::Api550A:
+                toDefault({ P::A5LowGain, P::A5MidGain, P::A5HighGain, P::A5Bandpass });
+                break;
+            case EqModel::Api550B:
+                toDefault({ P::B5LowGain, P::B5LowMidGain, P::B5HighMidGain, P::B5HighGain });
+                break;
+            case EqModel::Api560:
+                for (int i = P::G560B1; i <= P::G560B10; ++i)
+                    setValue(i, 0.0f);
+                break;
+            default:
+                break;
+        }
+        setValue(P::EqDrive, 0.0f);
         setValue(P::PeqOutput, 0.0f);
     });
     button("openPeq", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Edit the output EQ: five bands with variable Q, low cut, high cut, output", [this] {
@@ -474,7 +505,6 @@ void MainPanel::buildUtilities()
     displays.push_back(&addUtility<EqCurve>("reverbEqCurveBig", processor, EqCurve::Which::Reverb, true));
     displays.push_back(&addUtility<CompMeter>("compMeterBig", processor));
     displays.push_back(&addUtility<TrackDisplay>("trackDisplay", processor));
-    displays.push_back(&addUtility<TapeReels>("tapeReels", processor));
     button("openTape", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Tape speed, bias, hiss and output, with the transport", [this] {
         showPage(getVisiblePage() == "tape" ? juce::String() : juce::String("tape")); });
     button("openTrack", juce::String::fromUTF8("\xe2\x96\xb8"), "Open the PITCH TRACK window (input, gate, tracking, velocity, dry)", [this] {

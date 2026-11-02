@@ -583,18 +583,17 @@ PanelLayout::PanelLayout()
          340, 150, 280, 140, juce::Justification::topLeft);
 
     // ---------------------------------------------------------- tape page
-    pageList.push_back({ "tape", "TAPE", { 600, 280, 720, 330 } });
+    pageList.push_back({ "tape", "TAPE", { 600, 400, 720, 170 } });
     page("tape");
-    sectionAt("tapePage", "TAPE  -  ADVANCED", 0, 0, 720, 330);
+    sectionAt("tapePage", "TAPE  -  ADVANCED", 0, 0, 720, 170);
     utilityAt("tapeClose", 680, 3, 34, 20);
-    utilityAt("tapeReels", 20, 36, 680, 168);
-    add("tape.speed", K::Selector, 24, 222, "SPEED", 110);
-    add("tape.bias", K::LargeKnob, 156, 216, "BIAS");
-    add("tape.hiss", K::LargeKnob, 244, 216, "HISS");
-    add("tape.out", K::LargeKnob, 332, 216, "OUTPUT");
-    text("MACHINE, DRIVE and WOW / FLUTTER are on the panel.  DRIVE pushes the tape: more saturation and softer, "
-         "compressed highs.  Slower speeds: more head bump in the bass, a darker top and more wow.  BIAS 0.5 = calibrated.",
-         430, 216, 270, 100, juce::Justification::topLeft);
+    add("tape.speed", K::Selector, 24, 56, "SPEED", 110);
+    add("tape.bias", K::LargeKnob, 156, 50, "BIAS");
+    add("tape.hiss", K::LargeKnob, 244, 50, "HISS");
+    add("tape.out", K::LargeKnob, 332, 50, "OUTPUT");
+    text("MACHINE, DRIVE and WOW / FLUTTER are on the panel.  DRIVE pushes the tape: clean at 0 dB, warm from +6, "
+         "clearly saturated by +12 and heavy at +24.  Slower speeds: more head bump in the bass, a darker top and more wow.  BIAS 0.5 = calibrated.",
+         430, 44, 270, 116, juce::Justification::topLeft);
 
     // ------------------------------------------------------- comp advanced
     pageList.push_back({ "comp", "OUTPUT COMP", { 1050, 300, 850, 380 } });
