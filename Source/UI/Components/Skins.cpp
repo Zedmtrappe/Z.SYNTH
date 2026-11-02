@@ -41,6 +41,14 @@ juce::Colour Skin::capFor(const juce::String& paramId) const
 {
     if (knob != KnobStyle::Ribbed)
         return knobColour;
+    // Neve: frequency switches grey, gains blue, the high-pass red.
+    if (paramId.startsWith("nev."))
+        return paramId == "nev.hpf" ? C(0xffb9312a) : (paramId.endsWith("g") ? C(0xff3a74c4) : C(0xff9aa0a6));
+    // API: frequency rings grey, gains API blue.
+    if (paramId.startsWith("a5.") || paramId.startsWith("b5."))
+        return paramId.endsWith("g") ? C(0xff2f6fd1) : C(0xff8a8f96);
+    if (paramId == "eq.drive" || paramId == "peq.out")
+        return C(0xffd8d8d4);
     // Bus-compressor colour coding.
     if (paramId == "comp.thresh")                                return C(0xffd8d8d4);
     if (paramId == "comp.makeup")                                return C(0xffc8322d);
@@ -98,6 +106,52 @@ const Skin* reverbSkin(ReverbType type)
         case ReverbType::LexPCM70:       return &pcm70;
         default:                         return nullptr; // Hall, Room, Shimmer: the ZYNTH house look
     }
+}
+
+const Skin* eqSkin(EqModel model)
+{
+    auto skin = [](const char* plateName, C plate, PlateFinish finish, C ink, KnobStyle knob, C knobColour, C faderCap, C insert) {
+        return Skin { plateName, plate, finish, ink, C(0xffe8c26a), knob, knobColour, faderCap, insert, kHouseLcdBack, kHouseLcdText,
+                      C(0xfff2e6c4), C(0xff1d1a14), C(0xff141414), true, "" };
+    };
+    static const Skin pultec = skin("PROGRAM EQUALIZER", C(0xff5b6e7c), PlateFinish::Hammertone, C(0xfff2f0ea),
+                                    KnobStyle::ChickenHead, C(0xff121212), C(0xff1a1a1a), C(0xfff2f0ea));
+    static const Skin neve = skin("CLASS A EQUALISER", C(0xff667788), PlateFinish::Paint, C(0xfff4f2ec),
+                                  KnobStyle::Ribbed, C(0xff9aa0a6), C(0xff2a2c30), C(0xfff4f2ec));
+    static const Skin api = skin("DISCRETE EQUALIZER", C(0xff1c1e21), PlateFinish::Anodised, C(0xffeeeeea),
+                                 KnobStyle::Ribbed, C(0xff8a8f96), C(0xff1c1c1e), C(0xffeeeeea));
+    static const Skin api560 = skin("GRAPHIC EQUALIZER", C(0xff16171a), PlateFinish::Anodised, C(0xffeeeeea),
+                                    KnobStyle::Ribbed, C(0xff8a8f96), C(0xff18181a), C(0xffeeeeea));
+    switch (model)
+    {
+        case EqModel::Pultec:   return &pultec;
+        case EqModel::Neve1073: return &neve;
+        case EqModel::Api550A:
+        case EqModel::Api550B:  return &api;
+        case EqModel::Api560:   return &api560;
+        default:                return nullptr;
+    }
+}
+
+const Skin& tapeSkin(TapeModel model)
+{
+    auto skin = [](const char* plateName, C plate, PlateFinish finish, C ink, C accent, KnobStyle knob, C knobColour, C lcdBack, C lcdText) {
+        return Skin { plateName, plate, finish, ink, accent, knob, knobColour, C(0xff1a1a1a), ink, lcdBack, lcdText,
+                      C(0xfff2e6c4), C(0xff1d1a14), C(0xff141414), true, "" };
+    };
+    static const Skin skins[(int) TapeModel::Count] = {
+        skin("MULTICHANNEL RECORDER", C(0xffb8b7af), PlateFinish::Paint, C(0xff1e1f20), C(0xff3fae5a), KnobStyle::Silver, C(0xffd0d2d4),
+             C(0xff06120a), C(0xff8ff07a)),
+        skin("MASTERING RECORDER", C(0xff2a2b2e), PlateFinish::Brushed, C(0xffe6e3da), C(0xffe8c26a), KnobStyle::BlackSkirt, C(0xff141414),
+             kHouseLcdBack, kHouseLcdText),
+        skin("FOUR-TRACK RECORDER", C(0xff8a8f86), PlateFinish::Hammertone, C(0xff15181a), C(0xffe8c26a), KnobStyle::BlackRound, C(0xff131313),
+             kHouseLcdBack, kHouseLcdText),
+        skin("MULTITRACK RECORDER", C(0xff1a1a1c), PlateFinish::Anodised, C(0xffdcdcd6), C(0xffff4a3a), KnobStyle::BlackSkirt, C(0xff141414),
+             kRedLedBack, kRedLed),
+        skin("CASSETTE MULTITRACKER", C(0xffc4c6c8), PlateFinish::Brushed, C(0xff222426), C(0xffff7a33), KnobStyle::Silver, C(0xffd5d8db),
+             C(0xff170904), C(0xffff7a33)),
+    };
+    return skins[juce::jlimit(0, (int) TapeModel::Count - 1, (int) model)];
 }
 
 void paintFaceplate(juce::Graphics& g, juce::Rectangle<float> r, const Skin& s, const juce::String& title, bool inset)
@@ -171,14 +225,16 @@ void paintFaceplate(juce::Graphics& g, juce::Rectangle<float> r, const Skin& s, 
         // Leave the right-hand end of the title row to the ON / PRE FX switches.
         const auto nameArea = juce::Rectangle<float>(titleArea.getX() + titleW, titleArea.getY() + 1.0f,
                                                      juce::jmax(0.0f, plate.getWidth() - titleW - (plate.getWidth() > 300.0f ? 130.0f : 60.0f)), 13.0f);
-        m::engravedText(g, s.nameplate, nameArea, titleFont(8.0f), juce::Justification::centredLeft, s.ink.withMultipliedAlpha(0.75f), 0.0f);
+        if (plate.getWidth() >= 180.0f) // narrow bays carry the title only
+            m::engravedText(g, s.nameplate, nameArea, titleFont(8.0f), juce::Justification::centredLeft, s.ink.withMultipliedAlpha(0.75f), 0.0f);
     }
     else
     {
         const auto titleArea = juce::Rectangle<float>(plate.getX() + 23.0f, plate.getY() + 3.0f, plate.getWidth() * 0.5f, 23.0f);
         m::engravedText(g, title, titleArea, titleFont(13.0f), juce::Justification::centredLeft, s.ink, glow);
-        const auto nameArea = juce::Rectangle<float>(plate.getCentreX(), plate.getY() + 4.0f, plate.getWidth() * 0.5f - 52.0f, 21.0f);
-        m::engravedText(g, s.nameplate, nameArea, titleFont(10.0f), juce::Justification::centredRight, s.ink.withMultipliedAlpha(0.8f), 0.0f);
+        // Right-aligned, clear of the window's buttons (close, FLAT).
+        const auto nameArea = juce::Rectangle<float>(plate.getCentreX() - 60.0f, plate.getY() + 4.0f, plate.getWidth() * 0.5f - 70.0f, 21.0f);
+        m::engravedText(g, s.nameplate, nameArea, titleFont(10.0f), juce::Justification::centred, s.ink.withMultipliedAlpha(0.8f), 0.0f);
         g.setColour(s.ink.withAlpha(0.35f));
         g.drawHorizontalLine((int) (plate.getY() + 27.0f), plate.getX() + 8.0f, plate.getRight() - 8.0f);
     }

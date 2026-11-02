@@ -61,6 +61,8 @@ void SynthEngine::prepare(double sampleRate, int maxBlockSize)
     valve.prepare(fs);
     compressor.prepare(fs);
     outputEq.prepare(fs);
+    vintageEq.prepare(fs);
+    tape.prepare(fs);
     transformer.prepare(fs);
     smooth.prepare(fs);
     output.prepare(fs);
@@ -105,7 +107,7 @@ void SynthEngine::process(float* left, float* right, int numSamples,
         arp.reset();
         seq.reset();
         drive.reset(); phaser.reset(); flanger.reset(); chorus.reset();
-        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset(); compressor.reset(); outputEq.reset(); transformer.reset(); smooth.reset();
+        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset(); compressor.reset(); outputEq.reset(); vintageEq.reset(); tape.reset(); transformer.reset(); smooth.reset();
         for (auto& ch : playedNote)
             for (auto& n : ch)
                 n = -1;
@@ -216,7 +218,7 @@ void SynthEngine::processChunk(float* left, float* right, int n, const MidiEvent
         badBlocks.fetch_add(1, std::memory_order_relaxed);
         voices.killAll();
         drive.reset(); phaser.reset(); flanger.reset(); chorus.reset();
-        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset(); compressor.reset(); outputEq.reset(); transformer.reset(); smooth.reset();
+        ensemble.reset(); delay.reset(); reverb.reset(); valve.reset(); compressor.reset(); outputEq.reset(); vintageEq.reset(); tape.reset(); transformer.reset(); smooth.reset();
     }
 
     activeVoices.store(voices.activeVoiceCount(), std::memory_order_relaxed);
@@ -358,6 +360,63 @@ OutputEqSettings SynthEngine::outputEqSettings() const
         s.q[b] = p(base + 2);
     }
     s.outputDb = p(P::PeqOutput);
+    return s;
+}
+
+VintageEqSettings vintageEqSettingsFrom(const float* v)
+{
+    auto i = [&](int index) { return (int) std::lround(v[index]); };
+    VintageEqSettings s;
+    s.model = (EqModel) std::clamp(i(P::EqModel), 0, (int) EqModel::Count - 1);
+    s.pulLowFreq = i(P::PulLowFreq);
+    s.pulLowBoost = v[P::PulLowBoost];
+    s.pulLowAtten = v[P::PulLowAtten];
+    s.pulHighFreq = i(P::PulHighFreq);
+    s.pulHighBoost = v[P::PulHighBoost];
+    s.pulBandwidth = v[P::PulBandwidth];
+    s.pulAttenFreq = i(P::PulAttenFreq);
+    s.pulHighAtten = v[P::PulHighAtten];
+    s.neveHpf = i(P::NeveHpf);
+    s.neveLowFreq = i(P::NeveLowFreq);
+    s.neveLowGain = v[P::NeveLowGain];
+    s.neveMidFreq = i(P::NeveMidFreq);
+    s.neveMidGain = v[P::NeveMidGain];
+    s.neveHighGain = v[P::NeveHighGain];
+    const int aF[3] = { P::A5LowFreq, P::A5MidFreq, P::A5HighFreq }, aG[3] = { P::A5LowGain, P::A5MidGain, P::A5HighGain };
+    for (int b = 0; b < 3; ++b)
+    {
+        s.a550Freq[b] = i(aF[b]);
+        s.a550Gain[b] = VintageEq::kA550Steps[std::clamp(i(aG[b]), 0, 10)];
+    }
+    s.a550Shelf[0] = v[P::A5LowShelf] >= 0.5f;
+    s.a550Shelf[1] = v[P::A5HighShelf] >= 0.5f;
+    s.a550Bandpass = v[P::A5Bandpass] >= 0.5f;
+    const int bF[4] = { P::B5LowFreq, P::B5LowMidFreq, P::B5HighMidFreq, P::B5HighFreq };
+    const int bG[4] = { P::B5LowGain, P::B5LowMidGain, P::B5HighMidGain, P::B5HighGain };
+    for (int b = 0; b < 4; ++b)
+    {
+        s.b550Freq[b] = i(bF[b]);
+        s.b550Gain[b] = VintageEq::kB550Steps[std::clamp(i(bG[b]), 0, 14)];
+    }
+    s.b550Shelf[0] = v[P::B5LowShelf] >= 0.5f;
+    s.b550Shelf[1] = v[P::B5HighShelf] >= 0.5f;
+    for (int b = 0; b < 10; ++b)
+        s.g560[b] = v[P::G560B1 + b];
+    s.drive = v[P::EqDrive];
+    s.outputDb = v[P::PeqOutput];
+    return s;
+}
+
+TapeSettings SynthEngine::tapeSettings() const
+{
+    TapeSettings s;
+    s.model = (TapeModel) std::clamp(pi(P::TapeModelP), 0, (int) TapeModel::Count - 1);
+    s.speed = pi(P::TapeSpeed);
+    s.driveDb = p(P::TapeDrive);
+    s.bias = p(P::TapeBias);
+    s.wow = p(P::TapeWow);
+    s.hiss = p(P::TapeHiss);
+    s.outputDb = p(P::TapeOut);
     return s;
 }
 
@@ -716,8 +775,12 @@ void SynthEngine::runEffects(float* left, float* right, int n)
     // delay and reverb, ahead of a PRE FX compressor (console order).
     auto runEq = [&] {
         runFaded(9, pb(P::PeqOn), [&](float* l, float* r) {
-            outputEq.process(l, r, n, outputEqSettings());
-        }, [&] { outputEq.reset(); });
+            // PRISTINE is the parametric; the others are the classic hardware models.
+            if ((EqModel) pi(P::EqModel) == EqModel::Pristine)
+                outputEq.process(l, r, n, outputEqSettings());
+            else
+                vintageEq.process(l, r, n, vintageEqSettingsFrom(smoothed));
+        }, [&] { outputEq.reset(); vintageEq.reset(); });
     };
     const bool eqPre = pb(P::PeqPre);
     if (eqPre)
@@ -763,6 +826,11 @@ void SynthEngine::runEffects(float* left, float* right, int n)
                   p(P::ReverbLowCut), p(P::RevEqLpf) };
         reverb.process(l, r, n, rs);
     }, [&] { reverb.reset(); });
+
+    // Tape: the mix (with its echoes and tails) recorded to tape, before the output section.
+    runFaded(11, pb(P::TapeOn), [&](float* l, float* r) {
+        tape.process(l, r, n, tapeSettings());
+    }, [&] { tape.reset(); });
 
     // The valve stage sits after the effects, at the head of the output section.
     runFaded(7, pb(P::ValveOn), [&](float* l, float* r) {

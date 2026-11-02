@@ -302,6 +302,60 @@ X(TrkRange,      "trk.range",      "Track Range",   "Global", Choice, 0, 0, 0.f,
 X(TrkBend,       "trk.bend",       "Track Bend",    "Global", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "BEND FOLLOW: string bends and vibrato become pitch bend (within the synth's BEND range). Off = notes snap to semitones.") \
 X(TrkVel,        "trk.vel",        "Track Velocity", "Global", Float, 0.f, 1.f, 0.7f, LIN, "", nullptr, "VELOCITY: how much your picking strength sets the note velocity (0 = always 100).") \
 X(TrkDry,        "trk.dry",        "Track Dry",     "Global", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "DRY: blends the instrument's own sound in with the synth.") \
+/* ---------------------------------------- classic EQs and tape */ \
+X(EqModel,       "eq.model",      "EQ Model", "Output", Choice, 0, 0, 0.f, LIN, "", ZS_CH_EQ_MODEL, "EQ MODEL: Pristine (clean parametric) or a classic hardware EQ.") \
+X(EqDrive,       "eq.drive",      "EQ Drive", "Output", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "DRIVE: pushes the classic EQ's amplifier and transformers (level-compensated). Not on Pristine.") \
+X(PulLowFreq,    "pul.lf",        "Pultec Low Freq", "Output", Choice, 0, 0, 2.f, LIN, "", ZS_CH_PUL_LF, "Pultec LOW FREQUENCY (cps).") \
+X(PulLowBoost,   "pul.lb",        "Pultec Low Boost", "Output", Float, 0.f, 10.f, 0.f, LIN, "", nullptr, "Pultec LOW BOOST (0-10).") \
+X(PulLowAtten,   "pul.la",        "Pultec Low Atten", "Output", Float, 0.f, 10.f, 0.f, LIN, "", nullptr, "Pultec LOW ATTEN (0-10). With BOOST: the sub lift and low-mid dip of the Pultec trick.") \
+X(PulHighFreq,   "pul.hf",        "Pultec High Freq", "Output", Choice, 0, 0, 3.f, LIN, "", ZS_CH_PUL_HF, "Pultec HIGH FREQUENCY (kcs) of the boost.") \
+X(PulHighBoost,  "pul.hb",        "Pultec High Boost", "Output", Float, 0.f, 10.f, 0.f, LIN, "", nullptr, "Pultec HIGH BOOST (0-10).") \
+X(PulBandwidth,  "pul.bw",        "Pultec Bandwidth", "Output", Float, 0.f, 10.f, 5.f, LIN, "", nullptr, "Pultec BANDWIDTH of the high boost: sharp to broad.") \
+X(PulAttenFreq,  "pul.af",        "Pultec Atten Sel", "Output", Choice, 0, 0, 1.f, LIN, "", ZS_CH_PUL_ATT, "Pultec ATTEN SEL: high attenuation frequency (kcs).") \
+X(PulHighAtten,  "pul.ha",        "Pultec High Atten", "Output", Float, 0.f, 10.f, 0.f, LIN, "", nullptr, "Pultec HIGH ATTEN (0-10).") \
+X(NeveHpf,       "nev.hpf",       "Neve HPF", "Output", Choice, 0, 0, 0.f, LIN, "", ZS_CH_NEVE_HPF, "Neve 1073 high-pass filter, 18 dB/oct.") \
+X(NeveLowFreq,   "nev.lf",        "Neve Low Freq", "Output", Choice, 0, 0, 2.f, LIN, "", ZS_CH_NEVE_LF, "Neve 1073 low shelf frequency.") \
+X(NeveLowGain,   "nev.lg",        "Neve Low Gain", "Output", Float, -16.f, 16.f, 0.f, LIN, "dB", nullptr, "Neve 1073 low shelf gain.") \
+X(NeveMidFreq,   "nev.mf",        "Neve Mid Freq", "Output", Choice, 0, 0, 2.f, LIN, "", ZS_CH_NEVE_MF, "Neve 1073 mid frequency (kHz).") \
+X(NeveMidGain,   "nev.mg",        "Neve Mid Gain", "Output", Float, -18.f, 18.f, 0.f, LIN, "dB", nullptr, "Neve 1073 mid gain.") \
+X(NeveHighGain,  "nev.hg",        "Neve High Gain", "Output", Float, -16.f, 16.f, 0.f, LIN, "dB", nullptr, "Neve 1073 12 kHz high shelf gain.") \
+X(A5LowFreq,     "a5.lf",         "API 550A Low Freq", "Output", Choice, 0, 0, 1.f, LIN, "", ZS_CH_A550_LF, "API 550A low band frequency.") \
+X(A5LowGain,     "a5.lg",         "API 550A Low Gain", "Output", Choice, 0, 0, 5.f, LIN, "", ZS_CH_A550_GAIN, "API 550A low band boost / cut (stepped, dB).") \
+X(A5MidFreq,     "a5.mf",         "API 550A Mid Freq", "Output", Choice, 0, 0, 2.f, LIN, "", ZS_CH_A550_MF, "API 550A mid band frequency.") \
+X(A5MidGain,     "a5.mg",         "API 550A Mid Gain", "Output", Choice, 0, 0, 5.f, LIN, "", ZS_CH_A550_GAIN, "API 550A mid band boost / cut (stepped, dB).") \
+X(A5HighFreq,    "a5.hf",         "API 550A High Freq", "Output", Choice, 0, 0, 2.f, LIN, "", ZS_CH_A550_HF, "API 550A high band frequency.") \
+X(A5HighGain,    "a5.hg",         "API 550A High Gain", "Output", Choice, 0, 0, 5.f, LIN, "", ZS_CH_A550_GAIN, "API 550A high band boost / cut (stepped, dB).") \
+X(A5LowShelf,    "a5.ls",         "API 550A Low Shelf", "Output", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "API 550A low band: SHELF instead of PEAK.") \
+X(A5HighShelf,   "a5.hs",         "API 550A High Shelf", "Output", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "API 550A high band: SHELF instead of PEAK.") \
+X(A5Bandpass,    "a5.bp",         "API 550A Band Pass", "Output", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "API 550A BAND-PASS filter (50 Hz - 15 kHz).") \
+X(B5LowFreq,     "b5.lf",         "API 550B Low Freq", "Output", Choice, 0, 0, 2.f, LIN, "", ZS_CH_B550_LF, "API 550B Low band frequency.") \
+X(B5LowGain,     "b5.lg",         "API 550B Low Gain", "Output", Choice, 0, 0, 7.f, LIN, "", ZS_CH_B550_GAIN, "API 550B Low band boost / cut (stepped, dB).") \
+X(B5LowMidFreq,  "b5.lmf",        "API 550B LowMid Freq", "Output", Choice, 0, 0, 4.f, LIN, "", ZS_CH_B550_LMF, "API 550B LowMid band frequency.") \
+X(B5LowMidGain,  "b5.lmg",        "API 550B LowMid Gain", "Output", Choice, 0, 0, 7.f, LIN, "", ZS_CH_B550_GAIN, "API 550B LowMid band boost / cut (stepped, dB).") \
+X(B5HighMidFreq, "b5.hmf",        "API 550B HighMid Freq", "Output", Choice, 0, 0, 2.f, LIN, "", ZS_CH_B550_HMF, "API 550B HighMid band frequency.") \
+X(B5HighMidGain, "b5.hmg",        "API 550B HighMid Gain", "Output", Choice, 0, 0, 7.f, LIN, "", ZS_CH_B550_GAIN, "API 550B HighMid band boost / cut (stepped, dB).") \
+X(B5HighFreq,    "b5.hf",         "API 550B High Freq", "Output", Choice, 0, 0, 3.f, LIN, "", ZS_CH_B550_HF, "API 550B High band frequency.") \
+X(B5HighGain,    "b5.hg",         "API 550B High Gain", "Output", Choice, 0, 0, 7.f, LIN, "", ZS_CH_B550_GAIN, "API 550B High band boost / cut (stepped, dB).") \
+X(B5LowShelf,    "b5.ls",         "API 550B Low Shelf", "Output", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "API 550B low band: SHELF instead of PEAK.") \
+X(B5HighShelf,   "b5.hs",         "API 550B High Shelf", "Output", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "API 550B high band: SHELF instead of PEAK.") \
+X(G560B1,        "g560.b1",       "API 560 31", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "API 560 31 Hz band.") \
+X(G560B2,        "g560.b2",       "API 560 63", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "API 560 63 Hz band.") \
+X(G560B3,        "g560.b3",       "API 560 125", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "API 560 125 Hz band.") \
+X(G560B4,        "g560.b4",       "API 560 250", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "API 560 250 Hz band.") \
+X(G560B5,        "g560.b5",       "API 560 500", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "API 560 500 Hz band.") \
+X(G560B6,        "g560.b6",       "API 560 1k", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "API 560 1k Hz band.") \
+X(G560B7,        "g560.b7",       "API 560 2k", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "API 560 2k Hz band.") \
+X(G560B8,        "g560.b8",       "API 560 4k", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "API 560 4k Hz band.") \
+X(G560B9,        "g560.b9",       "API 560 8k", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "API 560 8k Hz band.") \
+X(G560B10,       "g560.b10",      "API 560 16k", "Output", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "API 560 16k Hz band.") \
+X(TapeOn,        "tape.on",       "Tape On", "Effects", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "TAPE: record the mix to a classic tape machine (after the delay and reverb).") \
+X(TapeModelP,    "tape.model",    "Tape Machine", "Effects", Choice, 0, 0, 0.f, LIN, "", ZS_CH_TAPE_MODEL, "Tape machine.") \
+X(TapeSpeed,     "tape.speed",    "Tape Speed", "Effects", Choice, 0, 0, 1.f, LIN, "", ZS_CH_TAPE_SPEED, "Tape speed: slower = more head bump in the bass, darker top, more wow (cassette: 1 7/8 / 3 3/4 ips).") \
+X(TapeDrive,     "tape.drive",    "Tape Drive", "Effects", Float, -12.f, 24.f, 0.f, LIN, "dB", nullptr, "DRIVE: level into the tape (level-compensated). Higher = more saturation and softer highs.") \
+X(TapeBias,      "tape.bias",     "Tape Bias", "Effects", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "BIAS: 0.5 = calibrated. Under = brighter and dirtier, over = cleaner and darker.") \
+X(TapeWow,       "tape.wow",      "Tape Wow/Flutter", "Effects", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "WOW / FLUTTER: 0 = none, 0.5 = the machine as specified, 1 = a worn transport.") \
+X(TapeHiss,      "tape.hiss",     "Tape Hiss", "Effects", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "HISS: 0 = off, 0.5 = the machine's noise floor.") \
+X(TapeOut,       "tape.out",      "Tape Output", "Effects", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Tape output level.") \
 
 #define ZS_LFO_PARAMS(X, n, unused) \
 X(Lfo##n##Wave,  "lfo" #n ".wave",  "LFO " #n " Wave",  "LFO", Choice, 0, 0, 0.f, LIN, "", ZS_CH_LFO_WAVE, "LFO waveform.") \

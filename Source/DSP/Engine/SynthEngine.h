@@ -23,6 +23,8 @@
 #include "../Effects/DriveAndOutput.h"
 #include "../Effects/SmoothBand.h"
 #include "../Effects/OutputEq.h"
+#include "../Effects/TapeMachine.h"
+#include "../Effects/VintageEq.h"
 #include "../Effects/ModulationEffects.h"
 #include "../Effects/TimeEffects.h"
 #include "../Performance/Arpeggiator.h"
@@ -42,6 +44,9 @@ struct MidiEvent
     int offset = 0;
     uint8_t status = 0, data1 = 0, data2 = 0;
 };
+
+/** The classic-EQ settings from parameter values in real units (engine and display). */
+VintageEqSettings vintageEqSettingsFrom(const float* values);
 
 class SynthEngine
 {
@@ -95,6 +100,7 @@ private:
     void runEffects(float* left, float* right, int n);
     float p(int index) const { return smoothed[index]; }
     OutputEqSettings outputEqSettings() const;
+    TapeSettings tapeSettings() const;
     int pi(int index) const { return (int) std::lround(smoothed[index]); }
     bool pb(int index) const { return smoothed[index] >= 0.5f; }
 
@@ -145,10 +151,12 @@ private:
     OutputTransformer transformer;
     OutputCompressor compressor;
     OutputEq outputEq;
+    VintageEq vintageEq;
+    TapeMachine tape;
     SmoothBand smooth;
     OutputStage output;
     // Each effect fades in/out over 20 ms when switched, so toggling never clicks.
-    float fades[11] {};
+    float fades[12] {};
     std::vector<float> fxTempL, fxTempR;
 
     std::atomic<bool> panicRequested { false };

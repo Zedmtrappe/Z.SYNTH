@@ -57,6 +57,11 @@ const Skin& compSkin(CompModel model);
 /** The faceplate of a reverb type, or nullptr for the house (ZYNTH) look. */
 const Skin* reverbSkin(ReverbType type);
 
+/** The faceplate of a classic EQ model, or nullptr for PRISTINE (the house look). */
+const Skin* eqSkin(EqModel model);
+/** The faceplate of a tape machine. */
+const Skin& tapeSkin(TapeModel model);
+
 /** Paints a faceplate: finish, screws, title and nameplate. `inset` = a plate
     fitted into a recessed module bay (main panel); otherwise a full page. */
 void paintFaceplate(juce::Graphics&, juce::Rectangle<float>, const Skin&, const juce::String& title, bool inset);

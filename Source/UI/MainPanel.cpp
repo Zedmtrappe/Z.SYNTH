@@ -24,6 +24,7 @@ namespace
         if (section.startsWith("fx"))                               return juce::Colour(0xfff08fb0); // pink
         if (section.startsWith("smooth"))                           return juce::Colour(0xff8fd6c4); // teal
         if (section.startsWith("peq"))                              return juce::Colour(0xffe8c26a); // brass
+        if (section.startsWith("tape"))                             return juce::Colour(0xffd9a66b); // tape brown
         if (section.startsWith("comp"))                             return juce::Colour(0xff78d4e6); // cyan
         if (section.startsWith("delay") || section.startsWith("reverb")) return juce::Colour(0xfff08fb0); // pink (effects)
         if (section.startsWith("valve") || section.startsWith("xfmr"))                                     return juce::Colour(0xffff8c3a); // valve orange
@@ -31,19 +32,24 @@ namespace
         return Colours::accent;
     }
 
-    const Skin* skinForSection(const juce::String& section, int compModel, int reverbType)
+    const Skin* skinForSection(const juce::String& section, const SkinModels& m)
     {
         if (section == "compModule" || section == "compPage")
-            return &compSkin((CompModel) compModel);
+            return &compSkin((CompModel) m.comp);
         if (section == "fxReverb" || section == "reverbPage")
-            return reverbSkin((ReverbType) reverbType);
+            return reverbSkin((ReverbType) m.reverb);
+        if (section == "peqModule" || section == "peqPage")
+            return eqSkin((EqModel) m.eq);
+        if (section == "tapeModule" || section == "tapePage")
+            return &tapeSkin((TapeModel) m.tape);
         return nullptr;
     }
 
-    // The models the faceplates show while a panel or page is being rendered
-    // (set by the owning panel just before; message thread only).
-    int renderCompModel = 0, renderReverbType = 0;
-    const Skin* skinForSection(const juce::String& section) { return skinForSection(section, renderCompModel, renderReverbType); }
+    // The models the faceplates show, and the views whose labels are drawn, while a
+    // panel or page is being rendered (set by the owning panel just before; message thread only).
+    SkinModels renderModels;
+    juce::StringArray renderViews;
+    const Skin* skinForSection(const juce::String& section) { return skinForSection(section, renderModels); }
 
     // Panel materials (see Components/Materials.h for the lighting model).
     const juce::Colour kChassis   { 0xff0f1012 }; // black textured plastic body
@@ -139,7 +145,7 @@ void paintLayoutPage(juce::Graphics& g, const juce::String& page)
     };
     for (const auto& l : layout.labels())
     {
-        if (l.page != page)
+        if (l.page != page || (l.view.isNotEmpty() && ! renderViews.contains(l.view)))
             continue;
         const bool printed = pageSkin != nullptr && ! inSubPanel(l.bounds);
         const auto colour = printed ? (l.heading ? pageSkin->ink : pageSkin->ink.withMultipliedAlpha(0.85f))
@@ -295,8 +301,8 @@ void MainPanel::buildPages()
         auto page = std::make_unique<PopupPage>(spec);
         page->onClose = [this] { showPage({}); };
         page->beforeRender = [this] {
-            renderCompModel = juce::jmax(0, shownCompModel);
-            renderReverbType = juce::jmax(0, shownReverbType);
+            renderModels = shownModels();
+            renderViews = activeViews;
         };
         addChildComponent(*page);
         pages.push_back(std::move(page));
@@ -323,10 +329,11 @@ void MainPanel::buildControls()
         auto c = std::make_unique<ParamControl>(state, index, spec.kind, spec.label, &processor.getMidiLearn());
         c->setBounds(spec.bounds);
         c->setAccent(sectionColour(spec.section));
-        if (spec.section == "compModule" || spec.section == "compPage" || spec.section == "fxReverb" || spec.section == "reverbPage")
         {
             const juce::String section(spec.section);
-            c->setSkinSource([this, section] { return skinForSection(section, juce::jmax(0, shownCompModel), juce::jmax(0, shownReverbType)); });
+            if (skinForSection(section, SkinModels {}) != nullptr || section.startsWith("peq") || section.startsWith("fxReverb")
+                || section == "reverbPage")
+                c->setSkinSource([this, section] { return skinForSection(section, shownModels()); });
         }
         c->onDragStateChanged = [this](ParamControl& control, bool dragging) {
             if (! dragging)
@@ -467,6 +474,9 @@ void MainPanel::buildUtilities()
     displays.push_back(&addUtility<EqCurve>("reverbEqCurveBig", processor, EqCurve::Which::Reverb, true));
     displays.push_back(&addUtility<CompMeter>("compMeterBig", processor));
     displays.push_back(&addUtility<TrackDisplay>("trackDisplay", processor));
+    displays.push_back(&addUtility<TapeReels>("tapeReels", processor));
+    button("openTape", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Tape speed, bias, hiss and output, with the transport", [this] {
+        showPage(getVisiblePage() == "tape" ? juce::String() : juce::String("tape")); });
     button("openTrack", juce::String::fromUTF8("\xe2\x96\xb8"), "Open the PITCH TRACK window (input, gate, tracking, velocity, dry)", [this] {
         showPage(getVisiblePage() == "track" ? juce::String() : juce::String("track")); });
     displays.push_back(&addUtility<OutputMeter>("meter", processor));
@@ -803,30 +813,60 @@ void MainPanel::updateTracking()
     }
 }
 
+SkinModels MainPanel::shownModels() const
+{
+    return { juce::jmax(0, shownCompModel), juce::jmax(0, shownReverbType), juce::jmax(0, shownEqModel), juce::jmax(0, shownTapeModel) };
+}
+
 void MainPanel::updateSkins()
 {
-    const int comp = juce::jlimit(0, (int) CompModel::Count - 1, (int) std::lround(processor.getValue(P::CompModel)));
-    const int reverb = juce::jlimit(0, (int) ReverbType::Count - 1, (int) std::lround(processor.getValue(P::ReverbType)));
-    if (comp == shownCompModel && reverb == shownReverbType)
+    auto model = [this](int param, int count) { return juce::jlimit(0, count - 1, (int) std::lround(processor.getValue(param))); };
+    const int comp = model(P::CompModel, (int) CompModel::Count);
+    const int reverb = model(P::ReverbType, (int) ReverbType::Count);
+    const int eq = model(P::EqModel, (int) EqModel::Count);
+    const int tapeModel = model(P::TapeModelP, (int) TapeModel::Count);
+    if (comp == shownCompModel && reverb == shownReverbType && eq == shownEqModel && tapeModel == shownTapeModel)
         return;
+    const bool first = shownCompModel < 0;
     const bool compChanged = comp != shownCompModel;
-    const bool reverbChanged = reverbSkin((ReverbType) reverb) != reverbSkin((ReverbType) juce::jmax(0, shownReverbType)) || shownReverbType < 0;
+    const bool reverbChanged = first || reverbSkin((ReverbType) reverb) != reverbSkin((ReverbType) juce::jmax(0, shownReverbType));
+    const bool eqChanged = eq != shownEqModel;
+    const bool tapeChanged = tapeModel != shownTapeModel;
     shownCompModel = comp;
     shownReverbType = reverb;
-    if (! compChanged && ! reverbChanged)
-        return; // e.g. Hall -> Room: both the house look
-    // Re-render the faceplates (their area of the panel background, and the pages) and the controls on them.
-    for (const auto* id : { "compModule", "fxReverb" })
+    shownEqModel = eq;
+    shownTapeModel = tapeModel;
+
+    // The EQ model also picks which controls (and headings) its window shows.
+    static const char* eqViews[(int) EqModel::Count] = { "eq:pristine", "eq:pultec", "eq:neve", "eq:api550a", "eq:api550b", "eq:api560" };
+    if (eqChanged)
     {
-        if ((juce::String(id) == "compModule" && ! compChanged) || (juce::String(id) == "fxReverb" && ! reverbChanged))
+        for (int k = activeViews.size(); --k >= 0;)
+            if (activeViews[k].startsWith("eq:"))
+                activeViews.remove(k);
+        activeViews.add(eqViews[eq]);
+        showModView(eqViews[eq]);
+    }
+    if (! compChanged && ! reverbChanged && ! eqChanged && ! tapeChanged)
+        return; // e.g. Hall -> Room: both the house look
+
+    // Re-render the faceplates (their area of the panel background, and the pages) and the controls on them.
+    const std::pair<const char*, bool> modules[4] = { { "compModule", compChanged }, { "fxReverb", reverbChanged },
+                                                      { "peqModule", eqChanged }, { "tapeModule", tapeChanged } };
+    for (const auto& [id, changed] : modules)
+    {
+        if (! changed)
             continue;
         const auto area = PanelLayout::get().section(id).expanded(4);
         renderBackgroundArea(area);
         repaint(area);
     }
     for (auto& page : pages)
-        if (page->getPageId() == (compChanged ? "comp" : "") || page->getPageId() == (reverbChanged ? "reverb" : ""))
+    {
+        const auto& id = page->getPageId();
+        if ((id == "comp" && compChanged) || (id == "reverb" && reverbChanged) || (id == "peq" && eqChanged) || (id == "tape" && tapeChanged))
             page->invalidate();
+    }
     for (auto& c : controls)
         if (c->hasSkinSource())
             c->repaint();
@@ -839,8 +879,8 @@ void MainPanel::renderBackgroundArea(juce::Rectangle<int> area)
     juce::Graphics g(background);
     g.addTransform(juce::AffineTransform::scale(backgroundScale));
     g.reduceClipRegion(area);
-    renderCompModel = juce::jmax(0, shownCompModel);
-    renderReverbType = juce::jmax(0, shownReverbType);
+    renderModels = shownModels();
+    renderViews = activeViews;
     // The module bays sit in the EFFECTS plate: repaint that plate under them, then the bay.
     const auto& layout = PanelLayout::get();
     for (const auto& s : layout.sections())
@@ -864,8 +904,8 @@ void MainPanel::renderBackground(float scale)
                              juce::roundToInt(PanelLayout::kHeight * backgroundScale), true);
     juce::Graphics g(background);
     g.addTransform(juce::AffineTransform::scale(backgroundScale));
-    renderCompModel = juce::jmax(0, shownCompModel);
-    renderReverbType = juce::jmax(0, shownReverbType);
+    renderModels = shownModels();
+    renderViews = activeViews;
 
     // The chassis: black textured plastic, slightly darker towards the edges.
     const auto bounds = juce::Rectangle<float>(0.0f, 0.0f, (float) PanelLayout::kWidth, (float) PanelLayout::kHeight);

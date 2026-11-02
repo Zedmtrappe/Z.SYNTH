@@ -140,6 +140,9 @@ private:
     enum class Kind { Bell, Shelf, LowCut, HighCut };
     struct Band { int freq, gain, q; Kind kind; const char* name; };
     double responseDb(double freq) const;
+    bool vintage() const { return which == Which::Output && iv(P::EqModel) != (int) EqModel::Pristine; }
+    mutable dsp::VintageEqSettings vintageSettings;
+    mutable bool vintageValid = false;
     bool filterOn(const Band&) const;
     juce::Point<float> nodeFor(int band) const;
     juce::Rectangle<float> plotArea() const;
@@ -179,6 +182,20 @@ private:
     void gesture(bool begin);
 };
 
+
+/** The tape transport: reels turning at tape speed while TAPE is on (a
+    cassette for the cassette machine), heads, capstan and the tape path. */
+class TapeReels : public Display
+{
+public:
+    using Display::Display;
+    void refresh() override;
+    void paint(juce::Graphics&) override;
+private:
+    float angleL = 0.0f, angleR = 0.0f;
+    bool running = false;
+    int model = -1, speed = -1;
+};
 
 /** PITCH TRACK read-out: input meter with the gate line, the detected note
     with a tuner bar, and gate / note lamps. */

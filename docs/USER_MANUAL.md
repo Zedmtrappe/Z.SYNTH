@@ -326,20 +326,60 @@ Each module has an **ON** switch and fades in/out smoothly.
 | REVERB | SIZE, DAMP, PRE-DLY, MIX, TYPE; **ADVANCED ▸** for the rest |
 | STEREO | WIDTH (0 = mono, 100 % = unchanged, 200 % = wide), CHAR (output warmth) |
 
-### Parametric EQ (output)
+### EQ (output)
 
-The **PARAMETRIC EQ** block (effects row, before SMOOTH and the compressor)
-shows the EQ curve with **ON**; click the curve or **ADVANCED ▸** to edit it.
-It has five bell bands, each with **FREQ** (20 Hz-20 kHz), **GAIN**
+The **EQ** block (effects row) holds one EQ per sound: **MODEL** chooses
+**Pristine** (a clean parametric) or one of five classic hardware EQs. **ON**
+switches it out for A/B; **PRE FX** (on by default) puts it in front of the
+delay and reverb, so it shapes the synth itself (and feeds a PRE FX
+compressor); switch it off to EQ the whole output instead. Click the curve or
+**ADVANCED ▸** for the model's front panel. **OUTPUT** (level) is shared by
+every model; **DRIVE** (classic models) pushes the unit's amplifier and
+transformers for more colour, with the level compensated. Each model keeps its
+own settings, so you can switch back and forth to compare. The panel and its
+window take on the look of the hardware.
+
+**Pristine.** Five bell bands, each with **FREQ** (20 Hz-20 kHz), **GAIN**
 (+/-15 dB) and **Q** (0.3 broad to 10 narrow), a 12 dB/oct **LOW CUT** and
-**HIGH CUT** (off at their end stops), and an **OUTPUT** trim. Drag a band's
-node on the big curve (left/right = frequency, up/down = gain, mouse wheel = Q,
-double-click = flat / filter off) or use the knobs. **With every band at 0 dB,
-both cuts off and OUTPUT at 0 dB the EQ is bypassed exactly.** **FLAT**
-resets it; **ON** switches it out for A/B. **PRE FX** (on by default) puts it
-in front of the delay and reverb, so it shapes the synth itself (and feeds a
-PRE FX compressor); switch it off to EQ the whole output instead. It is clean (no colour): the valve,
-drive and compressor are there for character.
+**HIGH CUT** (off at their end stops). Drag a band's node on the big curve
+(left/right = frequency, up/down = gain, mouse wheel = Q, double-click = flat /
+filter off) or use the knobs. **With every band at 0 dB, both cuts off and
+OUTPUT at 0 dB it is bypassed exactly**; **FLAT** resets it. It has no colour.
+
+| Model | Controls | Character |
+|---|---|---|
+| Pultec EQP-1A | LOW FREQUENCY 20/30/60/100 cps, BOOST, ATTEN; HIGH FREQUENCY 3-16 kcs, BOOST, BANDWIDTH (sharp to broad); ATTEN SEL 5/10/20 kcs, ATTEN | Passive inductor curves: the low boost is a resonant shelf below the frequency, the atten a broader cut reaching higher, so boost + atten together give the Pultec trick (a sub lift with a low-mid dip). Valve make-up amp: soft, mostly 2nd harmonic |
+| Neve 1073 | HPF Off/50/80/160/300 Hz (18 dB/oct); LOW 35/60/110/220 Hz shelf +/-16 dB; MID 360 Hz-7.2 kHz +/-18 dB; HIGH 12 kHz shelf +/-16 dB | Inductor shelves with their slight overshoot; broad mid; class-A amp and transformers: 2nd and 3rd harmonics, thick lows |
+| API 550A | LOW 50-400 Hz, MID 400 Hz-5 kHz, HIGH 2.5-12.5 kHz; stepped +/-2/4/6/9/12 dB; SHELF on LOW and HIGH; BAND PASS (50 Hz-15 kHz) | Proportional Q (narrower the more you boost or cut); 2520 op-amp and transformer: clean, then punchy and odd-harmonic when driven |
+| API 550B | Four bands, seven frequencies each (30 Hz-20 kHz), stepped up to +/-15 dB; SHELF on LOW and HIGH | As the 550A, with finer frequency choices |
+| API 560 | Ten graphic bands 31 Hz-16 kHz, +/-12 dB | Proportional-Q graphic, API colour |
+
+The classic models are ZYNTH's own models voiced on each unit's documented
+frequencies, curve shapes and measured character, not circuit-exact copies.
+They run at twice the sample rate so the top octave is accurate.
+
+### Tape
+
+The **TAPE** block (effects row) records the mix (with its echoes and reverb
+tails) to a tape machine before the output section. On the panel: **ON**,
+**MACHINE**, **DRIVE** (level into the tape, compensated: more saturation and
+softer, compressed highs) and **WOW/FLUT** (0 = none, middle = the machine as
+specified, full = a worn transport). **ADVANCED ▸** opens the transport (the
+reels turn at tape speed while TAPE is on) with **SPEED**, **BIAS** (0.5 =
+calibrated; under = brighter and dirtier, over = cleaner and darker), **HISS**
+(off by default; middle = the machine's noise floor) and **OUTPUT**.
+
+| Machine | Character |
+|---|---|
+| Studer A800 | 2" multitrack: punchy, a big head bump (about 55 Hz at 15 ips) |
+| Ampex ATR-102 | 1/2" mastering: the most headroom, clean and extended |
+| Studer J37 | 1" four-track with valve electronics: warm, saturates early, a softer top, more wow |
+| Otari MTR-90 | Tight multitrack, a touch bright |
+| Cassette 4-Track | 1 7/8 or 3 3/4 ips: dark, compressed, hissy and wobbly |
+
+Slower speeds move the head bump down and the treble roll-off lower and add
+wow; 30 ips is the cleanest and most extended. The machine and its window take
+on the look of the hardware.
 
 ### Output compressor
 
@@ -437,7 +477,7 @@ move several things). **LIMITER** keeps peaks below 0 dBFS. The small display
 shows CPU load, voices, peak level and limiter gain reduction (or, in red, the
 output guard's count of automatic recoveries from invalid audio).
 
-**SMOOTH** — its own block in the effects row, between the parametric EQ and
+**SMOOTH** — its own block in the effects row, between the EQ and
 the compressor: a fixed 2.2 kHz dynamic compressor (4:1), with an **ON** switch. It turns the presence
 band down only when it gets loud, so harsh notes and
 resonances are tamed while the rest of the sound is untouched. **AMOUNT**

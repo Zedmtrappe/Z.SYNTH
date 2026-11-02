@@ -20,6 +20,9 @@ namespace zsynth::ui
 void paintLayoutPage(juce::Graphics& g, const juce::String& page);
 
 /** A floating, fixed-layout editor page (matrix, FM operators, sequencer steps). */
+/** The models the faceplates currently show. */
+struct SkinModels { int comp = 0, reverb = 0, eq = 0, tape = 0; };
+
 class PopupPage : public juce::Component
 {
 public:
@@ -146,7 +149,9 @@ private:
     juce::Image background;
     float backgroundScale = 0.0f;
     int activityCounter = 0;
-    int shownCompModel = -1, shownReverbType = -1;
+    int shownCompModel = -1, shownReverbType = -1, shownEqModel = -1, shownTapeModel = -1;
+    SkinModels shownModels() const;
+    juce::StringArray activeViews; // views whose layout labels are drawn (e.g. "eq:pultec")
     // PITCH TRACK: the keyboards and the audition clip are disabled while the instrument plays.
     void updateTracking();
     int shownTracking = -1;

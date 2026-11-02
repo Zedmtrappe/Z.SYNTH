@@ -10,6 +10,8 @@
 #include "DSP/Effects/SmoothBand.h"
 #include "DSP/Effects/TimeEffects.h"
 #include "DSP/Effects/OutputEq.h"
+#include "DSP/Effects/TapeMachine.h"
+#include "DSP/Effects/VintageEq.h"
 #include "DSP/FM/FmAlgorithms.h"
 #include "DSP/Tracking/PitchTracker.h"
 #include "DSP/FM/FmVoice.h"
@@ -1535,6 +1537,334 @@ ZS_TEST(pitch_tracker_guitar_and_bass)
             ZS_CHECK(ons[0].second == 28);
             ZS_CHECK_LT(ons[0].first - 0.2, 0.09);
         }
+    }
+}
+
+namespace
+{
+    // Amplitude of `freq` in x[from..] (single-bin DFT).
+    double toneAmp(const std::vector<float>& x, double freq, double fs, size_t from)
+    {
+        double c = 0.0, s = 0.0;
+        for (size_t i = from; i < x.size(); ++i)
+        {
+            const double ph = 2.0 * 3.14159265358979 * freq * (double) i / fs;
+            c += x[i] * std::cos(ph);
+            s += x[i] * std::sin(ph);
+        }
+        return 2.0 * std::sqrt(c * c + s * s) / (double) (x.size() - from);
+    }
+
+    struct Harmonics { double thd, h2, h3; };
+    template <typename Fn>
+    Harmonics harmonicsOf(Fn&& process, double freq, float amp, double fs)
+    {
+        const int n = (int) fs;
+        std::vector<float> l((size_t) n), r((size_t) n);
+        for (int i = 0; i < n; ++i)
+            l[(size_t) i] = r[(size_t) i] = amp * (float) std::sin(2.0 * 3.14159265358979 * freq * i / fs);
+        for (int i = 0; i < n; i += 256)
+            process(l.data() + i, r.data() + i, std::min(256, n - i));
+        const size_t from = (size_t) (fs * 0.4);
+        const double f1 = toneAmp(l, freq, fs, from);
+        double sum = 0.0;
+        for (int k = 2; k <= 7; ++k)
+        {
+            const double a = toneAmp(l, freq * k, fs, from);
+            sum += a * a;
+        }
+        return { 100.0 * std::sqrt(sum) / f1, toneAmp(l, freq * 2, fs, from) / f1, toneAmp(l, freq * 3, fs, from) / f1 };
+    }
+}
+
+ZS_TEST(vintage_eq_curves_match_the_hardware)
+{
+    using dsp::VintageEq;
+    using dsp::VintageEqSettings;
+    const double fs = 48000.0;
+    auto mag = [&](const VintageEqSettings& s, double f) { return VintageEq::magnitudeDb(s, f, fs); };
+    auto maxIn = [&](const VintageEqSettings& s, double lo, double hi) {
+        double m = -1e9;
+        for (double f = lo; f <= hi; f *= 1.02) m = std::max(m, mag(s, f));
+        return m;
+    };
+    auto minIn = [&](const VintageEqSettings& s, double lo, double hi) {
+        double m = 1e9;
+        for (double f = lo; f <= hi; f *= 1.02) m = std::min(m, mag(s, f));
+        return m;
+    };
+    // Width (octaves) of the region above half the peak gain around `f`.
+    auto widthOct = [&](const VintageEqSettings& s, double f) {
+        const double half = mag(s, f) * 0.5;
+        double lo = f, hi = f;
+        while (lo > 10 && mag(s, lo) > half) lo /= 1.01;
+        while (hi < 23000 && mag(s, hi) > half) hi *= 1.01;
+        return std::log2(hi / lo);
+    };
+
+    // ---- Pultec EQP-1A
+    {
+        VintageEqSettings s;
+        s.model = EqModel::Pultec;
+        s.pulLowFreq = 2; // 60 Hz
+        s.pulLowBoost = 10;
+        ZS_CHECK(maxIn(s, 20, 120) > 12.0);
+        ZS_CHECK(std::abs(mag(s, 1000)) < 0.5);
+        // The "Pultec trick": boost and atten together = sub lift with a low-mid dip.
+        s.pulLowBoost = 5;
+        s.pulLowAtten = 5;
+        std::printf("    Pultec trick @60: %+.1f dB at 30 Hz, %+.1f dB min 100-500 Hz\n", mag(s, 30), minIn(s, 100, 500));
+        ZS_CHECK(mag(s, 30) > 1.0);
+        ZS_CHECK(minIn(s, 100, 500) < -1.5);
+        ZS_CHECK(std::abs(mag(s, 3000)) < 0.6);
+        // ATTEN alone is a low shelf cut.
+        s.pulLowBoost = 0;
+        s.pulLowAtten = 10;
+        ZS_CHECK(mag(s, 20) < -10.0);
+        ZS_CHECK(mag(s, 1000) > -1.0);
+        // HIGH boost 8 kHz: ~16 dB at full; BANDWIDTH broad = wider.
+        VintageEqSettings h;
+        h.model = EqModel::Pultec;
+        h.pulHighFreq = 3;
+        h.pulHighBoost = 10;
+        h.pulBandwidth = 0;
+        ZS_CHECK_NEAR(mag(h, 8000), 16.0, 1.0);
+        const double sharp = widthOct(h, 8000);
+        h.pulBandwidth = 10;
+        const double broad = widthOct(h, 8000);
+        std::printf("    Pultec 8k boost width: sharp %.2f oct, broad %.2f oct\n", sharp, broad);
+        ZS_CHECK(broad > sharp * 2.0);
+        // HIGH atten at 20 kHz.
+        VintageEqSettings a;
+        a.model = EqModel::Pultec;
+        a.pulAttenFreq = 2;
+        a.pulHighAtten = 10;
+        ZS_CHECK(mag(a, 20000) < -8.0);
+        ZS_CHECK(mag(a, 2000) > -1.0);
+    }
+
+    // ---- Neve 1073
+    {
+        VintageEqSettings s;
+        s.model = EqModel::Neve1073;
+        s.neveHpf = 2; // 80 Hz, 18 dB/oct
+        ZS_CHECK_NEAR(mag(s, 80), -3.0, 1.0);
+        ZS_CHECK(mag(s, 40) < -14.0);
+        ZS_CHECK(mag(s, 300) > -0.6);
+        s.neveHpf = 0;
+        s.neveMidFreq = 2; // 1.6 kHz
+        s.neveMidGain = 18;
+        ZS_CHECK_NEAR(mag(s, 1600), 18.0, 0.6);
+        ZS_CHECK(mag(s, 400) < 6.0);
+        s.neveMidGain = 0;
+        s.neveHighGain = 16; // 12 kHz shelf
+        ZS_CHECK(mag(s, 20000) > 11.0);
+        ZS_CHECK(mag(s, 1000) < 1.0);
+        s.neveHighGain = 0;
+        s.neveLowFreq = 2; // 60 Hz
+        s.neveLowGain = 16;
+        ZS_CHECK(mag(s, 25) > 12.0);
+        std::printf("    Neve LF shelf overshoot: %+.2f dB min 100-600 Hz\n", minIn(s, 100, 600));
+        ZS_CHECK(minIn(s, 100, 600) < -0.2); // the inductor shelf's overshoot dip
+    }
+
+    // ---- API 550A / 550B / 560: stepped, proportional Q
+    {
+        VintageEqSettings s;
+        s.model = EqModel::Api550A;
+        s.a550Freq[1] = 2; // 1.5 kHz
+        s.a550Gain[1] = 2;
+        ZS_CHECK_NEAR(mag(s, 1500), 2.0, 0.1);
+        const double wide = widthOct(s, 1500);
+        s.a550Gain[1] = 12;
+        ZS_CHECK_NEAR(mag(s, 1500), 12.0, 0.3);
+        const double narrow = widthOct(s, 1500);
+        std::printf("    API proportional Q: width %.2f oct at +2, %.2f oct at +12\n", wide, narrow);
+        ZS_CHECK(narrow < wide * 0.7);
+        s.a550Gain[1] = 0;
+        s.a550Freq[2] = 3; // 10 kHz
+        s.a550Gain[2] = 9;
+        s.a550Shelf[1] = true;
+        ZS_CHECK(mag(s, 20000) > 8.0);
+        ZS_CHECK(mag(s, 1000) < 0.5);
+        VintageEqSettings bp;
+        bp.model = EqModel::Api550A;
+        bp.a550Bandpass = true;
+        ZS_CHECK(mag(bp, 20) < -6.0);
+        ZS_CHECK(std::abs(mag(bp, 1000)) < 0.3);
+        ZS_CHECK(mag(bp, 20000) < -3.0);
+
+        VintageEqSettings b;
+        b.model = EqModel::Api550B;
+        b.b550Freq[1] = 4; // 500 Hz
+        b.b550Gain[1] = 15;
+        ZS_CHECK_NEAR(mag(b, 500), 15.0, 0.4);
+
+        VintageEqSettings g;
+        g.model = EqModel::Api560;
+        g.g560[5] = 12; // 1 kHz
+        ZS_CHECK_NEAR(mag(g, 1000), 12.0, 0.3);
+        ZS_CHECK(mag(g, 500) < 7.0 && mag(g, 2000) < 7.0);
+    }
+}
+
+ZS_TEST(vintage_eq_processing_and_colour)
+{
+    using dsp::VintageEq;
+    using dsp::VintageEqSettings;
+    const float fs = 48000.0f;
+
+    // What is heard matches the curve (low level, no drive).
+    {
+        VintageEqSettings s;
+        s.model = EqModel::Neve1073;
+        s.neveMidFreq = 2;
+        s.neveMidGain = 12;
+        VintageEq eq;
+        eq.prepare(fs);
+        for (double f : { 200.0, 1600.0, 6000.0 })
+        {
+            eq.reset();
+            const int n = (int) fs / 2;
+            std::vector<float> l((size_t) n), r((size_t) n);
+            for (int i = 0; i < n; ++i)
+                l[(size_t) i] = r[(size_t) i] = 0.03f * (float) std::sin(2.0 * 3.14159265358979 * f * i / fs);
+            for (int i = 0; i < n; i += 256)
+                eq.process(l.data() + i, r.data() + i, std::min(256, n - i), s);
+            const double heard = 20.0 * std::log10(toneAmp(l, f, fs, (size_t) (fs * 0.2)) / 0.03);
+            ZS_CHECK_NEAR(heard, VintageEq::magnitudeDb(s, f, fs), 0.5);
+        }
+    }
+
+    // Colour: clean at nominal level, saturating with DRIVE; valve = 2nd harmonic, API = odd.
+    for (auto model : { EqModel::Pultec, EqModel::Neve1073, EqModel::Api550A })
+    {
+        VintageEqSettings s;
+        s.model = model;
+        VintageEq eq;
+        eq.prepare(fs);
+        s.drive = 0.0f;
+        const auto clean = harmonicsOf([&](float* l, float* r, int n) { eq.process(l, r, n, s); }, 220.0, 0.25f, fs);
+        eq.reset();
+        s.drive = 1.0f;
+        const auto hot = harmonicsOf([&](float* l, float* r, int n) { eq.process(l, r, n, s); }, 220.0, 0.25f, fs);
+        std::printf("    EQ model %d: THD %.3f %% at nominal, %.2f %% driven (h2 %.3f, h3 %.3f)\n", (int) model, clean.thd, hot.thd, hot.h2, hot.h3);
+        ZS_CHECK_LT(clean.thd, 0.6);
+        ZS_CHECK_GT(hot.thd, 2.0);
+        if (model == EqModel::Pultec)
+            ZS_CHECK(hot.h2 > hot.h3);
+        if (model == EqModel::Api550A)
+            ZS_CHECK(hot.h3 > hot.h2);
+    }
+}
+
+ZS_TEST(tape_machines)
+{
+    using dsp::TapeMachine;
+    using dsp::TapeSettings;
+    const float fs = 48000.0f;
+    auto toneGain = [&](TapeSettings s, double f, float amp) {
+        TapeMachine tm;
+        tm.prepare(fs);
+        const int n = (int) (fs * 0.6f);
+        std::vector<float> l((size_t) n), r((size_t) n);
+        for (int i = 0; i < n; ++i)
+            l[(size_t) i] = r[(size_t) i] = amp * (float) std::sin(2.0 * 3.14159265358979 * f * i / fs);
+        for (int i = 0; i < n; i += 256)
+            tm.process(l.data() + i, r.data() + i, std::min(256, n - i), s);
+        ZS_CHECK(allFinite(l));
+        return 20.0 * std::log10(toneAmp(l, f, fs, (size_t) (fs * 0.25f)) / amp);
+    };
+    TapeSettings s;
+    s.wow = 0.0f;
+
+    // Head bump at 15 ips around 55 Hz (A800), an octave higher at 30 ips.
+    s.speed = 1;
+    const double bump15 = toneGain(s, 55, 0.02f) - toneGain(s, 400, 0.02f);
+    s.speed = 2;
+    const double at110 = toneGain(s, 110, 0.02f) - toneGain(s, 600, 0.02f);
+    std::printf("    A800 head bump: %+.2f dB @55 Hz (15 ips), %+.2f dB @110 Hz (30 ips)\n", bump15, at110);
+    ZS_CHECK(bump15 > 1.0);
+    ZS_CHECK(at110 > 1.0);
+    // Treble falls with speed.
+    s.speed = 0;
+    const double hf75 = toneGain(s, 15000, 0.02f);
+    s.speed = 2;
+    const double hf30 = toneGain(s, 15000, 0.02f);
+    std::printf("    A800 at 15 kHz: %+.1f dB (7.5 ips), %+.1f dB (30 ips)\n", hf75, hf30);
+    ZS_CHECK(hf30 > hf75 + 3.0);
+
+    // Saturation rises with DRIVE; level stays compensated at low drive.
+    s.speed = 1;
+    for (auto m : { TapeModel::StuderA800, TapeModel::AmpexAtr102, TapeModel::StuderJ37, TapeModel::OtariMtr90, TapeModel::Cassette })
+    {
+        s.model = m;
+        TapeMachine tm;
+        tm.prepare(fs);
+        s.driveDb = 0.0f;
+        const auto lo = harmonicsOf([&](float* l, float* r, int n) { tm.process(l, r, n, s); }, 220.0, 0.25f, fs);
+        tm.reset();
+        s.driveDb = 18.0f;
+        const auto hi = harmonicsOf([&](float* l, float* r, int n) { tm.process(l, r, n, s); }, 220.0, 0.25f, fs);
+        std::printf("    tape %d: THD %.2f %% at 0 dB, %.2f %% at +18 dB\n", (int) m, lo.thd, hi.thd);
+        ZS_CHECK_LT(lo.thd, 3.0);
+        ZS_CHECK_GT(hi.thd, lo.thd * 2.0);
+    }
+    s.model = TapeModel::StuderA800;
+    s.driveDb = 0.0f;
+    ZS_CHECK(std::abs(toneGain(s, 1000, 0.05f)) < 1.5);
+
+    // Wow & flutter: pitch deviation of a 1 kHz tone (zero-crossing periods).
+    auto deviation = [&](float wow) {
+        TapeSettings c;
+        c.model = TapeModel::Cassette;
+        c.speed = 0;
+        c.wow = wow;
+        TapeMachine tm;
+        tm.prepare(fs);
+        const int n = (int) (fs * 3.0f);
+        std::vector<float> l((size_t) n), r((size_t) n);
+        for (int i = 0; i < n; ++i)
+            l[(size_t) i] = r[(size_t) i] = 0.05f * (float) std::sin(2.0 * 3.14159265358979 * 1000.0 * i / fs);
+        for (int i = 0; i < n; i += 256)
+            tm.process(l.data() + i, r.data() + i, std::min(256, n - i), c);
+        std::vector<double> crossings;
+        for (int i = (int) fs / 2; i < n; ++i)
+            if (l[(size_t) i - 1] < 0.0f && l[(size_t) i] >= 0.0f)
+                crossings.push_back((double) i - 1 + l[(size_t) i - 1] / (l[(size_t) i - 1] - l[(size_t) i]));
+        double lo = 1e9, hi = 0.0;
+        // Periods averaged over 10 cycles (10 ms) to see wow and flutter, not jitter.
+        for (size_t k = 10; k < crossings.size(); ++k)
+        {
+            const double period = (crossings[k] - crossings[k - 10]) / 10.0;
+            lo = std::min(lo, period);
+            hi = std::max(hi, period);
+        }
+        return 100.0 * (hi - lo) / (hi + lo);
+    };
+    const double still = deviation(0.0f), worn = deviation(1.0f);
+    std::printf("    cassette pitch deviation: %.3f %% (wow 0), %.3f %% (wow 1)\n", still, worn);
+    ZS_CHECK(still < 0.01);
+    ZS_CHECK(worn > 0.1);
+
+    // Hiss: none by default; the machine's floor when asked.
+    {
+        TapeSettings q;
+        TapeMachine tm;
+        tm.prepare(fs);
+        std::vector<float> l((size_t) fs, 0.0f), r((size_t) fs, 0.0f);
+        for (size_t i = 0; i < l.size(); i += 256)
+            tm.process(l.data() + i, r.data() + i, (int) std::min<size_t>(256, l.size() - i), q);
+        ZS_CHECK(rmsOf(l) < 1.0e-7);
+        q.hiss = 0.5f;
+        tm.reset();
+        std::fill(l.begin(), l.end(), 0.0f);
+        std::fill(r.begin(), r.end(), 0.0f);
+        for (size_t i = 0; i < l.size(); i += 256)
+            tm.process(l.data() + i, r.data() + i, (int) std::min<size_t>(256, l.size() - i), q);
+        const double db = 20.0 * std::log10(rmsOf(l, 12000) + 1e-12);
+        std::printf("    A800 hiss at 15 ips: %.1f dBFS RMS\n", db);
+        ZS_CHECK(db > -76.0 && db < -56.0);
     }
 }
 

@@ -666,7 +666,10 @@ ZS_TEST(layout_controls_inside_sections_and_not_overlapping)
                             || id == "comp.knee" || id == "comp.emph" || id == "comp.color"
                             || id.startsWith("fx.rev.eq.") || (id.startsWith("peq.") && id != "peq.on" && id != "peq.pre")
                             || id.startsWith("wt.seq.") || id.startsWith("vec.")
-                            || (id.startsWith("trk.") && id != "trk.on");
+                            || (id.startsWith("trk.") && id != "trk.on")
+                            || id == "eq.drive" || id.startsWith("pul.") || id.startsWith("nev.") || id.startsWith("a5.")
+                            || id.startsWith("b5.") || id.startsWith("g560.")
+                            || id == "tape.speed" || id == "tape.bias" || id == "tape.hiss" || id == "tape.out";
         ZS_CHECK(advanced == (c.page != ui::kMainPage));
     }
 }
@@ -1366,6 +1369,25 @@ static int snapshots(const juce::File& dir)
         set("fx.rev.type", (float) r);
         shoot("reverb" + juce::String(r), "reverb");
         shoot("reverbm" + juce::String(r), {});
+    }
+    // Classic EQs (with some settings so the curves show) and tape machines.
+    set("peq.on", 1.0f);
+    set("pul.lb", 6.0f); set("pul.la", 4.0f); set("pul.hb", 5.0f); set("pul.ha", 3.0f);
+    set("nev.hpf", 1.0f); set("nev.lg", 4.0f); set("nev.mg", 6.0f); set("nev.hg", 5.0f);
+    set("a5.lg", 7.0f); set("a5.mg", 3.0f); set("a5.hg", 8.0f); set("a5.hs", 1.0f);
+    set("b5.lg", 9.0f); set("b5.lmg", 5.0f); set("b5.hmg", 10.0f); set("b5.hg", 9.0f);
+    for (int b = 1; b <= 10; ++b)
+        set(("g560.b" + juce::String(b)).toRawUTF8(), (float) ((b * 7) % 13 - 6));
+    for (int m = 0; m < (int) EqModel::Count; ++m)
+    {
+        set("eq.model", (float) m);
+        shoot("eq" + juce::String(m), "peq");
+    }
+    set("tape.on", 1.0f);
+    for (int m = 0; m < (int) TapeModel::Count; ++m)
+    {
+        set("tape.model", (float) m);
+        shoot("tape" + juce::String(m), "tape");
     }
     set("trk.on", 1.0f);
     shoot("track", "track");

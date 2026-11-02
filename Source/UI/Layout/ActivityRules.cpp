@@ -29,6 +29,12 @@ Activity activityFor(int i, const float* v, bool hostTempo)
         return inactive("The output EQ is switched out. Switch it ON.");
     if (inRange(i, P::PeqHpf, P::PeqOutput) && ! on(v, P::PeqOn))
         return inactive("The output EQ is switched out. Switch it ON.");
+    if ((i == P::EqModel || inRange(i, P::EqDrive, P::G560B10)) && ! on(v, P::PeqOn))
+        return inactive("The output EQ is switched out. Switch it ON.");
+    if (i == P::EqDrive && choice(v, P::EqModel) == (int) EqModel::Pristine)
+        return inactive("PRISTINE is clean: DRIVE is for the classic hardware models.");
+    if (inRange(i, P::TapeModelP, P::TapeOut) && ! on(v, P::TapeOn))
+        return inactive("The tape machine is off. Switch TAPE on.");
 
     if (i == P::CompPre && ! on(v, P::CompOn))
         return inactive("The output compressor is off. Switch COMP on.");

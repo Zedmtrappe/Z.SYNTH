@@ -86,7 +86,7 @@ PanelLayout::PanelLayout()
     auto compact = [&](const juce::String& id, int x, int y, const juce::String& label, int w = 38) { add(id, ControlKind::Switch, x, y, label, w, 14); };
     auto utilityAt = [&](const juce::String& id, int x, int y, int w, int h) { utilityList.push_back({ id, { x, y, w, h }, currentPage }); };
     auto text = [&](const juce::String& t, int x, int y, int w, int h, juce::Justification j = juce::Justification::centred, bool heading = false) {
-        labelList.push_back({ t, { x, y, w, h }, j, heading, currentPage });
+        labelList.push_back({ t, { x, y, w, h }, j, heading, currentPage, currentView });
     };
     auto heading = [&](const juce::String& t, int x, int y, int w) { text(t, x, y, w, 16, juce::Justification::centredLeft, true); };
 
@@ -295,15 +295,15 @@ PanelLayout::PanelLayout()
     // Order follows the signal: drive, modulation, delay, reverb, graphic EQ,
     // SMOOTH, compressor (PRE FX moves the compressor before delay/reverb).
     struct Module { const char* id; const char* title; int width; };
-    const Module modules[7] = { { "fxDrive", "DRIVE", 236 }, { "fxMod", "MODULATION", 264 }, { "fxDelay", "DELAY", 264 },
-                                { "fxReverb", "REVERB", 264 }, { "peqModule", "PARAMETRIC EQ", 0 }, { "smoothModule", "SMOOTH", 108 },
-                                { "compModule", "OUTPUT COMP", 418 } };
+    const Module modules[8] = { { "fxDrive", "DRIVE", 216 }, { "fxMod", "MODULATION", 252 }, { "fxDelay", "DELAY", 256 },
+                                { "fxReverb", "REVERB", 264 }, { "peqModule", "EQ", 0 }, { "smoothModule", "SMOOTH", 104 },
+                                { "tapeModule", "TAPE", 140 }, { "compModule", "OUTPUT COMP", 390 } };
     int fixedWidth = 0;
     for (const auto& m : modules)
         fixedWidth += m.width;
-    const int peqWidth = 1884 - 6 * 6 - fixedWidth; // the parametric EQ takes what is left
-    int mx[7], mw[7];
-    for (int i = 0, x = 18; i < 7; ++i)
+    const int peqWidth = 1884 - 7 * 6 - fixedWidth; // the EQ takes what is left
+    int mx[8], mw[8];
+    for (int i = 0, x = 18; i < 8; ++i)
     {
         mx[i] = x;
         mw[i] = modules[i].width > 0 ? modules[i].width : peqWidth;
@@ -315,15 +315,15 @@ PanelLayout::PanelLayout()
 
     inSection("fxDrive");
     fxOn(0, "fx.drive.on");
-    add("fx.drive.type", K::Selector, mx[0] + 8, 812, "TYPE", 100);
-    shortFader("fx.drive.amt",  mx[0] + 120, 810, "DRIVE");
-    shortFader("fx.drive.tone", mx[0] + 156, 810, "TONE");
-    shortFader("fx.drive.mix",  mx[0] + 192, 810, "MIX");
+    add("fx.drive.type", K::Selector, mx[0] + 8, 812, "TYPE", 90);
+    shortFader("fx.drive.amt",  mx[0] + 104, 810, "DRIVE");
+    shortFader("fx.drive.tone", mx[0] + 140, 810, "TONE");
+    shortFader("fx.drive.mix",  mx[0] + 176, 810, "MIX");
 
     // Modulation: one block, the EFFECT selector chooses which effect's controls
     // are shown. Each effect keeps its own ON, so several can run at once.
     inSection("fxMod");
-    utilityAt("modSelector", mx[1] + 8, 812, 100, 40);
+    utilityAt("modSelector", mx[1] + 8, 812, 90, 40);
     struct ModFx { const char* view; const char* on; std::vector<std::pair<const char*, const char*>> faders; };
     const ModFx modFx[4] = {
         { "mod:chorus",   "fx.cho.on", { { "fx.cho.rate", "RATE" }, { "fx.cho.depth", "DEPTH" }, { "fx.cho.mix", "MIX" } } },
@@ -335,23 +335,23 @@ PanelLayout::PanelLayout()
         view(fx.view);
         fxOn(1, fx.on);
         if (juce::String(fx.view) == "mod:chorus")
-            add("fx.cho.type", K::Selector, mx[1] + 8, 872, "TYPE", 100);
+            add("fx.cho.type", K::Selector, mx[1] + 8, 872, "TYPE", 90);
         for (size_t k = 0; k < fx.faders.size(); ++k)
-            shortFader(fx.faders[k].first, mx[1] + 120 + (int) k * 36, 810, fx.faders[k].second);
+            shortFader(fx.faders[k].first, mx[1] + 104 + (int) k * 36, 810, fx.faders[k].second);
     }
     view({});
 
     inSection("fxDelay");
     fxOn(2, "fx.dly.on");
-    compact("fx.dly.pp", mx[2] + 176, 789, "P.PONG", 42);
-    compact("fx.dly.sync", mx[2] + 134, 789, "SYNC", 38);
+    compact("fx.dly.pp", mx[2] + mw[2] - 88, 789, "P.PONG", 42);
+    compact("fx.dly.sync", mx[2] + mw[2] - 130, 789, "SYNC", 38);
     fxFader(2, 0, "fx.dly.time", "TIME");
     fxFader(2, 1, "fx.dly.div", "DIV");
     fxFader(2, 2, "fx.dly.fb", "FDBK");
     fxFader(2, 3, "fx.dly.tone", "TONE");
     fxFader(2, 4, "fx.dly.mix", "MIX");
-    add("fx.dly.type", K::Selector, mx[2] + 192, 812, "TYPE", 66);
-    utilityAt("openDelay", mx[2] + 192, 862, 66, 24);
+    add("fx.dly.type", K::Selector, mx[2] + 188, 812, "TYPE", 62);
+    utilityAt("openDelay", mx[2] + 188, 862, 62, 24);
 
     inSection("fxReverb");
     fxOn(3, "fx.rev.on");
@@ -363,11 +363,12 @@ PanelLayout::PanelLayout()
     utilityAt("openReverb", mx[3] + 158, 862, 100, 24);
     utilityAt("reverbEqCurve", mx[3] + 158, 892, 100, 58);
 
-    // Parametric output EQ: the curve at a glance; ADVANCED opens the editor.
+    // Output EQ: the model, the curve at a glance; ADVANCED opens the model's front panel.
     inSection("peqModule");
     compact("peq.on", mx[4] + mw[4] - 42, 789, "ON");
     compact("peq.pre", mx[4] + mw[4] - 96, 789, "PRE FX", 50);
-    utilityAt("peqCurve", mx[4] + 8, 808, mw[4] - 16, 112);
+    add("eq.model", K::Selector, mx[4] + 8, 808, "", mw[4] - 16, 24);
+    utilityAt("peqCurve", mx[4] + 8, 838, mw[4] - 16, 84);
     utilityAt("openPeq", mx[4] + 8, 926, mw[4] - 16, 24);
 
     // SMOOTH: fixed 2.2 kHz dynamic compressor; AMOUNT and its GR ladder.
@@ -376,18 +377,26 @@ PanelLayout::PanelLayout()
     add("out.smooth", K::Knob, mx[5] + 6, 840, "AMOUNT");
     utilityAt("smoothMeter", mx[5] + 64, 808, 36, 144);
 
+    // Tape: the machine, how hard it is hit and how worn the transport is.
+    inSection("tapeModule");
+    fxOn(6, "tape.on");
+    add("tape.model", K::Selector, mx[6] + 8, 812, "MACHINE", mw[6] - 16);
+    add("tape.drive", K::Knob, mx[6] + 8, 858, "DRIVE");
+    add("tape.wow", K::Knob, mx[6] + mw[6] - 60, 858, "WOW/FLUT");
+    utilityAt("openTape", mx[6] + 8, 926, mw[6] - 16, 24);
+
     // Output compressor: model, the gain-reduction VU and the everyday controls.
-    const int cx = mx[6], cw = mw[6];
+    const int cx = mx[7], cw = mw[7];
     inSection("compModule");
     compact("comp.on", cx + cw - 42, 789, "ON");
     compact("comp.pre", cx + cw - 96, 789, "PRE FX", 50);
-    utilityAt("compMeter", cx + 8, 808, 176, 144);
+    utilityAt("compMeter", cx + 8, 808, 152, 144);
     // Knobs, as on the hardware (their style follows the MODEL); output gain last.
-    add("comp.thresh", K::LargeKnob, cx + 210, 806, "THRESH", 72, 86);
-    add("comp.mix",    K::Knob, cx + 190, 892, "MIX");
-    add("comp.makeup", K::Knob, cx + 248, 892, "MAKEUP");
-    add("comp.model", K::Selector, cx + 306, 812, "MODEL", cw - 314);
-    utilityAt("openComp", cx + 306, 862, cw - 314, 24);
+    add("comp.thresh", K::LargeKnob, cx + 180, 806, "THRESH", 72, 86);
+    add("comp.mix",    K::Knob, cx + 162, 892, "MIX");
+    add("comp.makeup", K::Knob, cx + 218, 892, "MAKEUP");
+    add("comp.model", K::Selector, cx + 278, 812, "MODEL", cw - 286);
+    utilityAt("openComp", cx + 278, 862, cw - 286, 24);
 
     // ----------------------------------------------------------- keyboard
     sectionAt("wheels", "", 10, 972, 150, 218);
@@ -573,6 +582,20 @@ PanelLayout::PanelLayout()
          "keyboards, QWERTY and MIDI notes are off (MIDI controllers such as sustain still work).",
          340, 150, 280, 140, juce::Justification::topLeft);
 
+    // ---------------------------------------------------------- tape page
+    pageList.push_back({ "tape", "TAPE", { 600, 280, 720, 330 } });
+    page("tape");
+    sectionAt("tapePage", "TAPE  -  ADVANCED", 0, 0, 720, 330);
+    utilityAt("tapeClose", 680, 3, 34, 20);
+    utilityAt("tapeReels", 20, 36, 680, 168);
+    add("tape.speed", K::Selector, 24, 222, "SPEED", 110);
+    add("tape.bias", K::LargeKnob, 156, 216, "BIAS");
+    add("tape.hiss", K::LargeKnob, 244, 216, "HISS");
+    add("tape.out", K::LargeKnob, 332, 216, "OUTPUT");
+    text("MACHINE, DRIVE and WOW / FLUTTER are on the panel.  DRIVE pushes the tape: more saturation and softer, "
+         "compressed highs.  Slower speeds: more head bump in the bass, a darker top and more wow.  BIAS 0.5 = calibrated.",
+         430, 216, 270, 100, juce::Justification::topLeft);
+
     // ------------------------------------------------------- comp advanced
     pageList.push_back({ "comp", "OUTPUT COMP", { 1050, 300, 850, 380 } });
     page("comp");
@@ -598,12 +621,20 @@ PanelLayout::PanelLayout()
          20, 262, 260, 70, juce::Justification::topLeft);
 
     // ---------------------------------------------------------- graphic EQ
-    pageList.push_back({ "peq", "PARAMETRIC EQ", { 880, 300, 1000, 430 } });
+    pageList.push_back({ "peq", "EQ", { 880, 300, 1000, 430 } });
     page("peq");
-    sectionAt("peqPage", "PARAMETRIC EQ  -  OUTPUT", 0, 0, 1000, 430);
+    sectionAt("peqPage", "EQ  -  OUTPUT", 0, 0, 1000, 430);
     utilityAt("peqClose", 960, 3, 34, 20);
     utilityAt("peqFlat", 884, 4, 66, 18);
     utilityAt("peqCurveBig", 20, 36, 960, 200);
+    // Shared by every model: the output level and (classic models) the drive.
+    heading("OUTPUT", 836, 248, 120);
+    add("peq.out", K::Knob, 822, 270, "LEVEL");
+    add("eq.drive", K::Knob, 886, 270, "DRIVE");
+    text("ON, PRE FX and MODEL are on the panel.", 822, 346, 158, 40, juce::Justification::topLeft);
+
+    // PRISTINE: the clean parametric (drag the curve's nodes or use the knobs).
+    view("eq:pristine");
     heading("LOW CUT", 20, 248, 80);
     add("peq.hpf", K::Knob, 24, 270, "FREQ", 48);
     for (int b = 0; b < 5; ++b)
@@ -615,13 +646,66 @@ PanelLayout::PanelLayout()
         add("peq.b" + n + ".g", K::Knob, x + 50, 270, "GAIN", 48);
         add("peq.b" + n + ".q", K::Knob, x + 24, 346, "Q", 48);
     }
-    heading("HIGH CUT", 726, 248, 80);
-    add("peq.lpf", K::Knob, 730, 270, "FREQ", 48);
-    heading("OUTPUT", 822, 248, 80);
-    add("peq.out", K::Knob, 826, 270, "LEVEL", 48);
-    text("Drag the nodes on the curve (wheel = Q, double-click = flat / off) or use the knobs.  "
-         "Cuts are 12 dB/oct; fully out = off.  Everything flat = completely dry.  ON is on the panel.",
-         726, 346, 254, 70, juce::Justification::topLeft);
+    heading("HIGH CUT", 716, 248, 80);
+    add("peq.lpf", K::Knob, 720, 270, "FREQ", 48);
+
+    // PULTEC EQP-1A, laid out as the front panel.
+    view("eq:pultec");
+    heading("LOW FREQUENCY", 24, 248, 300);
+    heading("HIGH FREQUENCY", 312, 248, 300);
+    heading("HIGH ATTENUATION", 600, 248, 200);
+    const std::pair<const char*, const char*> pultec[8] = { { "pul.lf", "CPS" }, { "pul.lb", "BOOST" }, { "pul.la", "ATTEN" },
+        { "pul.hf", "KCS" }, { "pul.hb", "BOOST" }, { "pul.bw", "BANDWIDTH" }, { "pul.af", "ATTEN SEL" }, { "pul.ha", "ATTEN" } };
+    for (int k = 0; k < 8; ++k)
+        add(pultec[k].first, K::LargeKnob, 20 + k * 98 - (k >= 3 ? 0 : 0), 272, pultec[k].second);
+    text("Boost and atten at the same LOW frequency: the Pultec trick (sub lift, low-mid dip).", 20, 380, 560, 20, juce::Justification::centredLeft);
+
+    // NEVE 1073.
+    view("eq:neve");
+    const std::pair<const char*, const char*> neve[6] = { { "nev.hpf", "HPF" }, { "nev.lf", "LOW FREQ" }, { "nev.lg", "LOW" },
+        { "nev.mf", "MID FREQ" }, { "nev.mg", "MID" }, { "nev.hg", "HIGH 12K" } };
+    heading("HIGH PASS", 24, 248, 110);
+    heading("LOW SHELF", 150, 248, 220);
+    heading("MID", 390, 248, 220);
+    heading("HIGH", 630, 248, 110);
+    for (int k = 0; k < 6; ++k)
+        add(neve[k].first, K::LargeKnob, 30 + k * 120, 272, neve[k].second);
+
+    // API 550A: three bands, stepped.
+    view("eq:api550a");
+    const char* a550names[3] = { "LOW", "MID", "HIGH" };
+    const char* a550ids[3] = { "a5.l", "a5.m", "a5.h" };
+    for (int b = 0; b < 3; ++b)
+    {
+        const int x0 = 24 + b * 250;
+        heading(a550names[b], x0, 248, 220);
+        add(juce::String(a550ids[b]) + "f", K::LargeKnob, x0, 272, "FREQ");
+        add(juce::String(a550ids[b]) + "g", K::LargeKnob, x0 + 82, 272, "GAIN");
+    }
+    add("a5.ls", K::Switch, 24 + 168, 290, "SHELF", 48);
+    add("a5.bp", K::Switch, 24 + 250 + 168, 290, "BAND PASS", 64);
+    add("a5.hs", K::Switch, 24 + 500 + 168, 290, "SHELF", 48);
+
+    // API 550B: four bands, stepped.
+    view("eq:api550b");
+    const char* b550names[4] = { "LOW", "LOW MID", "HIGH MID", "HIGH" };
+    const char* b550ids[4] = { "b5.l", "b5.lm", "b5.hm", "b5.h" };
+    for (int b = 0; b < 4; ++b)
+    {
+        const int x0 = 20 + b * 196;
+        heading(b550names[b], x0, 248, 180);
+        add(juce::String(b550ids[b]) + "f", K::LargeKnob, x0, 266, "FREQ");
+        add(juce::String(b550ids[b]) + "g", K::LargeKnob, x0 + 78, 266, "GAIN");
+    }
+    add("b5.ls", K::Switch, 20 + 50, 364, "SHELF", 48);
+    add("b5.hs", K::Switch, 20 + 3 * 196 + 50, 364, "SHELF", 48);
+
+    // API 560: ten-band graphic.
+    view("eq:api560");
+    const char* g560names[10] = { "31", "63", "125", "250", "500", "1K", "2K", "4K", "8K", "16K" };
+    for (int b = 0; b < 10; ++b)
+        add("g560.b" + juce::String(b + 1), K::Fader, 40 + b * 74, 246, g560names[b]);
+    view({});
 
     // ------------------------------------------------------- sequencer steps
     pageList.push_back({ "seq", "STEP SEQUENCER", { 400, 300, 1120, 340 } });

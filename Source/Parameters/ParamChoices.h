@@ -117,6 +117,28 @@ enum class DelayType : int { Digital, TapeRE201, TapeEP3, AnalogDM2, Diffuse, Lo
 #define ZS_CH_XFMR_TYPE "Neve LO1166|API 2503|UTC A-24|Haufe V76|Jensen JT-11"
 enum class XfmrType : int { NeveLo1166, Api2503, UtcA24, HaufeV76, JensenJt11, Count };
 
+#define ZS_CH_EQ_MODEL "Pristine|Pultec EQP-1A|Neve 1073|API 550A|API 550B|API 560"
+enum class EqModel : int { Pristine, Pultec, Neve1073, Api550A, Api550B, Api560, Count };
+#define ZS_CH_PUL_LF "20|30|60|100"
+#define ZS_CH_PUL_HF "3k|4k|5k|8k|10k|12k|16k"
+#define ZS_CH_PUL_ATT "5k|10k|20k"
+#define ZS_CH_NEVE_HPF "Off|50|80|160|300"
+#define ZS_CH_NEVE_LF "Off|35|60|110|220"
+#define ZS_CH_NEVE_MF "360|700|1.6k|3.2k|4.8k|7.2k"
+#define ZS_CH_A550_LF "50|100|200|300|400"
+#define ZS_CH_A550_MF "400|800|1.5k|3k|5k"
+#define ZS_CH_A550_HF "2.5k|5k|7.5k|10k|12.5k"
+#define ZS_CH_A550_GAIN "-12|-9|-6|-4|-2|0|+2|+4|+6|+9|+12"
+#define ZS_CH_B550_LF "30|40|50|100|200|300|400"
+#define ZS_CH_B550_LMF "75|150|180|240|500|700|1k"
+#define ZS_CH_B550_HMF "800|1.5k|3k|5k|8k|10k|12.5k"
+#define ZS_CH_B550_HF "2.5k|5k|7k|10k|12.5k|15k|20k"
+#define ZS_CH_B550_GAIN "-15|-12|-10|-8|-6|-4|-2|0|+2|+4|+6|+8|+10|+12|+15"
+
+#define ZS_CH_TAPE_MODEL "Studer A800|Ampex ATR-102|Studer J37|Otari MTR-90|Cassette 4-Track"
+enum class TapeModel : int { StuderA800, AmpexAtr102, StuderJ37, OtariMtr90, Cassette, Count };
+#define ZS_CH_TAPE_SPEED "7.5 ips|15 ips|30 ips"
+
 #define ZS_CH_TRK_RANGE "Guitar|Bass"
 #define ZS_CH_TRK_INPUT "Input 1|Input 2|Inputs 1+2"
 

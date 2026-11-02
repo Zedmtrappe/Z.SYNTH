@@ -72,6 +72,7 @@ struct LabelSpec
     juce::Justification justification = juce::Justification::centred;
     bool heading = false;
     juce::String page;
+    juce::String view; // "" = always; otherwise shown with that view (e.g. "eq:pultec")
 };
 
 /** A popup editor page and where it floats on the main canvas. */
