@@ -145,13 +145,20 @@ PanelLayout::PanelLayout()
         fader("osc" + n + ".fine",  x + 36,  206, "FINE");
         fader("osc" + n + ".level", x + 108, 206, "LEVEL");
         fader("osc" + n + ".fm",    x + 144, 206, i == 0 ? "FM 3>1" : "FM 1>" + n);
-        // PW and RING give way to DETUNE and MIX when the wave is SuperSaw / HyperSaw.
+        // Slot 1: PW, or DETUNE (SuperSaw / HyperSaw), or the oscillator's WT POS (Wavetable / ROM waves).
         view("osc" + n + ":std");
         fader("osc" + n + ".pw",    x + 72,  206, "PW");
-        if (i > 0)
-            fader("osc" + n + ".xmod", x + 180, 206, "RING");
         view("osc" + n + ":super");
         fader("osc" + n + ".detune", x + 72, 206, "DETUNE");
+        view("osc" + n + ":wt");
+        fader("osc" + n + ".wt.pos", x + 72, 206, "WT POS");
+        // Slot 2: RING, or MIX (SuperSaw / HyperSaw).
+        if (i > 0)
+        {
+            view("osc" + n + "r:ring");
+            fader("osc" + n + ".xmod", x + 180, 206, "RING");
+        }
+        view("osc" + n + "r:mix");
         fader("osc" + n + ".smix",   x + 180, 206, "MIX");
         view({});
     }
@@ -166,9 +173,10 @@ PanelLayout::PanelLayout()
     sectionAt("wt", "WAVETABLE", 870, 132, 114, 286, true);
     add("wt.table", K::Selector, 876, 152, "TABLE", 102);
     utilityAt("wtDisplay", 876, 198, 102, 44);
-    shortFader("wt.pos",    884, 250, "POS");
-    shortFader("wt.spread", 932, 250, "SPRD");
-    utilityAt("openWave", 876, 394, 102, 20);
+    add("wt.pos",    K::ShortFader, 884, 246, "POS", -1, 124);
+    add("wt.spread", K::ShortFader, 932, 246, "SPRD", -1, 124);
+    utilityAt("openWtEngine", 876, 372, 102, 20);
+    utilityAt("openWave", 876, 396, 102, 18);
 
     // ------------------------------------------------------------- filter
     sectionAt("filter", "FILTER", 998, 104, 332, 320);
@@ -475,6 +483,45 @@ PanelLayout::PanelLayout()
     add("vec.x", K::HSlider, 370, 290, "X", 220, 24);
     text("A  OSC 1\nB  OSC 2\nC  OSC 3\nD  FM part\n\nDrag the joystick, or move it with an LFO / ENV 3 (VECTOR X / Y).",
          640, 110, 92, 200, juce::Justification::topLeft);
+
+    // ------------------------------------------------------ wavetable engine
+    pageList.push_back({ "wtengine", "WAVETABLE ENGINE", { 340, 130, 1220, 480 } });
+    page("wtengine");
+    sectionAt("wtEnginePage", "WAVETABLE  ENGINE", 0, 0, 1220, 480);
+    utilityAt("wtengineClose", 1180, 3, 34, 20);
+    for (int i = 0; i < 3; ++i)
+    {
+        const juce::String n(i + 1);
+        const int x0 = 20 + i * 300;
+        heading("OSC " + n, x0, 32, 200);
+        utilityAt("wt3d" + n, x0, 52, 284, 156);
+        add("osc" + n + ".wt.table", K::Selector, x0, 216, "TABLE", 186);
+        add("osc" + n + ".wt.warp", K::Selector, x0 + 194, 216, "WARP", 90);
+        const std::pair<const char*, const char*> knobs[5] = { { ".wt.wamt", "WARP AMT" }, { ".wt.voices", "STACK" },
+            { ".wt.det", "DETUNE" }, { ".wt.pspr", "SPREAD" }, { ".wt.width", "WIDTH" } };
+        for (int k = 0; k < 5; ++k)
+            add("osc" + n + knobs[k].first, K::Knob, x0 + k * 58, 266, knobs[k].second);
+    }
+    heading("MOTION", 930, 32, 200);
+    add("wt.evo.mode", K::Selector, 930, 56, "EVOLVE", 120);
+    add("wt.evo.amt",  K::Knob, 1060, 52, "AMOUNT");
+    add("wt.evo.time", K::Knob, 1124, 52, "TIME");
+    add("wt.drift",    K::Knob, 1060, 128, "DRIFT");
+    add("wt.drate",    K::Knob, 1124, 128, "RATE");
+    text("EVOLVE moves the scan position from every note-on: SWEEP once over TIME (then holds), "
+         "PING-PONG back and forth.  DRIFT makes it wander at random, differently for every voice and every "
+         "stack voice: pads that never repeat.",
+         930, 204, 270, 110, juce::Justification::topLeft);
+    text("TABLE: SECTION follows the panel's WAVETABLE; or give each oscillator its own.  WT POS (on the panel) offsets "
+         "its position.  WARP reshapes how the table is read: BEND, SYNC, FORMANT (sync without clicks), MIRROR, SQUEEZE "
+         "(PWM on any wave), FOLD, SELF FM, QUANTIZE.  STACK plays up to 8 detuned copies; SPREAD puts each at a "
+         "different place in the table, WIDTH spreads them across the stereo field.  The 3D views show each "
+         "table, with the position playing now.",
+         20, 344, 880, 70, juce::Justification::topLeft);
+    text("For pads: a ROM or PADS & AMBIENT table, STACK 5-7, DETUNE 0.2-0.4, SPREAD 0.2, WIDTH 0.8, a slow EVOLVE "
+         "and a touch of DRIFT.  Every new control can also be modulated (Osc WT Pos, WT Warp in the matrix).",
+         20, 418, 880, 50, juce::Justification::topLeft);
+    text("Positions: OSC 1 gold, OSC 2 blue, OSC 3 rose.", 930, 318, 270, 30, juce::Justification::topLeft);
 
     // ------------------------------------------------------- valve advanced
     pageList.push_back({ "valve", "VALVE STAGE", { 1080, 300, 560, 330 } });

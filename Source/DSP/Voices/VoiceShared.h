@@ -36,6 +36,15 @@ struct VoiceShared
         float ring = 0.0f;
         float detune = 0.5f;   // SuperSaw / HyperSaw
         float superMix = 0.6f;
+        // Wavetable wave (and ROM waves for the stack and warp).
+        const Wavetable* table = nullptr; // this oscillator's table (the section's unless chosen)
+        float wtPos = 0.0f;               // position offset, -1..1
+        WtWarp warp = WtWarp::Off;
+        float warpAmount = 0.0f;
+        int stackVoices = 1;
+        float stackDetune = 0.25f;
+        float stackSpread = 0.0f;         // position spread of the stack, 0..1
+        float stackWidth = 0.6f;
     } osc[3];
 
     float subLevel = 0.0f;
@@ -49,6 +58,13 @@ struct VoiceShared
     float wtPos = 0.0f;
     float wtSpread = 0.0f;
     const WavetableBank* bank = nullptr; // ROM waves
+
+    // Wavetable motion (per voice, from note-on).
+    WtEvolve evolveMode = WtEvolve::Off;
+    float evolveAmount = 0.5f;
+    float evolveSec = 8.0f;
+    float wtDrift = 0.0f;
+    float wtDriftHz = 0.2f;
 
     // Wave sequencing of the wavetable (per voice, from note-on).
     WaveSeqMode seqMode = WaveSeqMode::Off;

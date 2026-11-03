@@ -183,6 +183,29 @@ private:
 };
 
 
+/** WAVETABLE ENGINE: one oscillator's table as a 3D waterfall of its frames,
+    with the frame playing now (warped as the oscillator reads it) in the
+    oscillator's colour, and the stack's spread shown as ghost frames. */
+class WavetableView3D : public Display
+{
+public:
+    WavetableView3D(ZSynthProcessor& p, int oscIndex) : Display(p), osc(oscIndex) {}
+    void refresh() override;
+    void paint(juce::Graphics&) override;
+    static juce::Colour oscColour(int osc);
+
+private:
+    int tableId() const; // -1 = not a table wave
+    float shownPosition() const;
+    void renderWaterfall(int table);
+
+    int osc;
+    juce::Image waterfall;
+    int cachedTable = -2;
+    juce::Rectangle<int> cachedSize;
+    uint64_t lastHash = 0;
+};
+
 /** PITCH TRACK read-out: input meter with the gate line, the detected note
     with a tuner bar, and gate / note lamps. */
 class TrackDisplay : public Display

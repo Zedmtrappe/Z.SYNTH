@@ -37,10 +37,53 @@ enum class SubWave : int { SquareMinus1, SquareMinus2, SineMinus1, PulseMinus1, 
 enum class NoiseType : int { White, Pink, Count };
 
 // The "Seq" tables hold 32 distinct waves (not a smooth morph), made for wave
-// sequencing (Wavestation style); they also scan.
-#define ZS_CH_WAVETABLE "Analog Morph|Harmonic Sweep|Vocal Formant|PWM Scan|Digital Bell|Sync Sweep|Wavefolder|Drawbar Organ|Seq Harmonics|Seq Digital|Seq Vocal|Seq Bells|Spectral"
+// sequencing (Wavestation style); they also scan. Tables are appended only
+// (presets store the index); the ROM wave sets come last.
+#define ZS_WT_NAMES "Analog Morph|Harmonic Sweep|Vocal Formant|PWM Scan|Digital Bell|Sync Sweep|Wavefolder|Drawbar Organ|Seq Harmonics|Seq Digital|Seq Vocal|Seq Bells|Spectral" \
+    "|Aurora|Nebula|Bloom|Shimmer|Tidal|Drift Pad|Dark Matter|Ether" \
+    "|Choir Morph|Overtone Singer|Whisper|Formant Glide" \
+    "|Crystal|Singing Bowl|Bell Garden|Glass Harmonica" \
+    "|Breath Flute|Bowed Strings|Reed|Cathedral Organ" \
+    "|Stepped Digital|Resonant PD|FM Pad|Prism" \
+    "|ROM Ahh Choir|ROM Ooh Voices|ROM Glass Pad|ROM Digital Bell|ROM Spectrum|ROM Digi Pad|ROM Strings|ROM E.Piano" \
+    "|ROM Brass|ROM Mallet|ROM Pluck|ROM Heaven|ROM Metal|ROM Bowed Glass|ROM Air Vox|ROM Synth Pad"
+#define ZS_CH_WAVETABLE ZS_WT_NAMES
 enum class WavetableId : int { AnalogMorph, HarmonicSweep, VocalFormant, PwmScan, DigitalBell, SyncSweep, Wavefolder, DrawbarOrgan,
-                               SeqHarmonics, SeqDigital, SeqVocal, SeqBells, Spectral, Count };
+                               SeqHarmonics, SeqDigital, SeqVocal, SeqBells, Spectral,
+                               Aurora, Nebula, Bloom, Shimmer, Tidal, DriftPad, DarkMatter, Ether,
+                               ChoirMorph, OvertoneSinger, Whisper, FormantGlide,
+                               Crystal, SingingBowl, BellGarden, GlassHarmonica,
+                               BreathFlute, BowedStrings, Reed, CathedralOrgan,
+                               SteppedDigital, ResonantPd, FmPad, Prism,
+                               RomFirst, Count = RomFirst + kNumRomWaves };
+constexpr int kNumGeneratedTables = (int) WavetableId::RomFirst;
+
+/** Menu category of a table (the TABLE menus group the list by these). */
+inline const char* wavetableCategory(int id)
+{
+    static const char* cats[] = { "Classic", "Classic", "Voices", "Classic", "Bells & Glass", "Classic", "Classic", "Organic",
+                                  "Sequence", "Sequence", "Sequence", "Sequence", "Classic",
+                                  "Pads & Ambient", "Pads & Ambient", "Pads & Ambient", "Pads & Ambient", "Pads & Ambient",
+                                  "Pads & Ambient", "Pads & Ambient", "Pads & Ambient",
+                                  "Voices", "Voices", "Voices", "Voices",
+                                  "Bells & Glass", "Bells & Glass", "Bells & Glass", "Bells & Glass",
+                                  "Organic", "Organic", "Organic", "Organic",
+                                  "Digital", "Digital", "Digital", "Digital" };
+    if (id >= kNumGeneratedTables)
+        return "ROM";
+    return id >= 0 && id < (int) (sizeof(cats) / sizeof(cats[0])) ? cats[id] : "Classic";
+}
+
+// Per-oscillator table: "Section" = the WAVETABLE section's TABLE.
+#define ZS_CH_OSC_TABLE "Section|" ZS_WT_NAMES
+
+// Wavetable warps (phase / shape distortion of the table read-out).
+#define ZS_CH_WT_WARP "Off|Bend +|Bend -|Sync|Formant|Mirror|Squeeze|Fold|Self FM|Quantize"
+enum class WtWarp : int { Off, BendPlus, BendMinus, Sync, Formant, Mirror, Squeeze, Fold, SelfFm, Quantize, Count };
+
+// EVOLVE: the scan position travels from note-on.
+#define ZS_CH_WT_EVOLVE "Off|Sweep|Ping-Pong"
+enum class WtEvolve : int { Off, Sweep, PingPong, Count };
 
 #define ZS_CH_WAVE_SEQ "Off|Loop|Ping-Pong|One Shot"
 enum class WaveSeqMode : int { Off, Loop, PingPong, OneShot, Count };
@@ -60,11 +103,13 @@ enum class LfoWave : int { Sine, Triangle, SawUp, RampDown, Square, SampleHold, 
 #define ZS_CH_LFO_MODE "Free|Retrig|One Shot"
 enum class LfoMode : int { Free, Retrigger, OneShot, Count };
 
-#define ZS_CH_LFO_DEST "Off|Pitch|Cutoff|PW|Amp|Pan|WT Pos|FM Depth|Osc2 Pitch|Resonance|Vector X|Vector Y|Detune"
-enum class LfoDest : int { Off, Pitch, Cutoff, PulseWidth, Amp, Pan, WavetablePos, FmDepth, Osc2Pitch, Resonance, VectorX, VectorY, Detune, Count };
+#define ZS_CH_LFO_DEST "Off|Pitch|Cutoff|PW|Amp|Pan|WT Pos|FM Depth|Osc2 Pitch|Resonance|Vector X|Vector Y|Detune|Osc1 WT Pos|Osc2 WT Pos|Osc3 WT Pos|WT Warp"
+enum class LfoDest : int { Off, Pitch, Cutoff, PulseWidth, Amp, Pan, WavetablePos, FmDepth, Osc2Pitch, Resonance, VectorX, VectorY, Detune,
+    Osc1WtPos, Osc2WtPos, Osc3WtPos, WtWarp, Count };
 
-#define ZS_CH_ENV3_DEST "Off|Pitch|Osc2 Pitch|PW|Cutoff|WT Pos|FM Depth|Pan|Noise|Vector X|Vector Y|Detune"
-enum class Env3Dest : int { Off, Pitch, Osc2Pitch, PulseWidth, Cutoff, WavetablePos, FmDepth, Pan, Noise, VectorX, VectorY, Detune, Count };
+#define ZS_CH_ENV3_DEST "Off|Pitch|Osc2 Pitch|PW|Cutoff|WT Pos|FM Depth|Pan|Noise|Vector X|Vector Y|Detune|Osc1 WT Pos|Osc2 WT Pos|Osc3 WT Pos|WT Warp"
+enum class Env3Dest : int { Off, Pitch, Osc2Pitch, PulseWidth, Cutoff, WavetablePos, FmDepth, Pan, Noise, VectorX, VectorY, Detune,
+    Osc1WtPos, Osc2WtPos, Osc3WtPos, WtWarp, Count };
 
 // Tempo divisions shared by LFOs, arpeggiator, sequencer and delay.
 // The beat lengths live in DSP/Common/TempoDivisions.h.
@@ -96,13 +141,14 @@ enum class ModSource : int
     Aftertouch, PolyAftertouch, Expression, Random, SampleHold, SeqStep, Macro, Count
 };
 
-#define ZS_CH_MOD_DST "Off|Pitch|Osc1 Pitch|Osc2 Pitch|Osc3 Pitch|Pulse Width|Osc1 Level|Osc2 Level|Osc3 Level|Sub Level|Noise Level|Osc FM|WT Position|FM Depth|FM Feedback|Cutoff|Resonance|Filter Drive|HPF Cutoff|Amp Level|Pan|LFO1 Rate|LFO2 Rate|LFO1 Amount|LFO2 Amount|FX Drive|Chorus Mix|Delay Mix|Reverb Mix|Delay Feedback|Vector X|Vector Y|Detune"
+#define ZS_CH_MOD_DST "Off|Pitch|Osc1 Pitch|Osc2 Pitch|Osc3 Pitch|Pulse Width|Osc1 Level|Osc2 Level|Osc3 Level|Sub Level|Noise Level|Osc FM|WT Position|FM Depth|FM Feedback|Cutoff|Resonance|Filter Drive|HPF Cutoff|Amp Level|Pan|LFO1 Rate|LFO2 Rate|LFO1 Amount|LFO2 Amount|FX Drive|Chorus Mix|Delay Mix|Reverb Mix|Delay Feedback|Vector X|Vector Y|Detune|Osc1 WT Pos|Osc2 WT Pos|Osc3 WT Pos|WT Warp"
 enum class ModDest : int
 {
     Off, Pitch, Osc1Pitch, Osc2Pitch, Osc3Pitch, PulseWidth, Osc1Level, Osc2Level, Osc3Level,
     SubLevel, NoiseLevel, OscFm, WavetablePos, FmDepth, FmFeedback, Cutoff, Resonance,
     FilterDrive, HpfCutoff, AmpLevel, Pan, Lfo1Rate, Lfo2Rate, Lfo1Amount, Lfo2Amount,
-    FxDrive, ChorusMix, DelayMix, ReverbMix, DelayFeedback, VectorX, VectorY, Detune, Count
+    FxDrive, ChorusMix, DelayMix, ReverbMix, DelayFeedback, VectorX, VectorY, Detune,
+    Osc1WtPos, Osc2WtPos, Osc3WtPos, WtWarp, Count
 };
 
 #define ZS_CH_ARP_MODE "Up|Down|Up/Down|Random|As Played|Chord"

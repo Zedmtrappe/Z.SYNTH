@@ -245,8 +245,36 @@ void ParamControl::showChoiceMenu()
     const auto& d = paramDef(index);
     menu.addSectionHeader(d.name);
     const int lo = (int) d.min, hi = (int) d.max;
-    for (int i = lo; i <= hi; ++i)
-        menu.addItem(i - lo + 1, formatValue(index, (float) i), true, (int) std::lround(value) == i);
+    const juce::String id(d.id);
+    const bool tables = id == "wt.table" || id.endsWith(".wt.table");
+    if (tables)
+    {
+        // Wavetables: grouped by category (in the order of first appearance).
+        const int offset = id == "wt.table" ? 0 : 1; // per-osc lists start with SECTION
+        if (offset == 1)
+            menu.addItem(1, formatValue(index, 0.0f), true, (int) std::lround(value) == 0);
+        juce::StringArray cats;
+        for (int i = lo + offset; i <= hi; ++i)
+            cats.addIfNotAlreadyThere(wavetableCategory(i - offset));
+        for (const auto& cat : cats)
+        {
+            juce::PopupMenu sub;
+            bool ticked = false;
+            for (int i = lo + offset; i <= hi; ++i)
+                if (cat == wavetableCategory(i - offset))
+                {
+                    const bool cur = (int) std::lround(value) == i;
+                    ticked = ticked || cur;
+                    sub.addItem(i - lo + 1, formatValue(index, (float) i).replace("ROM ", ""), true, cur);
+                }
+            menu.addSubMenu(cat, sub, true, nullptr, ticked);
+        }
+    }
+    else
+    {
+        for (int i = lo; i <= hi; ++i)
+            menu.addItem(i - lo + 1, formatValue(index, (float) i), true, (int) std::lround(value) == i);
+    }
 
     juce::Component::SafePointer<ParamControl> safe(this);
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMinimumWidth(getWidth()),

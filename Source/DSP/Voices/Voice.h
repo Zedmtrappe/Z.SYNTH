@@ -7,6 +7,7 @@
 #include "../Modulation/Lfo.h"
 #include "../Modulation/ModMatrix.h"
 #include "../Oscillators/Oscillator.h"
+#include "../Oscillators/WavetableStack.h"
 #include "VoiceShared.h"
 
 namespace zsynth::dsp
@@ -57,6 +58,9 @@ public:
     void setPolyAftertouch(float v) { polyAftertouch = v; }
     void setUnison(float detuneSemis, float pan) { unisonDetune = detuneSemis; unisonPan = pan; }
 
+    /** Scan position (0..1) osc i played in the last block, or -1 if it is not a wavetable. */
+    float getWavetablePosition(int i) const { return wtShownPos[i]; }
+
 private:
     void begin(const NoteStart& ns);
     void updateControl(int n, const VoiceShared& s);
@@ -101,9 +105,18 @@ private:
     float drift[3] {}, driftTarget[3] {};
     float driftTimer = 0.0f;
 
+    // ---- wavetable stack and motion
+    WavetableStack stack[3];
+    bool stackOn[3] {};
+    bool stereo = false, wasStereo = false; // a wide stack runs the filter in stereo
+    Random stackRng;  // own generator, so existing sounds' random sequences are unchanged
+    float wtDrift1[3][WavetableStack::kMax] {}, wtDrift2[3][WavetableStack::kMax] {}, wtDriftTarget[3][WavetableStack::kMax] {};
+    float wtDriftTimer = 0.0f;
+    float wtShownPos[3] { -1.0f, -1.0f, -1.0f };
+
     // ---- processing
-    HighPass12 hpf;
-    FilterUnit filter;
+    HighPass12 hpf, hpfR;
+    FilterUnit filter, filterR;
     float lastOsc3 = 0.0f;
 
     // ---- per-block interpolation endpoints

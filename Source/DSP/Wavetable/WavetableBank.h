@@ -13,18 +13,41 @@
 namespace zsynth::dsp
 {
 
+namespace wtlayout
+{
+    constexpr int kSize = 2048, kMaxHarmonics = 1024, kNumMips = 11;
+    constexpr int mipSize(int mip)
+    {
+        const int s = 16 * (kMaxHarmonics >> mip);
+        return s > kSize ? kSize : (s < 64 ? 64 : s);
+    }
+    constexpr size_t mipOffset(int mip)
+    {
+        size_t o = 0;
+        for (int m = 0; m < mip; ++m)
+            o += (size_t) mipSize(m) + 1;
+        return o;
+    }
+}
+
 class Wavetable
 {
 public:
-    static constexpr int kSize = 2048;           // samples per cycle
+    static constexpr int kSize = 2048;           // samples per cycle of the full-band mip
     static constexpr int kMaxHarmonics = kSize / 2;
     static constexpr int kNumMips = 11;          // 1024, 512, ... 1 harmonics
     static constexpr int kFrames = 32;
 
-    /** Pointer to kSize + 1 samples (last = first, for interpolation). */
+    /** Samples per cycle of mip m: at least 16 per cycle of its top harmonic
+        (so linear interpolation stays clean), at most kSize, at least 64. */
+    static constexpr int mipSize(int mip) { return wtlayout::mipSize(mip); }
+    static constexpr size_t mipOffset(int mip) { return wtlayout::mipOffset(mip); }
+    static constexpr size_t kFrameStride = wtlayout::mipOffset(kNumMips);
+
+    /** Pointer to mipSize(mip) + 1 samples (last = first, for interpolation). */
     const float* frame(int frameIndex, int mip) const
     {
-        return data.data() + ((size_t) frameIndex * kNumMips + (size_t) mip) * (kSize + 1);
+        return data.data() + (size_t) frameIndex * kFrameStride + mipOffset(mip);
     }
 
     /** Selects the mip whose top harmonic is below Nyquist for a phase
@@ -51,12 +74,13 @@ public:
     const Wavetable& rom(int i) const;
     static RomEvolution romEvolution(int i);
 
-    /** Thread-safe lazily-built singleton. First call takes ~100-300 ms;
+    /** Thread-safe lazily-built singleton (built on several threads). First call takes ~0.2-0.5 s;
         the plug-in calls it from the constructor, never from audio. */
     static const WavetableBank& get();
 
+    /** Table `id` (WavetableId order: the generated tables, then the ROM sets). */
     const Wavetable& table(int id) const;
-    int numTables() const { return (int) tables.size(); }
+    int numTables() const { return (int) tables.size() + (int) roms.size(); }
 
 private:
     WavetableBank();

@@ -17,6 +17,7 @@
 #include "DSP/FM/FmVoice.h"
 #include "DSP/Filters/Filters.h"
 #include "DSP/Oscillators/Oscillator.h"
+#include "DSP/Oscillators/WavetableStack.h"
 #include "DSP/Wavetable/WavetableBank.h"
 
 #include <cstdio>
@@ -167,9 +168,11 @@ ZS_TEST(wavetables_normalised_and_band_limited)
                 peak = std::max(peak, std::abs(fr[i]));
             ZS_CHECK_NEAR(peak, 1.0, 1.0e-3);
             ZS_CHECK(fr[Wavetable::kSize] == fr[0]);
+            for (int m = 1; m < Wavetable::kNumMips; ++m)
+                ZS_CHECK(wt.frame(f, m)[Wavetable::mipSize(m)] == wt.frame(f, m)[0]);
 
             // Mip 5 keeps harmonics 1..32 only.
-            const auto mag = magnitudeSpectrum(wt.frame(f, 5), Wavetable::kSize);
+            const auto mag = magnitudeSpectrum(wt.frame(f, 5), Wavetable::mipSize(5));
             double above = 0.0, total = 0.0;
             for (size_t k = 1; k < mag.size(); ++k)
             {
@@ -188,6 +191,183 @@ ZS_TEST(wavetable_mip_selection)
     // At 5 kHz / 96 kHz only 9 harmonics fit below Nyquist.
     const int mip = Wavetable::mipForIncrement(5000.0f / 96000.0f);
     ZS_CHECK((Wavetable::kMaxHarmonics >> mip) <= 9);
+}
+
+
+// ======================================================= wavetable engine ====
+
+ZS_TEST(wavetable_library_evolves)
+{
+    const auto& bank = WavetableBank::get();
+    ZS_CHECK(bank.numTables() == (int) WavetableId::Count);
+    // The ROM sets are tables too (same data as the ROM waves).
+    for (int r = 0; r < kNumRomWaves; ++r)
+        ZS_CHECK(bank.table((int) WavetableId::RomFirst + r).frame(5, 2) == bank.rom(r).frame(5, 2));
+    // Every new table changes through its frames (scanning it is audible).
+    for (int t = (int) WavetableId::Aurora; t < kNumGeneratedTables; ++t)
+    {
+        const auto& wt = bank.table(t);
+        const float* a = wt.frame(0, 0);
+        const float* b = wt.frame(Wavetable::kFrames - 1, 0);
+        double d = 0.0;
+        for (int i = 0; i < Wavetable::kSize; ++i)
+            d += (a[i] - b[i]) * (a[i] - b[i]);
+        ZS_CHECK_GT(d / Wavetable::kSize, 1.0e-3);
+        ZS_CHECK(std::string(wavetableCategory(t)).size() > 0);
+    }
+}
+
+ZS_TEST(wavetable_warps_stay_clean)
+{
+    // A saw frame of Analog Morph at 1 kHz (48 kHz): the warps that reshape the
+    // wave read a lower mip, so their output stays harmonic (no aliasing).
+    const auto& table = WavetableBank::get().table((int) WavetableId::AnalogMorph);
+    // 96 kHz (the voices' internal rate), 1234 Hz: fold-over lands between the harmonics.
+    const double fs = 96000.0, f0 = 1234.0;
+    const float inc = (float) (f0 / fs);
+    const WtWarp warps[] = { WtWarp::Off, WtWarp::BendPlus, WtWarp::BendMinus, WtWarp::Formant, WtWarp::Mirror,
+                             WtWarp::Squeeze, WtWarp::Fold, WtWarp::SelfFm };
+    const std::vector<float>* offOut = nullptr;
+    std::vector<float> off;
+    for (auto w : warps)
+    {
+        Random rng;
+        WavetableStack st;
+        st.reset(rng);
+        st.setup(1, 0.0f, 0.0f, w, 0.8f);
+        const int mip = Wavetable::mipForIncrement(inc * st.bandwidthFactor());
+        st.setFrames(0, table.frame(21, mip), table.frame(22, mip), Wavetable::mipSize(mip), 0.0f, 21, true);
+        std::vector<float> x(16384 + 960);
+        for (auto& v : x)
+        {
+            float l, r;
+            st.process(inc, 0.5f, false, l, r);
+            v = l;
+        }
+        x.erase(x.begin(), x.begin() + 960);
+        const double alias = inharmonicRatioDb(x.data(), x.size(), fs, f0, 20000.0); // the audible band (the voices are decimated)
+        std::printf("    warp %d: fold-over %.1f dB, rms %.3f\n", (int) w, alias, rmsOf(x));
+        ZS_CHECK(allFinite(x));
+        ZS_CHECK_LT(alias, -45.0);
+        ZS_CHECK_GT(rmsOf(x), 0.05);
+        if (w == WtWarp::Off)
+        {
+            off = x;
+            offOut = &off;
+        }
+        else if (offOut != nullptr)
+        {
+            double d = 0.0;
+            for (size_t i = 0; i < x.size(); ++i)
+                d += (x[i] - off[i]) * (x[i] - off[i]);
+            ZS_CHECK_GT(d / (double) x.size(), 1.0e-3); // every warp changes the sound
+        }
+    }
+}
+
+ZS_TEST(wavetable_stack_is_wide_and_detuned)
+{
+    auto render = [](int voices, float width, std::vector<float>& right) {
+        EngineRig rig;
+        rig.set(P::Osc1Wave, (float) OscWave::Wavetable);
+        rig.set(P::Osc1WtTable, 1.0f + (float) WavetableId::Aurora);
+        rig.set(P::Osc1WtVoices, (float) voices);
+        rig.set(P::Osc1WtDetune, 0.5f);
+        rig.set(P::Osc1WtWidth, width);
+        rig.set(P::Env1S, 1.0f);
+        rig.noteOn(0.0, 48);
+        return rig.render(1.0, &right);
+    };
+    std::vector<float> r1, r7, r0;
+    const auto l1 = render(1, 1.0f, r1);
+    const auto l7 = render(7, 1.0f, r7);
+    const auto l0 = render(7, 0.0f, r0);
+    auto sideRatio = [](const std::vector<float>& l, const std::vector<float>& r) {
+        double side = 0.0, mid = 0.0;
+        for (size_t i = 4800; i < l.size(); ++i)
+        {
+            side += (l[i] - r[i]) * (l[i] - r[i]);
+            mid += (l[i] + r[i]) * (l[i] + r[i]);
+        }
+        return side / (mid + 1e-30);
+    };
+    std::printf("    side/mid: 1 voice %.4f, 7 wide %.4f, 7 narrow %.6f\n", sideRatio(l1, r1), sideRatio(l7, r7), sideRatio(l0, r0));
+    // (The default effects add a little width of their own to every sound.)
+    ZS_CHECK_GT(sideRatio(l7, r7), 3.0 * sideRatio(l1, r1));
+    ZS_CHECK_LT(sideRatio(l0, r0), 1.5 * sideRatio(l1, r1));
+    // Similar loudness with 1 and 7 voices.
+    const double db = 20.0 * std::log10(rmsOf(l7, 4800) / rmsOf(l1, 4800));
+    std::printf("    7-voice stack vs 1: %+.1f dB\n", db);
+    ZS_CHECK(std::abs(db) < 4.0);
+    ZS_CHECK(allFinite(l7) && allFinite(r7));
+}
+
+ZS_TEST(wavetable_evolve_and_drift_move_the_position)
+{
+    EngineRig rig;
+    rig.set(P::Osc1Wave, (float) OscWave::Wavetable);
+    rig.set(P::WtTable, (float) WavetableId::Bloom);
+    rig.set(P::WtPos, 0.0f);
+    rig.set(P::WtEvoMode, (float) WtEvolve::Sweep);
+    rig.set(P::WtEvoAmt, 1.0f);
+    rig.set(P::WtEvoTime, 2.0f);
+    rig.set(P::Env1S, 1.0f);
+    rig.noteOn(0.0, 60);
+    rig.render(0.5);
+    const float a = rig.engine.getWavetablePosition(0);
+    rig.render(1.0);
+    const float b = rig.engine.getWavetablePosition(0);
+    rig.render(1.0);
+    const float c = rig.engine.getWavetablePosition(0);
+    std::printf("    evolve: %.2f -> %.2f -> %.2f\n", a, b, c);
+    ZS_CHECK_NEAR(a, 0.25, 0.03);
+    ZS_CHECK_NEAR(b, 0.75, 0.03);
+    ZS_CHECK_NEAR(c, 1.0, 0.01);
+
+    // DRIFT: the position wanders (and differs between notes).
+    EngineRig d;
+    d.set(P::Osc1Wave, (float) OscWave::Wavetable);
+    d.set(P::WtTable, (float) WavetableId::Nebula);
+    d.set(P::WtPos, 0.5f);
+    d.set(P::WtDrift, 1.0f);
+    d.set(P::WtDriftRate, 1.0f);
+    d.set(P::Env1S, 1.0f);
+    d.noteOn(0.0, 60);
+    float lo = 1.0f, hi = 0.0f;
+    for (int k = 0; k < 40; ++k)
+    {
+        d.render(0.1);
+        const float p = d.engine.getWavetablePosition(0);
+        lo = std::min(lo, p);
+        hi = std::max(hi, p);
+    }
+    std::printf("    drift range: %.2f .. %.2f\n", lo, hi);
+    ZS_CHECK_GT(hi - lo, 0.1);
+    ZS_CHECK(lo >= 0.0f && hi <= 1.0f);
+}
+
+ZS_TEST(wavetable_defaults_unchanged)
+{
+    // A preset that never heard of the new controls sounds exactly as before:
+    // "Section" table, no warp, one voice = the band-limited oscillator path.
+    auto render = [](bool touchNew) {
+        EngineRig rig;
+        rig.set(P::Osc1Wave, (float) OscWave::Wavetable);
+        rig.set(P::WtTable, (float) WavetableId::VocalFormant);
+        rig.set(P::WtPos, 0.4f);
+        if (touchNew)
+        {
+            rig.set(P::Osc1WtTable, 1.0f + (float) WavetableId::VocalFormant); // the same table, chosen explicitly
+            rig.set(P::Osc1WtDetune, 0.9f);                                    // inert with one voice
+        }
+        rig.noteOn(0.0, 57);
+        return rig.render(0.5);
+    };
+    const auto a = render(false), b = render(true);
+    double d = 0.0;
+    for (size_t i = 0; i < a.size(); ++i)
+        d = std::max(d, (double) std::abs(a[i] - b[i]));
+    ZS_CHECK_LT(d, 1.0e-6);
 }
 
 // ================================================================= filters ====

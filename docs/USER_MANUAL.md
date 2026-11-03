@@ -193,14 +193,71 @@ wavetable, SuperSaw, HyperSaw and the ROM waves), **RANGE** (32' to 2'),
 
 ### Wavetable
 
-Oscillators set to **Wavetable** play the selected **TABLE**: Analog Morph,
-Harmonic Sweep, Vocal Formant, PWM Scan, Digital Bell, Sync Sweep,
-Wavefolder, Drawbar Organ, Seq Harmonics, Seq Digital, Seq Vocal, Seq Bells
-and Spectral. **POSITION** scans through the table (modulate it from LFOs,
-envelopes or the matrix for movement). **SPREAD** offsets oscillator 2 and 3
-positions. The four **Seq** tables hold 32 *different* waves, made for wave
-sequencing (Seq Harmonics: each wave is the fundamental plus one harmonic, so
-a sequence plays the harmonic series as a melody).
+Oscillators set to **Wavetable** play a table: the panel's WAVETABLE section
+**TABLE**, or one of their own (WAVETABLE ENGINE window). **POS** scans
+through the table (modulate it from LFOs, envelopes or the matrix for
+movement). **SPRD** offsets oscillator 2 and 3 positions. With a Wavetable or
+ROM wave, the oscillator's PW fader becomes **WT POS**: its own position
+offset.
+
+The TABLE menus are grouped by category, 53 tables in all:
+
+| Category | Tables |
+|---|---|
+| Pads & Ambient | Aurora, Nebula, Bloom, Shimmer, Tidal, Drift Pad, Dark Matter, Ether |
+| Voices | Vocal Formant, Choir Morph, Overtone Singer, Whisper, Formant Glide |
+| Bells & Glass | Digital Bell, Crystal, Singing Bowl, Bell Garden, Glass Harmonica |
+| Organic | Drawbar Organ, Breath Flute, Bowed Strings, Reed, Cathedral Organ |
+| Digital | Stepped Digital, Resonant PD, FM Pad, Prism |
+| Classic | Analog Morph, Harmonic Sweep, PWM Scan, Sync Sweep, Wavefolder, Spectral |
+| Sequence | Seq Harmonics, Seq Digital, Seq Vocal, Seq Bells |
+| ROM | the 16 ROM waves as scannable tables |
+
+The ambient tables are made to be scanned slowly: neighbouring frames are
+close, and their partials drift in phase, so a moving position shimmers like
+an ensemble rather than just changing colour. The four **Seq** tables hold 32
+*different* waves, made for wave sequencing (Seq Harmonics: each wave is the
+fundamental plus one harmonic, so a sequence plays the harmonic series as a
+melody).
+
+### Wavetable engine (ENGINE ▸)
+
+The **ENGINE ▸** button in the WAVETABLE section opens the engine: one column
+per oscillator, with a 3D view of its table (the frame playing now is drawn
+in the oscillator's colour: gold, blue, rose, and the stack's copies as ghost
+frames), and the MOTION controls.
+
+* **TABLE** — SECTION (follow the panel's TABLE) or any table, so the three
+  oscillators can play three different tables.
+* **WARP** and **WARP AMT** — reshape how the table is read:
+  **BEND +/−** (phase distortion: one end of the cycle squeezed, the other
+  stretched), **SYNC** (hard-sync sound), **FORMANT** (sync with a windowed
+  cycle: the formants move, the pitch stays, no clicks), **MIRROR** (forwards
+  and back in one cycle), **SQUEEZE** (PWM on any wave), **FOLD**
+  (wavefolding), **SELF FM** (phase modulation by its own output) and
+  **QUANTIZE** (stepped, lo-fi). The smooth warps read a correspondingly
+  duller mip, so they stay free of aliasing; SYNC and QUANTIZE are
+  deliberately digital.
+* **STACK** — 1 to 8 copies of the oscillator (wavetable unison). **DETUNE**
+  spreads their pitch (up to ±70 cents), **SPREAD** puts each copy at a
+  different place in the table (so the stack is a chord of timbres, not just
+  of pitches) and **WIDTH** spreads them across the stereo field. A wide stack
+  runs the voice's filter in stereo.
+* **EVOLVE** (MOTION) — the scan position travels from every note-on: **SWEEP**
+  moves it by **AMOUNT** over **TIME** (0.1 s to a minute) and holds,
+  **PING-PONG** goes back and forth. Negative AMOUNT runs backwards.
+* **DRIFT** and **RATE** — the position wanders at random, differently for
+  every voice and every stack copy: the pad never repeats.
+
+STACK, WARP and TABLE also work on the ROM waves (their own evolution plays
+as before). WARP AMT and each oscillator's position can be modulated: the
+matrix, the LFOs and ENV 3 have **Osc1/2/3 WT Pos** and **WT Warp**
+destinations, and the matrix **Detune** destination widens the stacks too.
+
+The **Ambient** preset category shows the engine off (Aurora Drift, Nebula
+Cloud, Glass Cathedral, Overtone Monk, Choir of Ghosts, Shimmer Horizon and
+more). For your own pads: a Pads & Ambient or ROM table, STACK 5–7, DETUNE
+0.2–0.4, SPREAD 0.2, WIDTH 0.8, a slow EVOLVE and a touch of DRIFT.
 
 ### Wave sequence and vector (SEQ / VECTOR ▸)
 

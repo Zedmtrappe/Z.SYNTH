@@ -230,6 +230,22 @@ void SynthEngine::processChunk(float* left, float* right, int n, const MidiEvent
         if (voices.voice(i).isActive())
             mask |= 1u << i;
     voiceMask.store(mask, std::memory_order_relaxed);
+    {
+        // Wavetable positions of the newest sounding voice (for the displays).
+        int newest = -1;
+        uint32_t age = 0;
+        for (int i = 0; i < kMaxVoices; ++i)
+        {
+            const auto& v = voices.voice(i);
+            if (v.isActive() && ! v.isReleasing() && (newest < 0 || v.getAge() > age))
+            {
+                newest = i;
+                age = v.getAge();
+            }
+        }
+        for (int o = 0; o < 3; ++o)
+            wtPosOut[o].store(newest >= 0 ? voices.voice(newest).getWavetablePosition(o) : -1.0f, std::memory_order_relaxed);
+    }
     modWheelOut.store(modWheel, std::memory_order_relaxed);
     pitchBendOut.store(pitchBend, std::memory_order_relaxed);
     tempoOut.store(bpm, std::memory_order_relaxed);
@@ -456,7 +472,23 @@ void SynthEngine::computeShared(int internalSamples)
         static constexpr int smix[3]   = { P::Osc1SuperMix, P::Osc2SuperMix, P::Osc3SuperMix };
         o.detune = p(detune[i]);
         o.superMix = p(smix[i]);
+
+        const int wb = i * (P::Osc2WtTable - P::Osc1WtTable);
+        const int tableChoice = pi(P::Osc1WtTable + wb);
+        o.table = &WavetableBank::get().table(tableChoice == 0 ? pi(P::WtTable) : tableChoice - 1);
+        o.wtPos = p(P::Osc1WtPos + wb);
+        o.warp = (WtWarp) pi(P::Osc1WtWarp + wb);
+        o.warpAmount = p(P::Osc1WtWarpAmt + wb);
+        o.stackVoices = pi(P::Osc1WtVoices + wb);
+        o.stackDetune = p(P::Osc1WtDetune + wb);
+        o.stackSpread = p(P::Osc1WtSpread + wb);
+        o.stackWidth = p(P::Osc1WtWidth + wb);
     }
+    s.evolveMode = (WtEvolve) pi(P::WtEvoMode);
+    s.evolveAmount = p(P::WtEvoAmt);
+    s.evolveSec = p(P::WtEvoTime);
+    s.wtDrift = p(P::WtDrift);
+    s.wtDriftHz = p(P::WtDriftRate);
     s.subLevel = p(P::SubLevel);
     s.subWave = (SubWave) pi(P::SubWave);
     s.noiseLevel = p(P::NoiseLevel);

@@ -669,7 +669,9 @@ ZS_TEST(layout_controls_inside_sections_and_not_overlapping)
                             || (id.startsWith("trk.") && id != "trk.on")
                             || id == "eq.drive" || id.startsWith("pul.") || id.startsWith("nev.") || id.startsWith("a5.")
                             || id.startsWith("b5.") || id.startsWith("g560.")
-                            || id == "tape.speed" || id == "tape.bias" || id == "tape.hiss" || id == "tape.out";
+                            || id == "tape.speed" || id == "tape.bias" || id == "tape.hiss" || id == "tape.out"
+                            || (id.contains(".wt.") && ! id.endsWith(".wt.pos")) || id.startsWith("wt.evo.")
+                            || id == "wt.drift" || id == "wt.drate";
         ZS_CHECK(advanced == (c.page != ui::kMainPage));
     }
 }
@@ -1341,14 +1343,14 @@ static int snapshots(const juce::File& dir)
     if (zeditor == nullptr)
         return 1;
     auto& panel = zeditor->getPanel();
-    editor->addToDesktop(0); // on screen, so the displays refresh
+    // On screen, so the displays refresh (ZS_OFFSCREEN=1 skips it where there is no usable display server).
+    if (std::getenv("ZS_OFFSCREEN") == nullptr)
+        editor->addToDesktop(0);
     editor->setVisible(true);
     auto set = [&](const char* id, float v) {
         auto* prm = processor.getState().getParameter(id);
         prm->setValueNotifyingHost(prm->convertTo0to1(v));
     };
-    set("comp.on", 1.0f);
-    set("fx.rev.on", 1.0f);
     auto shoot = [&](const juce::String& name, const juce::String& page) {
         panel.showPage(page);
         for (int k = 0; k < 12; ++k)
@@ -1359,6 +1361,24 @@ static int snapshots(const juce::File& dir)
         out.truncate();
         juce::PNGImageFormat().writeImageToStream(img, out);
     };
+    // Wavetable engine: three oscillators on different tables, warps and stacks.
+    set("osc1.wave", (float) OscWave::Wavetable);
+    set("osc1.wt.table", 1.0f + (float) WavetableId::Aurora);
+    set("osc1.wt.voices", 5.0f); set("osc1.wt.pspr", 0.35f); set("osc1.wt.width", 0.8f);
+    set("wt.pos", 0.35f);
+    set("osc2.on", 1.0f); set("osc2.wave", (float) OscWave::Wavetable);
+    set("osc2.wt.table", 1.0f + (float) WavetableId::ChoirMorph);
+    set("osc2.wt.warp", (float) WtWarp::Formant); set("osc2.wt.wamt", 0.45f); set("osc2.wt.pos", 0.2f);
+    set("osc3.on", 1.0f); set("osc3.wave", (float) OscWave::RomGlassPad);
+    set("osc3.wt.warp", (float) WtWarp::BendPlus); set("osc3.wt.wamt", 0.6f);
+    set("wt.evo.mode", (float) WtEvolve::Sweep); set("wt.drift", 0.3f);
+    shoot("wtengine", "wtengine");
+    shoot("wtmain", {});
+    if (const char* only = std::getenv("ZS_SNAP_ONLY"); only != nullptr && juce::String(only) == "wt")
+        return 0;
+
+    set("comp.on", 1.0f);
+    set("fx.rev.on", 1.0f);
     for (int m = 0; m < (int) CompModel::Count; ++m)
     {
         set("comp.model", (float) m);

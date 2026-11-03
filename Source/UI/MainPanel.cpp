@@ -459,6 +459,8 @@ void MainPanel::buildUtilities()
     });
     button("openPeq", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Edit the output EQ: five bands with variable Q, low cut, high cut, output", [this] {
         showPage(getVisiblePage() == "peq" ? juce::String() : juce::String("peq")); });
+    button("openWtEngine", juce::String::fromUTF8("ENGINE \xe2\x96\xb8"), "Wavetable engine: a table, warp and stack per oscillator, EVOLVE and DRIFT", [this] {
+        showPage(getVisiblePage() == "wtengine" ? juce::String() : juce::String("wtengine")); });
     button("openWave", juce::String::fromUTF8("SEQ / VECTOR \xe2\x96\xb8"), "Wave sequencing and vector mixing (Wavestation style)", [this] {
         showPage(getVisiblePage() == "wave" ? juce::String() : juce::String("wave")); });
     button("openValve", juce::String::fromUTF8("ADV \xe2\x96\xb8"), "Valve type, bias, sag, warmth and mix", [this] {
@@ -473,6 +475,8 @@ void MainPanel::buildUtilities()
     displays.push_back(&addUtility<ActivityLed>("audioLed", processor, false));
     displays.push_back(&addUtility<VoiceCountDisplay>("voiceCount", processor));
     displays.push_back(&addUtility<WavetableDisplay>("wtDisplay", processor));
+    for (int i = 0; i < 3; ++i)
+        displays.push_back(&addUtility<WavetableView3D>("wt3d" + juce::String(i + 1), processor, i));
     displays.push_back(&addUtility<FilterCurveDisplay>("filterCurve", processor));
     displays.push_back(&addUtility<EnvelopeDisplay>("env1Display", processor, (int) P::Env1A));
     displays.push_back(&addUtility<EnvelopeDisplay>("env2Display", processor, (int) P::Env2A));
@@ -563,11 +567,14 @@ void MainPanel::updateOscViews(bool force)
     static constexpr int waves[3] = { P::Osc1Wave, P::Osc2Wave, P::Osc3Wave };
     for (int i = 0; i < 3; ++i)
     {
-        const bool super = isSuperWave((OscWave) (int) std::lround(processor.getValue(waves[i])));
-        if (force || super != oscSuperShown[i])
+        const auto wave = (OscWave) (int) std::lround(processor.getValue(waves[i]));
+        const int view = isSuperWave(wave) ? 1 : (wave == OscWave::Wavetable || isRomWave(wave) ? 2 : 0);
+        if (force || view != oscViewShown[i])
         {
-            oscSuperShown[i] = super;
-            showModView("osc" + juce::String(i + 1) + (super ? ":super" : ":std"));
+            oscViewShown[i] = view;
+            static const char* names[3] = { ":std", ":super", ":wt" };
+            showModView("osc" + juce::String(i + 1) + names[view]);
+            showModView("osc" + juce::String(i + 1) + (view == 1 ? "r:mix" : "r:ring"));
         }
     }
 }

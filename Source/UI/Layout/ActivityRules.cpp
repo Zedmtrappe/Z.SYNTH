@@ -56,7 +56,8 @@ Activity activityFor(int i, const float* v, bool hostTempo)
     }
 
     const bool analogOff = engine == EngineMode::FM;
-    if ((inRange(i, P::Osc1On, P::Osc3Xmod) || i == P::SubLevel || i == P::SubWave || inRange(i, P::WtTable, P::WtSpread)) && analogOff)
+    if ((inRange(i, P::Osc1On, P::Osc3Xmod) || i == P::SubLevel || i == P::SubWave || inRange(i, P::WtTable, P::WtSpread)
+         || inRange(i, P::Osc1WtTable, P::WtDriftRate)) && analogOff)
         return inactive("Analog oscillators are off in FM engine mode. Set ENGINE to ANALOG or HYBRID.");
 
     // ---- per oscillator
@@ -83,6 +84,15 @@ Activity activityFor(int i, const float* v, bool hostTempo)
             used = used || (on(v, o.on) && (OscWave) choice(v, o.wave) == OscWave::Wavetable);
         if (! used)
             return inactive("No oscillator uses the Wavetable wave.");
+        if (i == P::WtTable)
+        {
+            bool follows = false;
+            for (int n = 0; n < 3; ++n)
+                follows = follows || (on(v, oscs[n].on) && (OscWave) choice(v, oscs[n].wave) == OscWave::Wavetable
+                                      && choice(v, P::Osc1WtTable + n * (P::Osc2WtTable - P::Osc1WtTable)) == 0);
+            if (! follows)
+                return inactive("Every wavetable oscillator has its own TABLE (WAVETABLE ENGINE window).");
+        }
         if (i == P::WtSpread)
         {
             const bool multi = (on(v, P::Osc2On) && (OscWave) choice(v, P::Osc2Wave) == OscWave::Wavetable)
@@ -90,6 +100,48 @@ Activity activityFor(int i, const float* v, bool hostTempo)
             if (! multi)
                 return inactive("Spread offsets oscillators 2 and 3; neither uses the Wavetable wave.");
         }
+    }
+
+    // ---- wavetable engine: per oscillator
+    {
+        constexpr int stride = P::Osc2WtTable - P::Osc1WtTable;
+        for (int n = 0; n < 3; ++n)
+        {
+            const int b = P::Osc1WtTable + n * stride;
+            if (! inRange(i, b, b + stride - 1))
+                continue;
+            const auto wave = (OscWave) choice(v, oscs[n].wave);
+            const bool table = wave == OscWave::Wavetable || isRomWave(wave);
+            if (! on(v, oscs[n].on))
+                return inactive("Oscillator " + juce::String(n + 1) + " is switched off.");
+            if (! table)
+                return inactive("Oscillator " + juce::String(n + 1) + " is not playing a table: set its WAVE to Wavetable or a ROM wave.");
+            if (i == b && wave != OscWave::Wavetable)
+                return inactive("ROM waves play their own table (choose Wavetable to pick one).");
+            if (i == P::Osc1WtWarpAmt + n * stride && choice(v, P::Osc1WtWarp + n * stride) == 0)
+                return inactive("Choose a WARP.");
+            if ((i == P::Osc1WtDetune + n * stride || i == P::Osc1WtSpread + n * stride || i == P::Osc1WtWidth + n * stride)
+                && choice(v, P::Osc1WtVoices + n * stride) <= 1)
+                return inactive("STACK is 1: add copies to detune, spread and widen them.");
+        }
+    }
+    if (inRange(i, P::WtEvoMode, P::WtDriftRate))
+    {
+        bool scans = false, tables = false;
+        for (const auto& o : oscs)
+        {
+            const auto wave = (OscWave) choice(v, o.wave);
+            scans = scans || (on(v, o.on) && wave == OscWave::Wavetable);
+            tables = tables || (on(v, o.on) && (wave == OscWave::Wavetable || isRomWave(wave)));
+        }
+        if (i <= P::WtEvoTime && ! scans)
+            return inactive("EVOLVE moves the Wavetable wave's position: set an oscillator's wave to Wavetable.");
+        if (! tables)
+            return inactive("DRIFT moves a table's position: set an oscillator's wave to Wavetable or a ROM wave.");
+        if ((i == P::WtEvoAmt || i == P::WtEvoTime) && choice(v, P::WtEvoMode) == 0)
+            return inactive("EVOLVE is off. Choose SWEEP or PING-PONG.");
+        if (i == P::WtDriftRate && v[P::WtDrift] <= 0.0f)
+            return inactive("DRIFT is zero.");
     }
 
     if (inRange(i, P::WtSeqMode, P::WtSeqXfade))

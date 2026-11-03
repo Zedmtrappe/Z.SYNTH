@@ -19,6 +19,7 @@ void Voice::prepare(float internalSampleRate, int voiceIndex)
 
     noise.setSeed((uint32_t) (voiceIndex * 31 + 5));
     superRng.setSeed((uint32_t) (voiceIndex * 977 + 3));
+    stackRng.setSeed((uint32_t) (voiceIndex * 613 + 29));
     lfo[0].setSeed((uint32_t) (voiceIndex * 131 + 7));
     lfo[1].setSeed((uint32_t) (voiceIndex * 257 + 11));
 
@@ -46,13 +47,21 @@ void Voice::begin(const NoteStart& ns)
     {
         osc[i].reset(ns.randomPhase ? rng.unipolar() : 0.0f);
         superSaw[i].reset(superRng); // free-running phases, as on the JP-8000
+        stack[i].reset(stackRng);
+        // DRIFT starts somewhere different for every note and stack voice.
+        for (int j = 0; j < WavetableStack::kMax; ++j)
+            wtDrift1[i][j] = wtDrift2[i][j] = wtDriftTarget[i][j] = stackRng.bipolar();
     }
+    wtDriftTimer = 0.0f;
     noteTime = 0.0f;
     sub.reset(0.0f);
     lastOsc3 = 0.0f;
 
     filter.reset();
     hpf.reset();
+    filterR.reset();
+    hpfR.reset();
+    wasStereo = false;
     ampEnv.reset();
     env2.reset();
     env3.reset();
@@ -164,7 +173,7 @@ float Voice::pitchForOsc(int i, const VoiceShared& s) const
 void Voice::setTableFrames(int i, const Wavetable& table, int key, int fa, int fb, float mix, float fmAmount)
 {
     const int mip = Wavetable::mipForIncrement(incEnd[i] * (1.0f + 2.0f * fmAmount));
-    osc[i].setWavetableFrames(table.frame(fa, mip), table.frame(fb, mip));
+    osc[i].setWavetableFrames(table.frame(fa, mip), table.frame(fb, mip), Wavetable::mipSize(mip));
     wtMixStart[i] = (key == wtFrame[i]) ? wtMixEnd[i] : mix;
     wtMixEnd[i] = mix;
     wtFrame[i] = key;
@@ -288,9 +297,55 @@ void Voice::updateControl(int n, const VoiceShared& s)
                         + vintageTune[0] * s.vintage * 0.08f + drift[0] * s.drift * 0.12f;
     baseIncEnd = clampf(midiNoteToHz(fmPitch) * s.invSampleRate, 0.0f, 0.45f);
 
+    // ---- wavetable motion: EVOLVE (from note-on) and DRIFT (random wander)
+    float evolve = 0.0f;
+    if (s.evolveMode != WtEvolve::Off)
+    {
+        const float u = noteTime / std::max(0.05f, s.evolveSec);
+        float shape;
+        if (s.evolveMode == WtEvolve::Sweep)
+            shape = std::min(1.0f, u);
+        else
+        {
+            const float ph = std::fmod(u, 2.0f);
+            shape = ph < 1.0f ? ph : 2.0f - ph;
+        }
+        evolve = s.evolveAmount * shape;
+    }
+    const float driftDepth = 0.3f * s.wtDrift;
+    if (driftDepth > 0.0f)
+    {
+        wtDriftTimer -= dt;
+        if (wtDriftTimer <= 0.0f)
+        {
+            for (auto& row : wtDriftTarget)
+                for (auto& d : row)
+                    d = stackRng.bipolar();
+            wtDriftTimer = (0.6f + 0.8f * stackRng.unipolar()) / std::max(0.01f, s.wtDriftHz);
+        }
+        // Two cascaded one-poles: smooth, unhurried turns.
+        const float k = std::min(1.0f, dt * s.wtDriftHz * 3.0f);
+        for (int i = 0; i < 3; ++i)
+            for (int j = 0; j < WavetableStack::kMax; ++j)
+            {
+                wtDrift1[i][j] += (wtDriftTarget[i][j] - wtDrift1[i][j]) * k;
+                wtDrift2[i][j] += (wtDrift1[i][j] - wtDrift2[i][j]) * k;
+            }
+    }
+    auto driftOf = [&](int i, int j) { return driftDepth > 0.0f ? driftDepth * wtDrift2[i][j] : 0.0f; };
+    // Positions beyond the ends fold back (so a spread stack never piles up at an end).
+    auto reflect = [](float x) {
+        x = std::abs(x);
+        const float ph = std::fmod(x, 2.0f);
+        return ph <= 1.0f ? ph : 2.0f - ph;
+    };
+
     // ---- oscillator settings
     const float levelTolerance = 1.0f + vintageLevel * s.vintage * 0.12f;
     const float spreadFactor[3] = { 0.0f, 0.5f, 1.0f };
+    const ModDest posDest[3] = { ModDest::Osc1WtPos, ModDest::Osc2WtPos, ModDest::Osc3WtPos };
+    constexpr float lastFrame = (float) (Wavetable::kFrames - 1);
+    stereo = false;
     for (int i = 0; i < 3; ++i)
     {
         const auto& o = s.osc[i];
@@ -299,6 +354,29 @@ void Voice::updateControl(int n, const VoiceShared& s)
         level[i] = o.on ? clampf(o.level + m[oscLevelDest[i]], 0.0f, 1.0f) * levelTolerance : 0.0f;
         fmAmt[i] = clampf(o.fm + m[ModDest::OscFm], 0.0f, 1.0f);
         ring[i] = o.ring;
+        wtShownPos[i] = -1.0f;
+
+        const bool rom = isRomWave(o.wave) && s.bank != nullptr;
+        const bool scan = o.wave == OscWave::Wavetable && o.table != nullptr;
+        stackOn[i] = (rom || scan) && (o.stackVoices > 1 || o.warp != WtWarp::Off);
+        if (stackOn[i])
+        {
+            stack[i].setup(o.stackVoices, o.stackDetune + m[ModDest::Detune], o.stackWidth, o.warp,
+                           o.warpAmount + m[ModDest::WtWarp]);
+            if (o.stackVoices > 1)
+                stereo = true;
+        }
+        const float posOffset = o.wtPos + m[posDest[i]];
+        const float spreadAmt = 0.5f * o.stackSpread;
+        const int stackMip = stackOn[i] ? Wavetable::mipForIncrement(incEnd[i] * (1.0f + 2.0f * fmAmt[i]) * stack[i].bandwidthFactor()) : 0;
+
+        // Points stack copy j at frame position fp (frames, 0..lastFrame).
+        auto stackFramesAt = [&](int j, const Wavetable& table, float fp, int keyBase) {
+            fp = clampf(fp, 0.0f, lastFrame);
+            const int f0 = std::min((int) fp, Wavetable::kFrames - 2);
+            stack[i].setFrames(j, table.frame(f0, stackMip), table.frame(f0 + 1, stackMip), Wavetable::mipSize(stackMip),
+                               fp - (float) f0, keyBase + f0, firstBlock);
+        };
 
         superOn[i] = isSuperWave(o.wave);
         if (superOn[i])
@@ -306,7 +384,7 @@ void Voice::updateControl(int n, const VoiceShared& s)
             osc[i].setWave(OscWave::Saw); // still runs: osc 1's wraps drive sync and the sub
             superSaw[i].setup(o.wave == OscWave::HyperSaw, o.detune + m[ModDest::Detune], o.superMix);
         }
-        else if (isRomWave(o.wave) && s.bank != nullptr)
+        else if (rom)
         {
             // The ROM wave's own evolution: attack frames once, then a slow
             // back-and-forth loop. Higher notes run through the attack faster,
@@ -325,12 +403,23 @@ void Voice::updateControl(int n, const VoiceShared& s)
                 const float tri = ph < 0.5f ? 2.0f * ph : 2.0f - 2.0f * ph;
                 pos = ev.loopStart + (ev.loopEnd - ev.loopStart) * tri;
             }
-            pos = clampf(pos, 0.0f, (float) (Wavetable::kFrames - 1));
-            const int f0 = std::min((int) pos, Wavetable::kFrames - 2);
+            pos = clampf(pos + (posOffset + driftOf(i, 0)) * lastFrame, 0.0f, lastFrame);
+            wtShownPos[i] = pos / lastFrame;
+            const auto& table = s.bank->rom(r);
             osc[i].setWave(OscWave::Wavetable);
-            setTableFrames(i, s.bank->rom(r), (r + 1) << 12 | f0, f0, f0 + 1, pos - (float) f0, fmAmt[i]);
+            if (stackOn[i])
+            {
+                for (int j = 0; j < stack[i].count(); ++j)
+                    stackFramesAt(j, table, reflect(pos / lastFrame + spreadAmt * stack[i].position(j) + driftOf(i, j) - driftOf(i, 0)) * lastFrame,
+                                  (r + 1) << 12);
+            }
+            else
+            {
+                const int f0 = std::min((int) pos, Wavetable::kFrames - 2);
+                setTableFrames(i, table, (r + 1) << 12 | f0, f0, f0 + 1, pos - (float) f0, fmAmt[i]);
+            }
         }
-        else if (o.wave == OscWave::Wavetable && s.wavetable != nullptr && s.seqMode != WaveSeqMode::Off)
+        else if (scan && s.seqMode != WaveSeqMode::Off)
         {
             // Wave sequence: steps spread evenly through the table from POS.
             const int nSteps = std::max(2, s.seqSteps);
@@ -361,21 +450,55 @@ void Voice::updateControl(int n, const VoiceShared& s)
             float mix = frac < 1.0f - xf ? 0.0f : (frac - (1.0f - xf)) / xf;
             mix = mix * mix * (3.0f - 2.0f * mix);
             const int stride = std::max(1, Wavetable::kFrames / nSteps);
-            const float pos = clampf(s.wtPos + m[ModDest::WavetablePos], 0.0f, 1.0f);
-            const int base = (int) std::lround(pos * (float) (Wavetable::kFrames - 1))
+            const float pos = clampf(s.wtPos + m[ModDest::WavetablePos] + posOffset + evolve + driftOf(i, 0), 0.0f, 1.0f);
+            wtShownPos[i] = pos;
+            const int base = (int) std::lround(pos * lastFrame)
                            + (int) std::lround(s.wtSpread * spreadFactor[i] * 16.0f) + Wavetable::kFrames * 4;
-            const int fa = (base + idx * stride) % Wavetable::kFrames;
-            const int fb = (base + next * stride) % Wavetable::kFrames;
-            setTableFrames(i, *s.wavetable, fa * 64 + fb, fa, fb, mix, fmAmt[i]);
+            if (stackOn[i])
+            {
+                for (int j = 0; j < stack[i].count(); ++j)
+                {
+                    const int off = (int) std::lround((spreadAmt * stack[i].position(j) + driftOf(i, j) - driftOf(i, 0)) * lastFrame);
+                    const int fa = (base + off + idx * stride) % Wavetable::kFrames;
+                    const int fb = (base + off + next * stride) % Wavetable::kFrames;
+                    stack[i].setFrames(j, o.table->frame(fa, stackMip), o.table->frame(fb, stackMip), Wavetable::mipSize(stackMip),
+                                       mix, fa * 64 + fb, firstBlock);
+                }
+            }
+            else
+            {
+                const int fa = (base + idx * stride) % Wavetable::kFrames;
+                const int fb = (base + next * stride) % Wavetable::kFrames;
+                setTableFrames(i, *o.table, fa * 64 + fb, fa, fb, mix, fmAmt[i]);
+            }
         }
-        else if (o.wave == OscWave::Wavetable && s.wavetable != nullptr)
+        else if (scan)
         {
-            const float pos = clampf(s.wtPos + m[ModDest::WavetablePos] + s.wtSpread * spreadFactor[i], 0.0f, 1.0f);
-            const float fpos = pos * (float) (Wavetable::kFrames - 1);
-            const int f0 = std::min((int) fpos, Wavetable::kFrames - 2);
-            setTableFrames(i, *s.wavetable, f0, f0, f0 + 1, fpos - (float) f0, fmAmt[i]);
+            const float pos = clampf(s.wtPos + m[ModDest::WavetablePos] + s.wtSpread * spreadFactor[i] + posOffset + evolve + driftOf(i, 0),
+                                     0.0f, 1.0f);
+            wtShownPos[i] = pos;
+            if (stackOn[i])
+            {
+                for (int j = 0; j < stack[i].count(); ++j)
+                    stackFramesAt(j, *o.table, reflect(pos + spreadAmt * stack[i].position(j) + driftOf(i, j) - driftOf(i, 0)) * lastFrame, 0);
+            }
+            else
+            {
+                const float fpos = pos * lastFrame;
+                const int f0 = std::min((int) fpos, Wavetable::kFrames - 2);
+                setTableFrames(i, *o.table, f0, f0, f0 + 1, fpos - (float) f0, fmAmt[i]);
+            }
         }
+        if (stackOn[i])
+            osc[i].setWave(OscWave::Saw); // the stack sounds; osc i still runs for sync and the sub
     }
+    if (stereo && ! wasStereo)
+    {
+        // Entering stereo mid-note: start the right channel from the left's state (no click).
+        filterR = filter;
+        hpfR = hpf;
+    }
+    wasStereo = stereo;
 
     // Vector mixing: equal-power bilinear blend of the four corners of the
     // joystick diamond (A left, B top, C right, D bottom).
@@ -467,8 +590,9 @@ void Voice::render(float* left, float* right, int n, const VoiceShared& s)
     const bool fmOn = s.fmActive;
     const bool osc2On = level[1] > 0.0f;
     const bool osc3On = level[2] > 0.0f || fmAmt[0] > 0.0f;
-    auto usesTable = [&](int k) { return s.osc[k].wave == OscWave::Wavetable || isRomWave(s.osc[k].wave); };
+    auto usesTable = [&](int k) { return (s.osc[k].wave == OscWave::Wavetable || isRomWave(s.osc[k].wave)) && ! stackOn[k]; };
     const bool wt[3] = { usesTable(0), usesTable(1), usesTable(2) };
+    const bool st = stereo;
     const FilterType type = s.filterType;
     const FilterSlope slope = s.filterSlope;
     // Mixer overdrive. The makeup is chosen so a typical full-level mix (0.5
@@ -480,7 +604,7 @@ void Voice::render(float* left, float* right, int n, const VoiceShared& s)
     for (int i = 0; i < n; ++i)
     {
         const float t = (float) (i + 1) * invN;
-        float sum = 0.0f;
+        float sum = 0.0f, sumR = 0.0f; // sumR: the right channel's extra (stereo stacks only)
 
         if (analog)
         {
@@ -493,22 +617,60 @@ void Voice::render(float* left, float* right, int n, const VoiceShared& s)
             const float wrap = osc[0].wrapAfter();
             if (superOn[0])
                 o1 = superSaw[0].process(inc1);
-            sum += o1 * level[0];
+            if (stackOn[0])
+            {
+                float l, r;
+                stack[0].process(inc1, t, false, l, r);
+                o1 = 0.5f * (l + r);
+                sum += l * level[0];
+                sumR += (r - l) * level[0];
+            }
+            else
+            {
+                sum += o1 * level[0];
+            }
 
             if (osc2On)
             {
                 const float inc2 = lerp(incStart[1], incEnd[1], t) * (1.0f + fmAmt[1] * 4.0f * o1);
-                float o2 = superOn[1] ? superSaw[1].process(inc2) : osc[1].process(inc2, s.osc[1].sync ? wrap : -1.0f);
-                o2 += (o2 * o1 - o2) * ring[1];
-                sum += o2 * level[1];
+                const float sync = s.osc[1].sync ? wrap : -1.0f;
+                float o2 = superOn[1] ? superSaw[1].process(inc2) : osc[1].process(inc2, sync);
+                if (stackOn[1])
+                {
+                    float l, r;
+                    stack[1].process(inc2, t, sync >= 0.0f, l, r);
+                    l += (l * o1 - l) * ring[1];
+                    r += (r * o1 - r) * ring[1];
+                    sum += l * level[1];
+                    sumR += (r - l) * level[1];
+                }
+                else
+                {
+                    o2 += (o2 * o1 - o2) * ring[1];
+                    sum += o2 * level[1];
+                }
             }
             if (osc3On)
             {
                 const float inc3 = lerp(incStart[2], incEnd[2], t) * (1.0f + fmAmt[2] * 4.0f * o1);
-                float o3 = superOn[2] ? superSaw[2].process(inc3) : osc[2].process(inc3, s.osc[2].sync ? wrap : -1.0f);
-                lastOsc3 = o3;
-                o3 += (o3 * o1 - o3) * ring[2];
-                sum += o3 * level[2];
+                const float sync = s.osc[2].sync ? wrap : -1.0f;
+                float o3 = superOn[2] ? superSaw[2].process(inc3) : osc[2].process(inc3, sync);
+                if (stackOn[2])
+                {
+                    float l, r;
+                    stack[2].process(inc3, t, sync >= 0.0f, l, r);
+                    lastOsc3 = 0.5f * (l + r);
+                    l += (l * o1 - l) * ring[2];
+                    r += (r * o1 - r) * ring[2];
+                    sum += l * level[2];
+                    sumR += (r - l) * level[2];
+                }
+                else
+                {
+                    lastOsc3 = o3;
+                    o3 += (o3 * o1 - o3) * ring[2];
+                    sum += o3 * level[2];
+                }
             }
             if (subLevel > 0.0f)
                 sum += sub.process(wrap, inc1) * subLevel;
@@ -522,19 +684,29 @@ void Voice::render(float* left, float* right, int n, const VoiceShared& s)
 
         // Mixer: gentle tanh overload with level compensation.
         float x = fastTanh(sum * 0.5f * driveGain) * driveMakeup;
-
         if (hpfOn)
             x = hpf.process(x, hpfG);
 
         g *= gRatio;
         x = filter.process(x, g, res, fltDrive, type, slope);
 
+        float xr = x;
+        if (st)
+        {
+            xr = fastTanh((sum + sumR) * 0.5f * driveGain) * driveMakeup;
+            if (hpfOn)
+                xr = hpfR.process(xr, hpfG);
+            xr = filterR.process(xr, g, res, fltDrive, type, slope);
+        }
+
         const float amp = ampEnv.process(s.env[0]) * lerp(gainStart, gainEnd, t);
-        const float out = x * amp;
-        left[i]  += out * lerp(panLStart, panLEnd, t);
-        right[i] += out * lerp(panRStart, panREnd, t);
+        left[i]  += x * amp * lerp(panLStart, panLEnd, t);
+        right[i] += xr * amp * lerp(panRStart, panREnd, t);
     }
 
+    for (int k = 0; k < 3; ++k)
+        if (stackOn[k])
+            stack[k].endBlock();
     for (int k = 0; k < 3; ++k)
     {
         incStart[k] = incEnd[k];

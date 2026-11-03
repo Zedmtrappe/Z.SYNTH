@@ -34,7 +34,7 @@ public:
     void setPulseWidth(float pw) { pulseWidth = clampf(pw, 0.02f, 0.98f); }
 
     /** Wavetable frames for the current control block (mip already chosen). */
-    void setWavetableFrames(const float* a, const float* b) { frameA = a; frameB = b; }
+    void setWavetableFrames(const float* a, const float* b, int size) { frameA = a; frameB = b; tableSize = size; }
     void setWavetableMix(float m) { frameMix = clampf(m, 0.0f, 1.0f); }
 
     float getPhase() const { return phase; }
@@ -158,8 +158,8 @@ private:
 
     float tableValue(const float* table, float p) const
     {
-        const float pos = p * (float) Wavetable::kSize;
-        const int i = std::min((int) pos, Wavetable::kSize - 1);
+        const float pos = p * (float) tableSize;
+        const int i = std::min((int) pos, tableSize - 1);
         const float f = pos - (float) i;
         return table[i] + (table[i + 1] - table[i]) * f;
     }
@@ -191,9 +191,9 @@ private:
             case OscWave::Saw:      return 2.0f;
             case OscWave::Wavetable:
             {
-                constexpr float d = 1.0f / (float) Wavetable::kSize;
+                const float d = 1.0f / (float) tableSize;
                 const float p2 = p + d >= 1.0f ? p + d - 1.0f : p + d;
-                return (valueAt(p2) - valueAt(p)) * (float) Wavetable::kSize;
+                return (valueAt(p2) - valueAt(p)) * (float) tableSize;
             }
             default: return 0.0f;
         }
@@ -209,6 +209,7 @@ private:
     const float* frameA = nullptr;
     const float* frameB = nullptr;
     float frameMix = 0.0f;
+    int tableSize = Wavetable::kSize;
 };
 
 // -----------------------------------------------------------------------------

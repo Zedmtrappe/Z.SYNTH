@@ -4,6 +4,8 @@
 #include "../Common/FFT.h"
 
 #include <algorithm>
+#include <atomic>
+#include <thread>
 #include <cstdint>
 #include <cmath>
 #include <complex>
@@ -44,13 +46,13 @@ namespace
 
     void renderFrame(const Harmonics& h, Wavetable& wt, int frameIndex)
     {
-        constexpr int N = Wavetable::kSize;
-        std::vector<std::complex<double>> buf((size_t) N);
-        std::vector<std::vector<float>> mips(Wavetable::kNumMips, std::vector<float>((size_t) N));
+        std::vector<std::complex<double>> buf;
+        std::vector<std::vector<float>> mips(Wavetable::kNumMips);
 
         for (int m = 0; m < Wavetable::kNumMips; ++m)
         {
-            std::fill(buf.begin(), buf.end(), std::complex<double>());
+            const int N = Wavetable::mipSize(m);
+            buf.assign((size_t) N, std::complex<double>());
             const int top = Wavetable::kMaxHarmonics >> m;
             for (int k = 1; k <= top && k < N / 2; ++k)
             {
@@ -59,6 +61,7 @@ namespace
                 buf[(size_t) (N - k)] = std::conj(c);
             }
             fftInPlace(buf, true);
+            mips[(size_t) m].resize((size_t) N);
             for (int n = 0; n < N; ++n)
                 mips[(size_t) m][(size_t) n] = (float) buf[(size_t) n].real();
         }
@@ -72,6 +75,7 @@ namespace
 
         for (int m = 0; m < Wavetable::kNumMips; ++m)
         {
+            const int N = Wavetable::mipSize(m);
             float* dst = const_cast<float*>(wt.frame(frameIndex, m));
             for (int n = 0; n < N; ++n)
                 dst[n] = mips[(size_t) m][(size_t) n] * scale;
@@ -82,7 +86,7 @@ namespace
     Wavetable buildSpectral(const SpectralFn& fn)
     {
         Wavetable wt;
-        wt.data.resize((size_t) Wavetable::kFrames * Wavetable::kNumMips * (Wavetable::kSize + 1));
+        wt.data.resize((size_t) Wavetable::kFrames * Wavetable::kFrameStride);
         for (int f = 0; f < Wavetable::kFrames; ++f)
         {
             Harmonics h;
@@ -95,7 +99,7 @@ namespace
     Wavetable buildTimeDomain(const TimeFn& fn)
     {
         Wavetable wt;
-        wt.data.resize((size_t) Wavetable::kFrames * Wavetable::kNumMips * (Wavetable::kSize + 1));
+        wt.data.resize((size_t) Wavetable::kFrames * Wavetable::kFrameStride);
         for (int f = 0; f < Wavetable::kFrames; ++f)
             renderFrame(analyse(fn, (double) f / (Wavetable::kFrames - 1)), wt, f);
         return wt;
@@ -444,6 +448,356 @@ namespace
             addPartial(h, k, (0.5 + 0.5 * a) / k, drift(k, t, 1.0, 41));
         }
     }
+
+    // ===================================================== ambient tables
+    // Made to be scanned slowly: neighbouring frames are close, and partial
+    // phases drift from frame to frame, so a moving position shimmers like an
+    // ensemble instead of just changing colour.
+    double smooth01(double x) { x = std::clamp(x, 0.0, 1.0); return x * x * (3.0 - 2.0 * x); }
+    double lfoAt(double t, double rate, double phase) { return 0.5 + 0.5 * std::sin(2.0 * kPiD * (t * rate + phase)); }
+    double gaussLog(int k, double centre, double octaves)
+    {
+        const double d = (std::log2((double) k) - std::log2(std::max(1.0, centre))) / octaves;
+        return std::exp(-d * d);
+    }
+    /** Smooth value noise over t: n keyframes per table, cosine-interpolated. */
+    double valueNoise(double t, int keys, int a, int b)
+    {
+        const double x = t * keys;
+        const int i = std::min(keys - 1, (int) x);
+        const double f = 0.5 - 0.5 * std::cos(kPiD * (x - i));
+        return hash01(a * 131 + i, b) * (1.0 - f) + hash01(a * 131 + i + 1, b) * f;
+    }
+
+    // Aurora: a soft saw bed with three bands of "light" travelling through
+    // the harmonics at different speeds.
+    void aurora(double t, Harmonics& h)
+    {
+        for (int k = 1; k <= 96; ++k)
+        {
+            double a = 0.22 / std::pow((double) k, 1.15);
+            for (int j = 0; j < 3; ++j)
+            {
+                const double c = std::pow(2.0, 1.0 + 4.2 * lfoAt(t, 0.6 + 0.45 * j, 0.17 * j + 0.1));
+                a += (0.9 - 0.2 * j) * gaussLog(k, c, 0.28) / std::sqrt((double) k);
+            }
+            addPartial(h, k, a, drift(k, t, 2.5, 101));
+        }
+    }
+
+    // Nebula: smooth random spectra (value noise per harmonic), a slowly
+    // changing cloud of partials.
+    void nebula(double t, Harmonics& h)
+    {
+        addPartial(h, 1, 0.6);
+        for (int k = 2; k <= 110; ++k)
+        {
+            const double n = valueNoise(t, 5, k, 211);
+            addPartial(h, k, std::pow(n, 2.2) * 1.4 / std::pow((double) k, 0.75), drift(k, t, 3.0, 223));
+        }
+    }
+
+    // Bloom: from a pure sine, harmonics open one by one into a bright pad.
+    void bloom(double t, Harmonics& h)
+    {
+        const double count = 1.0 + 63.0 * std::pow(t, 1.6);
+        for (int k = 1; k <= 64; ++k)
+        {
+            const double w = smooth01(count - (double) k + 1.0);
+            addPartial(h, k, w / std::pow((double) k, 0.85), k == 1 ? 0.0 : drift(k, t, 1.5, 307));
+        }
+    }
+
+    // Shimmer: octaves and fifths with the energy climbing five octaves.
+    void shimmer(double t, Harmonics& h)
+    {
+        static const int ks[] = { 1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64 };
+        const double centre = std::pow(2.0, 0.3 + 5.4 * t);
+        for (int i = 0; i < 12; ++i)
+        {
+            const int k = ks[i];
+            const double a = (k == 1 ? 0.55 : 0.0) + gaussLog(k, centre, 0.9) * (k == 1 ? 0.4 : 0.8 / std::pow((double) k, 0.2));
+            addPartial(h, k, a, drift(k, t, 2.0, 401));
+        }
+    }
+
+    // Tidal: a saw through a comb whose spacing sweeps (a phaser frozen in
+    // each frame; scanning it is the sweep).
+    void tidal(double t, Harmonics& h)
+    {
+        const double d = 0.012 + 0.2 * t * t;
+        for (int k = 1; k <= 160; ++k)
+        {
+            const double comb = 0.5 + 0.5 * std::cos(2.0 * kPiD * k * d);
+            addPartial(h, k, (0.08 + comb * comb) / std::pow((double) k, 0.9), drift(k, t, 1.0, 503));
+        }
+    }
+
+    // Drift Pad: three pulse waves with widths moving at different rates, the
+    // spectrum of an ensemble of PWM oscillators.
+    void driftPad(double t, Harmonics& h)
+    {
+        const double w[3] = { 0.5 + 0.42 * std::sin(2.0 * kPiD * t), 0.5 + 0.38 * std::sin(2.0 * kPiD * (t * 1.7 + 0.3)),
+                              0.5 + 0.3 * std::sin(2.0 * kPiD * (t * 2.6 + 0.6)) };
+        for (int k = 1; k <= 200; ++k)
+        {
+            double a = 0.0, b = 0.0;
+            for (int j = 0; j < 3; ++j)
+            {
+                // A pulse of width w: (2 / (pi k)) sin(pi k w), with its phase.
+                const double amp = 2.0 / (kPiD * k) * std::sin(kPiD * k * w[j]);
+                const double phi = -kPiD * k * w[j] + 0.9 * j;
+                a += amp * std::cos(phi);
+                b += amp * std::sin(phi);
+            }
+            h.a[(size_t) k] += a / 3.0;
+            h.b[(size_t) k] += b / 3.0;
+        }
+    }
+
+    // Dark Matter: weight in the low harmonics, a dark formant moving through
+    // them, odd harmonics growing (hollow) towards the end.
+    void darkMatter(double t, Harmonics& h)
+    {
+        const double centre = 2.0 + 5.0 * lfoAt(t, 1.0, 0.75);
+        for (int k = 1; k <= 40; ++k)
+        {
+            const double odd = (k % 2 == 1) ? 1.0 : 1.0 - 0.7 * t;
+            addPartial(h, k, odd * (1.0 / ((double) k * k) + 0.5 * gaussLog(k, centre, 0.4) / k), drift(k, t, 1.2, 601));
+        }
+    }
+
+    // Ether: a pure fundamental with a breathing band of quiet high partials
+    // (air), the band moving and thinning out.
+    void ether(double t, Harmonics& h)
+    {
+        addPartial(h, 1, 1.0);
+        addPartial(h, 2, 0.12);
+        const double centre = 14.0 + 22.0 * lfoAt(t, 0.8, 0.0);
+        for (int k = 6; k <= 64; ++k)
+        {
+            const double n = 0.3 + 0.7 * valueNoise(t, 7, k, 701);
+            addPartial(h, k, 0.16 * n * gaussLog(k, centre, 0.45), hash01(k, 703) * 2.0 * kPiD + drift(k, t, 4.0, 707));
+        }
+    }
+
+    // ------------------------------------------------------------- voices
+    double vowelAmp(double f, double f1, double f2, double f3, double f4)
+    {
+        return formant(f, f1, 90, 1.0) + formant(f, f2, 130, 0.55) + formant(f, f3, 190, 0.3) + formant(f, f4, 260, 0.15);
+    }
+
+    // Choir Morph: a choir through A - E - I - O - U - A, with choral drift.
+    void choirMorph(double t, Harmonics& h)
+    {
+        struct V { double f1, f2, f3, f4; };
+        static const V v[] = { { 750, 1150, 2800, 3500 }, { 450, 1900, 2600, 3400 }, { 300, 2250, 3000, 3600 },
+                               { 450, 800, 2800, 3300 }, { 330, 700, 2600, 3200 }, { 750, 1150, 2800, 3500 } };
+        const double pos = t * 5.0;
+        const int i = std::min(4, (int) pos);
+        const double fr = smooth01(pos - i);
+        auto L = [&](double a, double b) { return a + (b - a) * fr; };
+        const V c { L(v[i].f1, v[i + 1].f1), L(v[i].f2, v[i + 1].f2), L(v[i].f3, v[i + 1].f3), L(v[i].f4, v[i + 1].f4) };
+        for (int k = 1; k <= 140; ++k)
+        {
+            const double f = 165.0 * k;
+            addPartial(h, k, (vowelAmp(f, c.f1, c.f2, c.f3, c.f4) + 0.015) / std::sqrt((double) k), drift(k, t, 4.0, 809));
+        }
+    }
+
+    // Overtone Singer: a drone with one very narrow formant that walks up the
+    // harmonics (4th to 16th): throat singing, the melody is the scan.
+    void overtoneSinger(double t, Harmonics& h)
+    {
+        const double centre = 4.0 + 12.0 * t;
+        for (int k = 1; k <= 48; ++k)
+        {
+            const double d = ((double) k - centre) / 0.55;
+            const double low = formant(110.0 * k, 450, 120, 0.5);
+            addPartial(h, k, (0.04 + low + 1.1 * std::exp(-d * d)) / std::sqrt((double) k), drift(k, t, 1.0, 811));
+        }
+    }
+
+    // Whisper: breath shaped by moving vowel formants, the partials' phases
+    // scattered frame to frame (a noise-like, airy voice).
+    void whisper(double t, Harmonics& h)
+    {
+        const int f = frameOf(t);
+        const double f1 = 350.0 + 400.0 * lfoAt(t, 1.0, 0.2), f2 = 900.0 + 1300.0 * lfoAt(t, 0.7, 0.6);
+        addPartial(h, 1, 0.15);
+        for (int k = 2; k <= 220; ++k)
+        {
+            const double fr = 110.0 * k;
+            const double a = (vowelAmp(fr, f1, f2, 2700, 3600) * 0.9 + 0.05) * (0.6 + 0.4 * hash01(k, 900 + f));
+            addPartial(h, k, a / std::pow((double) k, 0.35), hash01(k, 950 + f) * 2.0 * kPiD);
+        }
+    }
+
+    // Formant Glide: two formants crossing (one rising, one falling) over a
+    // bright source.
+    void formantGlide(double t, Harmonics& h)
+    {
+        const double up = 250.0 * std::pow(14.0, t), down = 3500.0 * std::pow(1.0 / 9.0, t);
+        for (int k = 1; k <= 160; ++k)
+        {
+            const double f = 110.0 * k;
+            const double a = 0.05 + formant(f, up, 70 + 0.08 * up, 1.0) + formant(f, down, 90 + 0.08 * down, 0.7);
+            addPartial(h, k, a / std::sqrt((double) k), drift(k, t, 1.5, 1009));
+        }
+    }
+
+    // ------------------------------------------------------ bells & glass
+    // Crystal: sparse high partials twinkling at their own rates.
+    void crystal(double t, Harmonics& h)
+    {
+        static const int ks[] = { 1, 5, 9, 14, 21, 27, 33, 42, 51, 63 };
+        for (int i = 0; i < 10; ++i)
+        {
+            const double tw = std::pow(lfoAt(t, 1.0 + 0.37 * i, hash01(i, 1101)), 3.0);
+            addPartial(h, ks[i], i == 0 ? 0.8 : (0.15 + 0.6 * tw) / std::pow(1.0 + 0.25 * i, 0.8), drift(ks[i], t, 2.0, 1103));
+        }
+    }
+
+    // Singing Bowl: bowl partials (about 1 : 2.7 : 5.2 : 8.2 : 11.5) on a high
+    // harmonic grid, from the strike (bright) to the hum, with beating.
+    void singingBowl(double t, Harmonics& h)
+    {
+        static const int ks[] = { 4, 11, 21, 33, 46, 61 };
+        addPartial(h, 1, 0.08);
+        for (int i = 0; i < 6; ++i)
+        {
+            const double decay = std::exp(-t * 1.5 * i);
+            const double beat = 0.75 + 0.25 * std::sin(2.0 * kPiD * t * (2.0 + i));
+            addPartial(h, ks[i], (i == 0 ? 1.0 : 0.7 / (0.5 + i)) * (0.2 + 0.8 * decay) * beat, drift(ks[i], t, 1.0, 1201));
+        }
+    }
+
+    // Bell Garden: four bell spectra cross-fading into each other.
+    void bellGarden(double t, Harmonics& h)
+    {
+        const double pos = t * 3.0;
+        const int i = std::min(2, (int) pos);
+        const double fr = smooth01(pos - i);
+        addPartial(h, 1, 0.6);
+        for (int b = 0; b < 2; ++b)
+        {
+            const int set = i + b;
+            const double w = b == 0 ? 1.0 - fr : fr;
+            for (int j = 0; j < 7; ++j)
+            {
+                const int k = 2 + (int) (hash01(set, 1300 + j) * 46.0);
+                addPartial(h, k, w * (0.2 + 0.6 * hash01(set, 1320 + j)) / (1.0 + 0.3 * j), hash01(set, 1340 + j) * 2.0 * kPiD);
+            }
+        }
+    }
+
+    // Glass Harmonica: almost a sine, with a soft bright band moving across
+    // harmonics 5 - 12.
+    void glassHarmonica(double t, Harmonics& h)
+    {
+        addPartial(h, 1, 1.0);
+        addPartial(h, 2, 0.1 + 0.08 * t);
+        addPartial(h, 3, 0.05);
+        const double centre = 5.0 + 7.0 * lfoAt(t, 1.0, 0.75);
+        for (int k = 4; k <= 16; ++k)
+            addPartial(h, k, 0.3 * gaussLog(k, centre, 0.18), drift(k, t, 1.0, 1401));
+    }
+
+    // ------------------------------------------------------------- organic
+    // Breath Flute: a flute tone with breath, overblowing (2nd harmonic) late.
+    void breathFlute(double t, Harmonics& h)
+    {
+        const int f = frameOf(t);
+        const double breath = 0.5 * (1.0 - t) + 0.08;
+        addPartial(h, 1, 1.0 - 0.45 * smooth01((t - 0.6) / 0.4));
+        addPartial(h, 2, 0.12 + 0.75 * smooth01((t - 0.6) / 0.4));
+        addPartial(h, 3, 0.1);
+        addPartial(h, 4, 0.05);
+        for (int k = 5; k <= 120; ++k)
+            addPartial(h, k, breath * 0.25 * (0.4 + 0.6 * hash01(k, 1500 + f)) / std::pow((double) k, 0.6), hash01(k, 1550 + f) * 2.0 * kPiD);
+    }
+
+    // Bowed Strings: bow pressure from flautando (few harmonics) to a hard,
+    // rich bow with body resonances.
+    void bowedStrings(double t, Harmonics& h)
+    {
+        const double count = 4.0 + 120.0 * t * t;
+        for (int k = 1; k <= 140; ++k)
+        {
+            const double fr = 196.0 * k;
+            const double body = 0.5 + formant(fr, 280, 80, 0.5) + formant(fr, 500, 150, 0.6) + formant(fr, 2500, 900, 0.9);
+            const double w = smooth01((count - k) / 6.0 + 1.0);
+            addPartial(h, k, w * body / k, drift(k, t, 3.0, 1601));
+        }
+    }
+
+    // Reed: clarinet (odd harmonics) to oboe (all harmonics with a 1.2 kHz formant).
+    void reed(double t, Harmonics& h)
+    {
+        for (int k = 1; k <= 80; ++k)
+        {
+            const double clar = (k % 2 == 1) ? 1.0 / k : 0.02 / k;
+            const double oboe = (0.25 + formant(220.0 * k, 1200, 400, 1.2) + formant(220.0 * k, 2900, 500, 0.4)) / std::sqrt((double) k);
+            addPartial(h, k, clar * (1.0 - t) + oboe * t * 0.8, drift(k, t, 1.0, 1701));
+        }
+    }
+
+    // Cathedral Organ: pipe stops drawn in turn: principal, octave, fifteenth,
+    // then the mixture.
+    void cathedralOrgan(double t, Harmonics& h)
+    {
+        struct Stop { int k; double start, level; };
+        static const Stop stops[] = { { 1, 0.0, 1.0 }, { 2, 0.15, 0.6 }, { 3, 0.35, 0.3 }, { 4, 0.3, 0.45 }, { 6, 0.55, 0.3 },
+                                      { 8, 0.5, 0.35 }, { 12, 0.7, 0.25 }, { 16, 0.7, 0.25 }, { 24, 0.85, 0.18 }, { 32, 0.85, 0.15 } };
+        for (const auto& s : stops)
+        {
+            // Pipes are rich in their own right: a few weak harmonics of each stop.
+            const double w = smooth01((t - s.start) / 0.12 + (s.start == 0.0 ? 1.0 : 0.0)) * s.level;
+            addPartial(h, s.k, w);
+            addPartial(h, 2 * s.k, w * 0.12);
+            addPartial(h, 3 * s.k, w * 0.05);
+        }
+    }
+
+    // ------------------------------------------------------------- digital
+    // Stepped Digital: an 8-bit era wave, sample-and-hold steps and amplitude
+    // steps getting coarser through the table.
+    double steppedDigital(double p, double t)
+    {
+        const double steps = std::round(64.0 * std::pow(0.125, t)); // 64 .. 8 samples per cycle
+        const double levels = std::round(2.0 + 30.0 * (1.0 - t));    // 32 .. 2 levels
+        const double q = std::floor(p * steps) / steps;
+        const double x = std::sin(2.0 * kPiD * q) + 0.5 * std::sin(4.0 * kPiD * q + 1.0) * t;
+        return std::round(x / 1.5 * levels) / levels;
+    }
+
+    // Resonant PD: phase-distortion resonance (CZ style) sweeping up.
+    double resonantPd(double p, double t)
+    {
+        const double ratio = 1.0 + 15.0 * t * t;
+        return (1.0 - p) * std::cos(2.0 * kPiD * ratio * p) - (1.0 - p) * 0.5;
+    }
+
+    // FM Pad: two-operator FM, ratio 1:2 to 1:3, the index rising gently.
+    double fmPad(double p, double t)
+    {
+        const double index = 2.4 * t;
+        const double r2 = std::sin(2.0 * kPiD * 2.0 * p), r3 = std::sin(2.0 * kPiD * 3.0 * p);
+        const double mix = smooth01((t - 0.4) / 0.6);
+        return std::sin(2.0 * kPiD * p + index * ((1.0 - mix) * r2 + mix * r3));
+    }
+
+    // Prism: odd harmonics -> even -> all, the brightness tilting as it goes.
+    void prism(double t, Harmonics& h)
+    {
+        const double odd = 1.0 - 0.85 * smooth01(t * 2.0), even = smooth01(t * 2.0) * (1.0 - 0.0 * t);
+        const double tilt = 1.3 - 0.6 * t;
+        for (int k = 1; k <= 128; ++k)
+        {
+            const double w = (k % 2 == 1) ? odd + 0.6 * smooth01((t - 0.5) * 2.0) : even;
+            addPartial(h, k, (k == 1 ? 1.0 : w) / std::pow((double) k, tilt), drift(k, t, 1.0, 1901));
+        }
+    }
 } // namespace
 
 int Wavetable::mipForIncrement(float inc)
@@ -463,28 +817,46 @@ int Wavetable::mipForIncrement(float inc)
 
 WavetableBank::WavetableBank()
 {
-    tables.resize((size_t) WavetableId::Count);
-    tables[(size_t) WavetableId::AnalogMorph]   = buildSpectral(analogMorph);
-    tables[(size_t) WavetableId::HarmonicSweep] = buildSpectral(harmonicSweep);
-    tables[(size_t) WavetableId::VocalFormant]  = buildSpectral(vocalFormant);
-    tables[(size_t) WavetableId::PwmScan]       = buildTimeDomain(pwmScan);
-    tables[(size_t) WavetableId::DigitalBell]   = buildTimeDomain(digitalBell);
-    tables[(size_t) WavetableId::SyncSweep]     = buildTimeDomain(syncSweep);
-    tables[(size_t) WavetableId::Wavefolder]    = buildTimeDomain(wavefolder);
-    tables[(size_t) WavetableId::DrawbarOrgan]  = buildSpectral(drawbarOrgan);
-    tables[(size_t) WavetableId::SeqHarmonics]  = buildSpectral(seqHarmonics);
-    tables[(size_t) WavetableId::SeqDigital]    = buildSpectral(seqDigital);
-    tables[(size_t) WavetableId::SeqVocal]      = buildSpectral(seqVocal);
-    tables[(size_t) WavetableId::SeqBells]      = buildSpectral(seqBells);
-    tables[(size_t) WavetableId::Spectral]      = buildSpectral(spectral);
+    // Every table is independent: build them on a few threads.
+    using Job = std::function<Wavetable()>;
+    auto spec = [](SpectralFn f) { return Job([f] { return buildSpectral(f); }); };
+    auto time = [](TimeFn f) { return Job([f] { return buildTimeDomain(f); }); };
+    std::vector<Job> jobs = {
+        spec(analogMorph), spec(harmonicSweep), spec(vocalFormant), time(pwmScan), time(digitalBell), time(syncSweep),
+        time(wavefolder), spec(drawbarOrgan), spec(seqHarmonics), spec(seqDigital), spec(seqVocal), spec(seqBells), spec(spectral),
+        spec(aurora), spec(nebula), spec(bloom), spec(shimmer), spec(tidal), spec(driftPad), spec(darkMatter), spec(ether),
+        spec(choirMorph), spec(overtoneSinger), spec(whisper), spec(formantGlide),
+        spec(crystal), spec(singingBowl), spec(bellGarden), spec(glassHarmonica),
+        spec(breathFlute), spec(bowedStrings), spec(reed), spec(cathedralOrgan),
+        time(steppedDigital), time(resonantPd), time(fmPad), spec(prism),
+    };
+    if ((int) jobs.size() != kNumGeneratedTables)
+        std::abort(); // one generator per WavetableId
 
-    // ROM waves, in OscWave order.
+    // ROM waves, in OscWave order (they are also tables RomFirst ..).
     const SpectralFn romFns[] = { romAhhChoir, romOohVoices, romGlassPad, romDigitalBell, romSpectrum, romDigiPad,
                                   romStrings, romEPiano, romBrass, romMallet, romPluck, romHeaven, romMetal,
                                   romBowedGlass, romAirVox, romSynthPad };
     static_assert(sizeof(romFns) / sizeof(romFns[0]) == (size_t) kNumRomWaves, "one generator per ROM wave");
     for (const auto& fn : romFns)
-        roms.push_back(buildSpectral(fn));
+        jobs.push_back(spec(fn));
+
+    std::vector<Wavetable> built(jobs.size());
+    std::atomic<size_t> next { 0 };
+    auto worker = [&] {
+        for (size_t j; (j = next.fetch_add(1)) < jobs.size();)
+            built[j] = jobs[j]();
+    };
+    const unsigned n = std::clamp(std::thread::hardware_concurrency(), 1u, 8u);
+    std::vector<std::thread> threads;
+    for (unsigned i = 1; i < n; ++i)
+        threads.emplace_back(worker);
+    worker();
+    for (auto& th : threads)
+        th.join();
+
+    tables.assign(std::make_move_iterator(built.begin()), std::make_move_iterator(built.begin() + kNumGeneratedTables));
+    roms.assign(std::make_move_iterator(built.begin() + kNumGeneratedTables), std::make_move_iterator(built.end()));
 }
 
 RomEvolution WavetableBank::romEvolution(int i)
@@ -524,7 +896,8 @@ const WavetableBank& WavetableBank::get()
 
 const Wavetable& WavetableBank::table(int id) const
 {
-    return tables[(size_t) std::clamp(id, 0, (int) tables.size() - 1)];
+    id = std::clamp(id, 0, numTables() - 1);
+    return id < (int) tables.size() ? tables[(size_t) id] : roms[(size_t) id - tables.size()];
 }
 
 } // namespace zsynth::dsp

@@ -61,6 +61,10 @@ inline ModDest lfoDestToModDest(LfoDest d)
         case LfoDest::VectorX:      return ModDest::VectorX;
         case LfoDest::VectorY:      return ModDest::VectorY;
         case LfoDest::Detune:       return ModDest::Detune;
+        case LfoDest::Osc1WtPos:    return ModDest::Osc1WtPos;
+        case LfoDest::Osc2WtPos:    return ModDest::Osc2WtPos;
+        case LfoDest::Osc3WtPos:    return ModDest::Osc3WtPos;
+        case LfoDest::WtWarp:       return ModDest::WtWarp;
         default:                    return ModDest::Off;
     }
 }
@@ -81,6 +85,10 @@ inline ModDest env3DestToModDest(Env3Dest d)
         case Env3Dest::VectorX:      return ModDest::VectorX;
         case Env3Dest::VectorY:      return ModDest::VectorY;
         case Env3Dest::Detune:       return ModDest::Detune;
+        case Env3Dest::Osc1WtPos:    return ModDest::Osc1WtPos;
+        case Env3Dest::Osc2WtPos:    return ModDest::Osc2WtPos;
+        case Env3Dest::Osc3WtPos:    return ModDest::Osc3WtPos;
+        case Env3Dest::WtWarp:       return ModDest::WtWarp;
         default:                     return ModDest::Off;
     }
 }

@@ -56,5 +56,17 @@ int main(int argc, char** argv)
         for (int p : { P::Osc1Wave, P::Osc2Wave, P::Osc3Wave }) r.set(p, (float) OscWave::RomAhhChoir); }, s);
     bench("wave sequence, Korg Digital", 16, [](EngineRig& r) {
         r.set(P::Osc1Wave, (float) OscWave::Wavetable); r.set(P::WtSeqMode, 1.0f); r.set(P::FltModel, (float) FilterModel::KorgDigital); }, s);
+    bench("3 WT stacks x8, warps, stereo filter", 16, [](EngineRig& r) {
+        r.set(P::Osc2On, 1.0f); r.set(P::Osc3On, 1.0f);
+        for (int p : { P::Osc1Wave, P::Osc2Wave, P::Osc3Wave }) r.set(p, (float) OscWave::Wavetable);
+        for (int o = 0; o < 3; ++o)
+        {
+            const int b = o * (P::Osc2WtTable - P::Osc1WtTable);
+            r.set(P::Osc1WtVoices + b, 8.0f); r.set(P::Osc1WtSpread + b, 0.3f);
+            r.set(P::Osc1WtWarp + b, (float) WtWarp::Formant); r.set(P::Osc1WtWarpAmt + b, 0.4f);
+        }
+        r.set(P::WtDrift, 0.5f); r.set(P::WtEvoMode, 2.0f); }, s);
+    bench("1 WT stack x6 (typical pad)", 16, [](EngineRig& r) {
+        r.set(P::Osc1Wave, (float) OscWave::Wavetable); r.set(P::Osc1WtVoices, 6.0f); r.set(P::WtDrift, 0.3f); }, s);
     return 0;
 }

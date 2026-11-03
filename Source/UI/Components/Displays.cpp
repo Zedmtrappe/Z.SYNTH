@@ -1,4 +1,5 @@
 #include "Displays.h"
+#include "../../DSP/Oscillators/WavetableStack.h"
 #include "Skins.h"
 #include "Materials.h"
 
@@ -115,7 +116,8 @@ void WavetableDisplay::paint(juce::Graphics& g)
         constexpr int points = 64;
         for (int i = 0; i <= points; ++i)
         {
-            const int idx = juce::jmin(dsp::Wavetable::kSize - 1, i * dsp::Wavetable::kSize / points);
+            const int size = dsp::Wavetable::mipSize(3);
+            const int idx = juce::jmin(size - 1, i * size / points);
             const float y = a[idx] + (b[idx] - a[idx]) * m;
             const float x = area.getX() + dx + (float) i / points * (area.getWidth() - 12.0f);
             const float yy = area.getCentreY() - dy - y * (area.getHeight() * 0.38f);
@@ -130,6 +132,222 @@ void WavetableDisplay::paint(juce::Graphics& g)
     drawFrame(pos, 0.0f, 0.0f, Colours::lcdText, 1.8f);
     if (iv(P::WtSeqMode) != 0)
         drawLcdText(g, "SEQ", getLocalBounds().reduced(4, 2).removeFromTop(12), 9.0f, Colours::lcdText, juce::Justification::topRight);
+}
+
+// ====================================================== wavetable 3D view ====
+juce::Colour WavetableView3D::oscColour(int o)
+{
+    static const juce::Colour c[3] = { juce::Colour(0xffffc857), juce::Colour(0xff5ac8fa), juce::Colour(0xffff7aa2) };
+    return c[juce::jlimit(0, 2, o)];
+}
+
+int WavetableView3D::tableId() const
+{
+    const int stride = P::Osc2WtTable - P::Osc1WtTable;
+    static constexpr int waves[3] = { P::Osc1Wave, P::Osc2Wave, P::Osc3Wave };
+    const auto wave = (OscWave) iv(waves[osc]);
+    if (isRomWave(wave))
+        return (int) WavetableId::RomFirst + ((int) wave - (int) OscWave::RomAhhChoir);
+    if (wave != OscWave::Wavetable)
+        return -1;
+    const int choice = iv(P::Osc1WtTable + osc * stride);
+    return choice == 0 ? iv(P::WtTable) : choice - 1;
+}
+
+float WavetableView3D::shownPosition() const
+{
+    // While a note plays: where the newest voice is reading. Otherwise: the panel settings.
+    const float live = processor.getEngine().getWavetablePosition(osc);
+    if (live >= 0.0f)
+        return live;
+    const float spread[3] = { 0.0f, 0.5f, 1.0f };
+    return juce::jlimit(0.0f, 1.0f, v(P::WtPos) + v(P::WtSpread) * spread[osc]
+                                        + v(P::Osc1WtPos + osc * (P::Osc2WtTable - P::Osc1WtTable)));
+}
+
+void WavetableView3D::refresh()
+{
+    const int stride = P::Osc2WtTable - P::Osc1WtTable;
+    uint64_t h = 1469598103934665603ull;
+    auto mixIn = [&h](float x) { uint32_t b; std::memcpy(&b, &x, 4); h = (h ^ b) * 1099511628211ull; };
+    mixIn((float) tableId());
+    mixIn(std::round(shownPosition() * 400.0f));
+    for (int k = 0; k < stride; ++k)
+        mixIn(v(P::Osc1WtTable + osc * stride + k));
+    static constexpr int ons[3] = { P::Osc1On, P::Osc2On, P::Osc3On };
+    static constexpr int waves[3] = { P::Osc1Wave, P::Osc2Wave, P::Osc3Wave };
+    mixIn(v(ons[osc]));
+    mixIn(v(waves[osc]));
+    mixIn(v(P::WtTable));
+    mixIn(v(P::WtSpread));
+    if (h != lastHash)
+    {
+        lastHash = h;
+        repaint();
+    }
+}
+
+namespace
+{
+    struct Projection
+    {
+        juce::Rectangle<float> area;
+        float depthX, depthY, width, amp;
+        juce::Point<float> at(float x01, float depth01, float y) const
+        {
+            return { area.getX() + depthX * depth01 + x01 * width, area.getBottom() - amp - depthY * depth01 - y * amp * 0.9f };
+        }
+    };
+
+    Projection projectionFor(juce::Rectangle<float> r)
+    {
+        Projection p;
+        p.area = r.reduced(8.0f, 10.0f);
+        p.depthX = p.area.getWidth() * 0.30f;
+        p.depthY = p.area.getHeight() * 0.42f;
+        p.width = p.area.getWidth() - p.depthX;
+        p.amp = p.area.getHeight() * 0.24f;
+        return p;
+    }
+
+    /** One frame (mix of f0 and f0+1) as a path; `warp` shapes it as the oscillator reads it. */
+    juce::Path framePath(const dsp::Wavetable& t, float pos, float depth, const Projection& pr, int warp, float warpAmt, int mip = 4)
+    {
+        const float fp = juce::jlimit(0.0f, 1.0f, pos) * (float) (dsp::Wavetable::kFrames - 1);
+        const int f0 = juce::jmin((int) fp, dsp::Wavetable::kFrames - 2);
+        constexpr int points = 128;
+        float y[points + 1];
+        if (warp > 0)
+        {
+            dsp::Random rng;
+            dsp::WavetableStack st;
+            st.reset(rng);
+            st.setup(1, 0.0f, 0.0f, (WtWarp) warp, warpAmt);
+            st.setFrames(0, t.frame(f0, mip), t.frame(f0 + 1, mip), dsp::Wavetable::mipSize(mip), fp - (float) f0, 0, true);
+            // A few cycles first so SELF FM settles, then one to draw.
+            float l, r;
+            for (int i = 0; i < points * 3; ++i)
+                st.process(1.0f / points, 0.0f, false, l, r);
+            for (int i = 0; i <= points; ++i)
+            {
+                y[i] = l;
+                st.process(1.0f / points, 0.0f, false, l, r);
+            }
+        }
+        else
+        {
+            const int size = dsp::Wavetable::mipSize(mip);
+            const float* a = t.frame(f0, mip);
+            const float* b = t.frame(f0 + 1, mip);
+            const float m = fp - (float) f0;
+            for (int i = 0; i <= points; ++i)
+            {
+                const int idx = juce::jmin(size - 1, i * size / points);
+                y[i] = a[idx] + (b[idx] - a[idx]) * m;
+            }
+        }
+        juce::Path p;
+        for (int i = 0; i <= points; ++i)
+        {
+            const auto pt = pr.at((float) i / points, depth, juce::jlimit(-1.2f, 1.2f, y[i]));
+            if (i == 0) p.startNewSubPath(pt); else p.lineTo(pt);
+        }
+        return p;
+    }
+}
+
+void WavetableView3D::renderWaterfall(int table)
+{
+    const auto r = getLocalBounds();
+    waterfall = juce::Image(juce::Image::ARGB, juce::jmax(1, r.getWidth() * 2), juce::jmax(1, r.getHeight() * 2), true);
+    juce::Graphics g(waterfall);
+    g.addTransform(juce::AffineTransform::scale(2.0f));
+    const auto pr = projectionFor(r.toFloat());
+    const auto& t = dsp::WavetableBank::get().table(table);
+    // Back to front, each frame filled down to its baseline so it hides the ones behind.
+    for (int f = dsp::Wavetable::kFrames - 1; f >= 0; --f)
+    {
+        const float depth = (float) f / (float) (dsp::Wavetable::kFrames - 1);
+        auto p = framePath(t, depth, depth, pr, 0, 0.0f, 5); // the background a little smoother
+        juce::Path fill(p);
+        fill.lineTo(pr.at(1.0f, depth, -1.3f));
+        fill.lineTo(pr.at(0.0f, depth, -1.3f));
+        fill.closeSubPath();
+        g.setColour(Colours::lcdBack.withAlpha(0.92f));
+        g.fillPath(fill);
+        g.setColour(Colours::lcdText.withAlpha(0.18f + 0.5f * (1.0f - depth)).withMultipliedSaturation(0.7f));
+        g.strokePath(p, juce::PathStrokeType(0.9f));
+    }
+    cachedTable = table;
+    cachedSize = r;
+}
+
+void WavetableView3D::paint(juce::Graphics& g)
+{
+    const auto r = getLocalBounds().toFloat();
+    fillPanelInset(g, r);
+    const int table = tableId();
+    const int stride = P::Osc2WtTable - P::Osc1WtTable;
+    const juce::String n(osc + 1);
+    if (table < 0)
+    {
+        drawLcdText(g, "OSC " + n + ": choose the Wavetable wave (or a ROM wave)", getLocalBounds().reduced(8), 10.0f,
+                    Colours::lcdDim, juce::Justification::centred);
+        return;
+    }
+    if (table != cachedTable || cachedSize != getLocalBounds())
+        renderWaterfall(table);
+    g.setOpacity(1.0f);
+    g.drawImage(waterfall, r);
+
+    const auto pr = projectionFor(r);
+    const auto& t = dsp::WavetableBank::get().table(table);
+    const auto colour = oscColour(osc);
+    const float pos = shownPosition();
+    const int warp = iv(P::Osc1WtWarp + osc * stride);
+    const float warpAmt = v(P::Osc1WtWarpAmt + osc * stride);
+    const int voices = iv(P::Osc1WtVoices + osc * stride);
+    const float spread = v(P::Osc1WtSpread + osc * stride);
+
+    // Stack spread: ghost frames where the copies read.
+    if (voices > 1 && spread > 0.0f)
+    {
+        for (int j = 0; j < voices; ++j)
+        {
+            const float x = 2.0f * (float) j / (float) (voices - 1) - 1.0f;
+            float q = std::abs(pos + 0.5f * spread * x);
+            q = std::fmod(q, 2.0f);
+            q = q <= 1.0f ? q : 2.0f - q;
+            g.setColour(colour.withAlpha(0.35f));
+            g.strokePath(framePath(t, q, q, pr, 0, 0.0f), juce::PathStrokeType(1.0f));
+        }
+    }
+    // The frame playing now (warped), with a glow.
+    const auto now = framePath(t, pos, pos, pr, warp, warpAmt);
+    g.setColour(colour.withAlpha(0.25f));
+    g.strokePath(now, juce::PathStrokeType(4.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    g.setColour(colour);
+    g.strokePath(now, juce::PathStrokeType(1.7f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    // Position marker along the depth axis.
+    const auto a = pr.at(0.0f, 0.0f, -1.25f), b = pr.at(0.0f, 1.0f, -1.25f);
+    g.setColour(Colours::lcdDim);
+    g.drawLine({ a, b }, 1.0f);
+    const auto m = pr.at(0.0f, pos, -1.25f);
+    g.setColour(colour);
+    g.fillEllipse(m.x - 3.0f, m.y - 3.0f, 6.0f, 6.0f);
+
+    // Read-outs.
+    const auto names = juce::StringArray::fromTokens(ZS_WT_NAMES, "|", "");
+    auto top = getLocalBounds().reduced(6, 4).removeFromTop(12);
+    drawLcdText(g, names[juce::jlimit(0, names.size() - 1, table)].toUpperCase(), top, 9.5f, colour, juce::Justification::centredLeft);
+    if (warp > 0)
+    {
+        const auto warps = juce::StringArray::fromTokens(ZS_CH_WT_WARP, "|", "");
+        drawLcdText(g, warps[warp].toUpperCase(), top, 9.5f, Colours::lcdText, juce::Justification::centredRight);
+    }
+    auto bottom = getLocalBounds().reduced(6, 3).removeFromBottom(12);
+    drawLcdText(g, juce::String(juce::roundToInt(pos * 100.0f)) + "%" + (voices > 1 ? "   x" + juce::String(voices) : juce::String()),
+                bottom, 9.0f, Colours::lcdText, juce::Justification::centredRight);
 }
 
 // ================================================================= vector ====

@@ -13,7 +13,7 @@ advanced sections.
 |---|---|
 | Formats | Standalone app, VST3 and Audio Unit (macOS universal builds from CI, AU checked with auval) |
 | Engine | JUCE-free C++17 library, usable without any GUI |
-| Parameters | 461, all host-automatable, one authoritative table |
+| Parameters | 490, all host-automatable, one authoritative table |
 | Factory library | 272 presets: *ZYNTH Originals* (160, 15 categories) and *Classic Machines* (112 sounds in 26 instrument folders), level-matched by measurement |
 | Tests | 51 DSP tests, 23 state/preset/layout/editor tests, a VST3 host test |
 | Tested on | Ubuntu 24.04, x86-64, GCC 13.3, CMake 3.28, JUCE 8.0.9 |
@@ -31,9 +31,15 @@ advanced sections.
   90s workstations (choirs, voices, glass, bells, spectrum, strings, e-piano,
   brass, mallet, pluck, metal, pads); each plays an attack and then a slowly
   moving loop from every note-on, faster on higher notes, like a multisample.
-* **Wavetables** — 13 original procedurally generated tables, 32 frames each,
-  11 band-limited mipmaps per frame, smooth position scanning and spread; four
-  "Seq" tables of 32 distinct waves and a Virus-style Spectral table.
+* **Wavetable engine** — 53 original tables in categories (pads & ambient,
+  voices, bells & glass, organic, digital, classic, sequence, and the ROM
+  waves), 32 frames each with band-limited mipmaps. Each oscillator can play
+  its own table with its own position, a WARP (bend, sync, formant, mirror,
+  squeeze, fold, self-FM, quantize; alias-free where it counts) and a STACK of
+  up to 8 detuned copies spread through the table and across the stereo field.
+  EVOLVE sweeps or ping-pongs the position over up to a minute from each
+  note; DRIFT wanders it at random per voice and per copy. A 3D view shows
+  each table and the frame playing now. 20 Ambient presets.
 * **Wave sequencing and vector mixing** (Wavestation style) — the wavetable
   can step through its waves from each note-on (loop, ping-pong or one-shot,
   2-32 steps, free or tempo-synced, hard to fully blended crossfades); a
@@ -238,7 +244,7 @@ These are honest gaps in the current version, not hidden features:
   circuits or copies of their factory patches. Instrument names are trademarks
   of their owners, used descriptively; ZYNTH is not affiliated with them.
 * The VST3 exposes JUCE's 2048 hidden MIDI-CC proxy parameters in addition to
-  the 461 synth parameters (needed for controller input in VST3 hosts).
+  the 490 synth parameters (needed for controller input in VST3 hosts).
 
 ## Licence
 

@@ -74,6 +74,8 @@ public:
     double getSampleRate() const { return baseRate; }
     /** Bit i set while voice i is sounding. */
     uint32_t getVoiceMask() const    { return voiceMask.load(std::memory_order_relaxed); }
+    /** Scan position (0..1) oscillator o of the newest held voice is playing, or -1. */
+    float getWavetablePosition(int o) const { return wtPosOut[o].load(std::memory_order_relaxed); }
     float getModWheel() const        { return modWheelOut.load(std::memory_order_relaxed); }
     float getPitchBend() const       { return pitchBendOut.load(std::memory_order_relaxed); }
     double getTempo() const          { return tempoOut.load(std::memory_order_relaxed); }
@@ -166,6 +168,7 @@ private:
     std::atomic<uint32_t> midiCounter { 0 };
     std::atomic<uint32_t> badBlocks { 0 };
     std::atomic<uint32_t> voiceMask { 0 };
+    std::atomic<float> wtPosOut[3] { -1.0f, -1.0f, -1.0f };
     std::atomic<float> modWheelOut { 0.0f }, pitchBendOut { 0.0f }, limiterGainOut { 1.0f }, compGrOut { 0.0f }, smoothGrOut { 0.0f };
     std::atomic<double> tempoOut { 120.0 };
     std::atomic<bool> hostTempoOut { false };

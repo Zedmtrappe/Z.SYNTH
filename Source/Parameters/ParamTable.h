@@ -356,6 +356,23 @@ X(TapeBias,      "tape.bias",     "Tape Bias", "Effects", Float, 0.f, 1.f, 0.5f,
 X(TapeWow,       "tape.wow",      "Tape Wow/Flutter", "Effects", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "WOW / FLUTTER: 0 = none, 0.5 = the machine as specified, 1 = a worn transport.") \
 X(TapeHiss,      "tape.hiss",     "Tape Hiss", "Effects", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "HISS: 0 = off, 0.5 = the machine's noise floor.") \
 X(TapeOut,       "tape.out",      "Tape Output", "Effects", Float, -12.f, 12.f, 0.f, LIN, "dB", nullptr, "Tape output level.") \
+/* ------------------------------------------- Wavetable engine (per osc, motion) */ \
+ZS_OSC_WT_PARAMS(X, 1) ZS_OSC_WT_PARAMS(X, 2) ZS_OSC_WT_PARAMS(X, 3) \
+X(WtEvoMode,     "wt.evo.mode",   "WT Evolve", "Wavetable", Choice, 0, 0, 0.f, LIN, "", ZS_CH_WT_EVOLVE, "EVOLVE: the scan position travels from every note-on. Sweep = once (then holds), Ping-Pong = back and forth.") \
+X(WtEvoAmt,      "wt.evo.amt",    "WT Evolve Amount", "Wavetable", Float, -1.f, 1.f, 0.5f, LIN, "", nullptr, "How far EVOLVE moves the position (negative = backwards).") \
+X(WtEvoTime,     "wt.evo.time",   "WT Evolve Time", "Wavetable", Float, 0.1f, 60.f, 8.f, LOG, "s", nullptr, "Time of one EVOLVE sweep (up to a minute, for slowly evolving pads).") \
+X(WtDrift,       "wt.drift",      "WT Drift", "Wavetable", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "DRIFT: the position wanders at random, differently for every voice and stack voice (organic movement).") \
+X(WtDriftRate,   "wt.drate",      "WT Drift Rate", "Wavetable", Float, 0.02f, 4.f, 0.2f, LOG, "Hz", nullptr, "Speed of the DRIFT wander.") \
+
+#define ZS_OSC_WT_PARAMS(X, n) \
+X(Osc##n##WtTable, "osc" #n ".wt.table", "Osc " #n " Table", "Wavetable", Choice, 0, 0, 0.f, LIN, "", ZS_CH_OSC_TABLE, "Wavetable for this oscillator (Wavetable wave): SECTION = the WAVETABLE section's TABLE.") \
+X(Osc##n##WtPos,   "osc" #n ".wt.pos",   "Osc " #n " WT Pos", "Wavetable", Float, -1.f, 1.f, 0.f, LIN, "", nullptr, "Scan position offset of this oscillator (added to the section's POS).") \
+X(Osc##n##WtWarp,  "osc" #n ".wt.warp",  "Osc " #n " Warp", "Wavetable", Choice, 0, 0, 0.f, LIN, "", ZS_CH_WT_WARP, "WARP: reshapes how the table is read (bend, sync, formant, mirror, squeeze, fold, self-FM, quantize).") \
+X(Osc##n##WtWarpAmt,"osc" #n ".wt.wamt", "Osc " #n " Warp Amount", "Wavetable", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "Amount of the WARP.") \
+X(Osc##n##WtVoices,"osc" #n ".wt.voices","Osc " #n " Stack", "Wavetable", Int, 1.f, 8.f, 1.f, LIN, "", nullptr, "STACK: number of detuned copies of the oscillator (wavetable unison).") \
+X(Osc##n##WtDetune,"osc" #n ".wt.det",   "Osc " #n " Stack Detune", "Wavetable", Float, 0.f, 1.f, 0.25f, LIN, "", nullptr, "Detune spread of the stack (up to +/- 70 cents).") \
+X(Osc##n##WtSpread,"osc" #n ".wt.pspr",  "Osc " #n " Stack Pos Spread", "Wavetable", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "Spreads the stack voices through the table (each plays a different frame).") \
+X(Osc##n##WtWidth, "osc" #n ".wt.width", "Osc " #n " Stack Width", "Wavetable", Float, 0.f, 1.f, 0.6f, LIN, "", nullptr, "Stereo width of the stack.")
 
 #define ZS_LFO_PARAMS(X, n, unused) \
 X(Lfo##n##Wave,  "lfo" #n ".wave",  "LFO " #n " Wave",  "LFO", Choice, 0, 0, 0.f, LIN, "", ZS_CH_LFO_WAVE, "LFO waveform.") \
