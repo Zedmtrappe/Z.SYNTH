@@ -16,6 +16,16 @@ Activity activityFor(int i, const float* v, bool hostTempo)
 {
     const auto engine = (EngineMode) choice(v, P::Engine);
 
+    // ---- keyboard split / layer
+    if (inRange(i, P::SplitPoint, P::SplitUpVol))
+    {
+        const auto mode = (SplitMode) choice(v, P::SplitMode);
+        if (mode == SplitMode::Single)
+            return inactive("KEYBOARD is SINGLE: choose SPLIT or LAYER to play two sounds.");
+        if (i == P::SplitPoint && mode == SplitMode::Layer)
+            return inactive("LAYER plays both sounds on every key: the split point is for SPLIT.");
+    }
+
     // ---- engine mode
     if (inRange(i, P::FmAlgo, P::Op6Kls) && engine == EngineMode::Analog)
         return inactive("The FM engine is off. Set ENGINE to HYBRID or FM.");

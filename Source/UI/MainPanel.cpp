@@ -475,6 +475,7 @@ void MainPanel::buildUtilities()
     displays.push_back(&addUtility<ActivityLed>("audioLed", processor, false));
     displays.push_back(&addUtility<VoiceCountDisplay>("voiceCount", processor));
     displays.push_back(&addUtility<WavetableDisplay>("wtDisplay", processor));
+    displays.push_back(&addUtility<SplitMap>("splitMap", processor));
     for (int i = 0; i < 3; ++i)
         displays.push_back(&addUtility<WavetableView3D>("wt3d" + juce::String(i + 1), processor, i));
     displays.push_back(&addUtility<FilterCurveDisplay>("filterCurve", processor));
@@ -511,6 +512,24 @@ void MainPanel::buildUtilities()
     displays.push_back(&addUtility<TrackDisplay>("trackDisplay", processor));
     button("openTape", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Tape speed, bias, hiss and output, with the transport", [this] {
         showPage(getVisiblePage() == "tape" ? juce::String() : juce::String("tape")); });
+    // KEYBOARD split / layer: which part the panel edits.
+    for (int part = 0; part < 2; ++part)
+    {
+        const bool lower = part == ZSynthProcessor::kLower;
+        auto edit = [this, part] { processor.setEditPart(part); };
+        auto& strip = button(lower ? "partLower" : "partUpper", lower ? "LOWER" : "UPPER",
+                             lower ? "Edit the LOWER sound (the panel and preset loads go to it)"
+                                   : "Edit the UPPER sound (the panel and preset loads go to it)", edit);
+        strip.setClickingTogglesState(false);
+        partButtons[part] = &strip;
+        auto& big = button(lower ? "editLower" : "editUpper", lower ? "EDIT LOWER" : "EDIT UPPER",
+                           lower ? "Put the LOWER sound on the panel" : "Put the UPPER sound on the panel", edit);
+        partButtons[2 + part] = &big;
+    }
+    learnButton = &button("splitLearn", "LEARN", "LEARN: then play the key that should start the UPPER zone", [this] {
+        processor.setLearningSplit(! processor.isLearningSplit()); });
+    button("openSplit", juce::String::fromUTF8("SPLIT \xe2\x96\xb8"), "Keyboard split / layer: split point, octaves and levels of the two sounds", [this] {
+        showPage(getVisiblePage() == "split" ? juce::String() : juce::String("split")); });
     button("openTrack", juce::String::fromUTF8("\xe2\x96\xb8"), "Open the PITCH TRACK window (input, gate, tracking, velocity, dry)", [this] {
         showPage(getVisiblePage() == "track" ? juce::String() : juce::String("track")); });
     displays.push_back(&addUtility<OutputMeter>("meter", processor));
@@ -560,6 +579,28 @@ void MainPanel::showModView(const juce::String& view)
     for (size_t i = 0; i < controls.size(); ++i)
         if (controlViews[i].startsWith(group))
             controls[i]->setVisible(controlViews[i] == view);
+}
+
+void MainPanel::updateSplit()
+{
+    const auto mode = (SplitMode) juce::roundToInt(processor.getValue(P::SplitMode));
+    const int edit = processor.getEditPart();
+    if (keyboard != nullptr)
+        keyboard->setSplit(mode == SplitMode::Split ? juce::roundToInt(processor.getValue(P::SplitPoint)) : -1);
+    for (int k = 0; k < 4; ++k)
+        if (partButtons[k] != nullptr)
+        {
+            const int part = k % 2;
+            partButtons[k]->setToggleState(part == edit, juce::dontSendNotification);
+            // The strip buttons show which part is on the panel; dim when SINGLE (still selectable).
+            partButtons[k]->setAlpha(mode == SplitMode::Single && part != edit ? 0.55f : 1.0f);
+        }
+    if (learnButton != nullptr)
+    {
+        const bool learning = processor.isLearningSplit();
+        learnButton->setToggleState(learning && (juce::Time::getMillisecondCounter() / 300) % 2 == 0, juce::dontSendNotification);
+        learnButton->setButtonText(learning ? "PLAY KEY" : "LEARN");
+    }
 }
 
 void MainPanel::updateOscViews(bool force)
@@ -775,6 +816,7 @@ void MainPanel::timerCallback()
     for (auto* w : wheels)
         w->refresh();
     updateOscViews(false);
+    updateSplit();
 
     const int step = processor.getEngine().getSeqStep();
     const bool seqRunning = std::lround(processor.getValue(P::SeqMode)) != 0;

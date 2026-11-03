@@ -34,6 +34,33 @@ void ZKeyboard::resized()
     juce::MidiKeyboardComponent::resized();
 }
 
+void ZKeyboard::setSplit(int point)
+{
+    if (point != splitPoint)
+    {
+        splitPoint = point;
+        repaint();
+    }
+}
+
+void ZKeyboard::paint(juce::Graphics& g)
+{
+    juce::MidiKeyboardComponent::paint(g);
+    if (splitPoint < 0)
+        return;
+    // The split: an amber line at the first UPPER key, with the zone names.
+    const float x = getKeyStartPosition(splitPoint) - (juce::MidiMessage::isMidiNoteBlack(splitPoint) ? 0.0f : 0.0f);
+    if (x <= 0.0f || x >= (float) getWidth())
+        return;
+    g.setColour(Colours::accent);
+    g.fillRect(x - 1.5f, 0.0f, 3.0f, (float) getHeight());
+    g.setFont(labelFont(10.0f));
+    g.setColour(juce::Colour(0xff2f6f8f));
+    g.drawText("LOWER", juce::Rectangle<float>(x - 64.0f, (float) getHeight() - 34.0f, 58.0f, 14.0f), juce::Justification::centredRight, false);
+    g.setColour(juce::Colour(0xff8a5a14));
+    g.drawText("UPPER", juce::Rectangle<float>(x + 6.0f, (float) getHeight() - 34.0f, 58.0f, 14.0f), juce::Justification::centredLeft, false);
+}
+
 void ZKeyboard::drawWhiteNote(int note, juce::Graphics& g, juce::Rectangle<float> area, bool isDown, bool isOver, juce::Colour, juce::Colour)
 {
     // Ivory-white keys running under the panel lip; a pressed key tilts away
@@ -63,6 +90,12 @@ void ZKeyboard::drawWhiteNote(int note, juce::Graphics& g, juce::Rectangle<float
     juce::ColourGradient lip(juce::Colours::black.withAlpha(0.55f), 0.0f, key.getY(), juce::Colours::transparentBlack, 0.0f, key.getY() + 16.0f, false);
     g.setGradientFill(lip);
     g.fillRect(key.withHeight(16.0f));
+    if (splitPoint >= 0 && note < splitPoint)
+    {
+        // LOWER zone: a cool tint.
+        g.setColour(juce::Colour(0xff5ac8fa).withAlpha(0.16f));
+        g.fillRect(top);
+    }
     if (isDown)
     {
         g.setColour(Colours::accent.withAlpha(0.22f));
@@ -83,7 +116,7 @@ void ZKeyboard::drawWhiteNote(int note, juce::Graphics& g, juce::Rectangle<float
     }
 }
 
-void ZKeyboard::drawBlackNote(int, juce::Graphics& g, juce::Rectangle<float> area, bool isDown, bool isOver, juce::Colour)
+void ZKeyboard::drawBlackNote(int note, juce::Graphics& g, juce::Rectangle<float> area, bool isDown, bool isOver, juce::Colour)
 {
     // Glossy black keys: shadow on the whites, a sloped front and a lit top edge.
     const auto key = area.reduced(1.0f, 0.0f);
@@ -99,6 +132,11 @@ void ZKeyboard::drawBlackNote(int, juce::Graphics& g, juce::Rectangle<float> are
                               isDown ? juce::Colour(0xff0d0c0b) : juce::Colour(0xff121215), top.getX(), top.getBottom(), false);
     g.setGradientFill(grad);
     g.fillRoundedRectangle(top, 2.0f);
+    if (splitPoint >= 0 && note < splitPoint)
+    {
+        g.setColour(juce::Colour(0xff5ac8fa).withAlpha(0.12f));
+        g.fillRoundedRectangle(top, 2.0f);
+    }
     // Gloss streak along the top surface.
     g.setColour(juce::Colours::white.withAlpha(isDown ? 0.06f : 0.13f));
     g.fillRoundedRectangle(top.getX() + top.getWidth() * 0.18f, top.getY() + 10.0f, top.getWidth() * 0.22f, top.getHeight() - 16.0f, 1.5f);

@@ -57,7 +57,9 @@ public:
     juce::MidiKeyboardState& getKeyboardState() { return keyboardState; }
     PresetManager& getPresets() { return *presets; }
     MidiLearn& getMidiLearn() { return midiLearn; }
-    const dsp::SynthEngine& getEngine() const { return engine; }
+    /** The engine of the part on the panel (meters, displays). */
+    const dsp::SynthEngine& getEngine() const { return engines[(size_t) getEditPart()]; }
+    const dsp::SynthEngine& getPartEngine(int part) const { return engines[(size_t) juce::jlimit(0, 1, part)]; }
     void panic();
 
     /** Injects controller data from the on-screen wheels (thread-safe). */
@@ -82,6 +84,21 @@ public:
     const dsp::PitchTracker& getTracker() const { return tracker; }
     bool isTracking() const { return getValue(P::TrkOn) >= 0.5f && hasAudioInput(); }
 
+    // ---- keyboard split / layer: two complete sounds
+    // The panel (and the host's parameters) always show the part being edited;
+    // the other part's sound is kept here and plays alongside.
+    static constexpr int kUpper = 0, kLower = 1;
+    int getEditPart() const { return editPart.load(std::memory_order_acquire); }
+    /** Message thread: puts part `part` on the panel (its sound and preset name swap in). */
+    void setEditPart(int part);
+    /** Preset name of a part. */
+    juce::String getPartName(int part) const;
+    /** LEARN: the next key played sets the split point (and does not sound). */
+    void setLearningSplit(bool on) { learnedNote.store(-1); learningSplit.store(on); }
+    bool isLearningSplit() const { return learningSplit.load(); }
+    /** Message thread (the processor's timer calls it): applies a learned split key. */
+    bool applyLearnedSplit();
+
     uint32_t getAudioCallbackCount() const { return audioCallbacks.load(); }
     /** Smoothed fraction of the real-time budget used by processBlock. */
     float getCpuLoad() const { return cpuLoad.load(); }
@@ -95,7 +112,24 @@ private:
     std::array<std::atomic<float>*, kNumParams> rawValues {};
     float snapshot[kNumParams] {};
 
-    dsp::SynthEngine engine;
+    // Part 0 = UPPER, part 1 = LOWER. `stored` holds the sound of the part not on the panel.
+    std::array<dsp::SynthEngine, 2> engines;
+    std::array<std::atomic<float>, kNumParams> stored {};
+    float partParams[2][kNumParams] {};
+    std::atomic<int> editPart { kUpper };
+    std::atomic<uint32_t> swapSequence { 0 }; // odd while setEditPart is swapping
+    juce::String storedName { "Init" }, storedCategory { "Init" };
+    juce::CriticalSection storedLock;
+    std::array<std::vector<dsp::MidiEvent>, 2> partEvents;
+    int8_t noteMap[2][16][128] {};             // played key -> sounding note per part (-1 = none)
+    std::vector<float> partL, partR;
+    int partTail[2] {};                        // samples a quiet part keeps running (effect tails)
+    float partGain[2] { 1.0f, 1.0f };
+    std::atomic<bool> learningSplit { false };
+    std::atomic<int> learnedNote { -1 };
+    std::atomic<bool> clearNoteMaps { false };
+    void routeEvents(const float* globals);
+    void storeSound(const PresetData& p);
     juce::MidiKeyboardState keyboardState;
     MidiLearn midiLearn;
     std::unique_ptr<PresetManager> presets;

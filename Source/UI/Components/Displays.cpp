@@ -1957,6 +1957,17 @@ PresetDisplay::~PresetDisplay()
     processor.getPresets().removeChangeListener(this);
 }
 
+void PresetDisplay::refresh()
+{
+    // In SPLIT / LAYER the display says which part's sound it shows.
+    const int part = iv(P::SplitMode) == (int) SplitMode::Single ? -1 : processor.getEditPart();
+    if (part != shownPart)
+    {
+        shownPart = part;
+        repaint();
+    }
+}
+
 void PresetDisplay::paint(juce::Graphics& g)
 {
     const auto r = getLocalBounds().toFloat();
@@ -1966,7 +1977,10 @@ void PresetDisplay::paint(juce::Graphics& g)
     auto top = inner.removeFromTop(14);
     const int idx = pm.getCurrentIndex();
     const bool fav = pm.isFavourite(idx);
-    drawLcdText(g, (fav ? juce::String::fromUTF8("\xe2\x98\x85 ") : juce::String()) + pm.getCurrentCategory().toUpperCase(), top, 10.5f,
+    juce::String tag;
+    if (iv(P::SplitMode) != (int) SplitMode::Single)
+        tag = processor.getEditPart() == ZSynthProcessor::kLower ? "LOWER  |  " : "UPPER  |  ";
+    drawLcdText(g, tag + (fav ? juce::String::fromUTF8("\xe2\x98\x85 ") : juce::String()) + pm.getCurrentCategory().toUpperCase(), top, 10.5f,
                 fav ? Colours::lcdText : Colours::lcdDim.brighter(0.8f));
     juce::String counter("---");
     if (idx >= 0 && pm.isFavouritesMode() && fav)
@@ -1979,6 +1993,98 @@ void PresetDisplay::paint(juce::Graphics& g)
         counter = juce::String(idx + 1).paddedLeft('0', 3) + " / " + juce::String((int) pm.getEntries().size());
     drawLcdText(g, counter, top, 10.5f, Colours::lcdDim.brighter(0.8f), juce::Justification::centredRight);
     drawLcdText(g, pm.getCurrentName(), inner, 22.0f);
+}
+
+// ============================================================= split map ====
+uint64_t SplitMap::stateHash() const
+{
+    uint64_t h = 1469598103934665603ull;
+    for (int i : { (int) P::SplitMode, (int) P::SplitPoint, (int) P::SplitLowOct, (int) P::SplitUpOct, (int) P::SplitLowVol, (int) P::SplitUpVol })
+        h = mix(h, v(i));
+    h = mix(h, (float) processor.getEditPart());
+    h = mix(h, processor.isLearningSplit() ? 1.0f : 0.0f);
+    for (int part = 0; part < 2; ++part)
+        h = mix(h, (float) processor.getPartName(part).hashCode());
+    return h;
+}
+
+void SplitMap::paint(juce::Graphics& g)
+{
+    const auto r = getLocalBounds().toFloat();
+    drawLcd(g, r);
+    const auto mode = (SplitMode) iv(P::SplitMode);
+    const int point = iv(P::SplitPoint);
+    const int edit = processor.getEditPart();
+    const auto lowerColour = juce::Colour(0xff5ac8fa), upperColour = Colours::lcdText;
+    const auto area = r.reduced(12.0f, 10.0f);
+
+    // Key range C0 .. C8 with octave ticks.
+    constexpr int lo = 12, hi = 108;
+    auto xOf = [&](int key) { return area.getX() + area.getWidth() * (float) (key - lo) / (float) (hi - lo); };
+    const float barY = area.getY() + 30.0f, barH = 16.0f;
+    g.setColour(Colours::lcdDim.withAlpha(0.5f));
+    for (int k = lo; k <= hi; k += 12)
+    {
+        g.drawVerticalLine(juce::roundToInt(xOf(k)), barY + barH, barY + barH + 5.0f);
+        drawLcdText(g, "C" + juce::String(k / 12 - 1), juce::Rectangle<float>(xOf(k) - 12.0f, barY + barH + 5.0f, 24.0f, 12.0f).toNearestInt(),
+                    8.5f, Colours::lcdDim, juce::Justification::centred);
+    }
+
+    auto zone = [&](int part, float x0, float x1, float y, float h) {
+        const auto c = part == ZSynthProcessor::kLower ? lowerColour : upperColour;
+        const bool lit = part == edit;
+        const juce::Rectangle<float> z(x0, y, std::max(1.0f, x1 - x0), h);
+        g.setColour(c.withAlpha(lit ? 0.55f : 0.22f));
+        g.fillRoundedRectangle(z, 2.0f);
+        g.setColour(c.withAlpha(lit ? 1.0f : 0.5f));
+        g.drawRoundedRectangle(z, 2.0f, lit ? 1.6f : 1.0f);
+    };
+    auto label = [&](int part, juce::Rectangle<int> where, juce::Justification j) {
+        const auto c = part == ZSynthProcessor::kLower ? lowerColour : upperColour;
+        const int oct = iv(part == ZSynthProcessor::kLower ? P::SplitLowOct : P::SplitUpOct);
+        const float vol = v(part == ZSynthProcessor::kLower ? P::SplitLowVol : P::SplitUpVol);
+        juce::String t = (part == ZSynthProcessor::kLower ? "LOWER: " : "UPPER: ") + processor.getPartName(part);
+        if (mode != SplitMode::Single)
+        {
+            if (oct != 0)
+                t << "   " << (oct > 0 ? "+" : "") << oct << " oct";
+            if (std::abs(vol) > 0.05f)
+                t << "   " << juce::String(vol, 1) << " dB";
+        }
+        if (part == edit)
+            t << "   (EDITING)";
+        drawLcdText(g, t, where, 10.5f, c.withAlpha(part == edit ? 1.0f : 0.65f), j);
+    };
+
+    const auto labels = area.withHeight(16.0f).toNearestInt();
+    if (mode == SplitMode::Split)
+    {
+        const float sx = xOf(juce::jlimit(lo, hi, point));
+        zone(ZSynthProcessor::kLower, area.getX(), sx - 1.0f, barY, barH);
+        zone(ZSynthProcessor::kUpper, sx + 1.0f, area.getRight(), barY, barH);
+        g.setColour(Colours::accent);
+        g.fillRect(sx - 1.0f, barY - 4.0f, 2.0f, barH + 8.0f);
+        drawLcdText(g, formatValue(P::SplitPoint, (float) point), juce::Rectangle<float>(sx - 20.0f, barY - 16.0f, 40.0f, 12.0f).toNearestInt(),
+                    9.5f, Colours::accent, juce::Justification::centred);
+        label(ZSynthProcessor::kLower, labels.withWidth(labels.getWidth() / 2), juce::Justification::centredLeft);
+        label(ZSynthProcessor::kUpper, labels.withTrimmedLeft(labels.getWidth() / 2), juce::Justification::centredRight);
+    }
+    else if (mode == SplitMode::Layer)
+    {
+        zone(ZSynthProcessor::kUpper, area.getX(), area.getRight(), barY - 2.0f, barH / 2.0f);
+        zone(ZSynthProcessor::kLower, area.getX(), area.getRight(), barY + barH / 2.0f + 1.0f, barH / 2.0f);
+        label(ZSynthProcessor::kLower, labels.withWidth(labels.getWidth() / 2), juce::Justification::centredLeft);
+        label(ZSynthProcessor::kUpper, labels.withTrimmedLeft(labels.getWidth() / 2), juce::Justification::centredRight);
+    }
+    else
+    {
+        zone(edit, area.getX(), area.getRight(), barY, barH);
+        label(edit, labels, juce::Justification::centredLeft);
+        drawLcdText(g, "SINGLE", labels, 10.5f, Colours::lcdDim.brighter(0.6f), juce::Justification::centredRight);
+    }
+    if (processor.isLearningSplit())
+        drawLcdText(g, "LEARN: PLAY THE FIRST KEY OF THE UPPER ZONE", area.withTrimmedTop(area.getHeight() - 14.0f).toNearestInt(), 10.0f,
+                    Colours::accent, juce::Justification::centred);
 }
 
 // =================================================================== logo ====

@@ -103,6 +103,33 @@ Loaded files are trimmed to the music: playback starts at the bar holding the
 first note and loops at the end of the bar holding the last one, so silent
 intros and tails in exported files are skipped.
 
+## Keyboard split and layer
+
+ZYNTH can play **two complete sounds** at once. Each part (UPPER and LOWER)
+has everything: oscillators, filter, envelopes, LFOs, arpeggiator and its own
+effects. The controls are under the panel, at the right of the audition bar.
+
+* **KEYBOARD** — **SINGLE** (one sound, as normal), **SPLIT** (LOWER below the
+  split point, UPPER from it up) or **LAYER** (both sounds on every key).
+* **UPPER / LOWER** — which part the panel edits. Everything you change, and
+  every preset you load, goes to that part. The preset display shows
+  "UPPER |" or "LOWER |" while SPLIT or LAYER is on. So, to set up a bass and
+  pad split: choose SPLIT, click LOWER and load a bass, then click UPPER and
+  load a pad.
+* **SPLIT ▸** opens the KEYBOARD SPLIT window:
+  * A map of the two zones (the part being edited is lit).
+  * The **split point** (the first key of the UPPER zone). Press **LEARN**,
+    then play the key; that key does not sound. LEARN also switches SINGLE to
+    SPLIT.
+  * **OCTAVE** (±3) and **LEVEL** for each part, and the EDIT buttons.
+
+The on-screen keyboard tints the LOWER zone and marks the split. A note
+always releases in the part it started in, even if you move the split point
+while holding it. Controllers (sustain, mod wheel, pitch bend, aftertouch)
+reach both parts. The split setup and both sounds are saved with your
+project. A new instance starts with Classic Saw Bass as the LOWER sound.
+Host automation and MIDI learn control the part on the panel.
+
 ## Pitch track (guitar / bass in)
 
 **PITCH TRACK** (header, under PANIC) plays ZYNTH from a guitar or bass on

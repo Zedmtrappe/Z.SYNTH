@@ -363,6 +363,13 @@ X(WtEvoAmt,      "wt.evo.amt",    "WT Evolve Amount", "Wavetable", Float, -1.f, 
 X(WtEvoTime,     "wt.evo.time",   "WT Evolve Time", "Wavetable", Float, 0.1f, 60.f, 8.f, LOG, "s", nullptr, "Time of one EVOLVE sweep (up to a minute, for slowly evolving pads).") \
 X(WtDrift,       "wt.drift",      "WT Drift", "Wavetable", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "DRIFT: the position wanders at random, differently for every voice and stack voice (organic movement).") \
 X(WtDriftRate,   "wt.drate",      "WT Drift Rate", "Wavetable", Float, 0.02f, 4.f, 0.2f, LOG, "Hz", nullptr, "Speed of the DRIFT wander.") \
+/* ------------------------------------ Keyboard split / layer (two complete sounds) */ \
+X(SplitMode,     "split.mode",    "Keyboard Mode", "Global", Choice, 0, 0, 0.f, LIN, "", ZS_CH_SPLIT_MODE, "SINGLE: one sound. SPLIT: the LOWER sound below the split point, the UPPER sound from it up. LAYER: both sounds on every key.") \
+X(SplitPoint,    "split.point",   "Split Point", "Global", Int, 12.f, 120.f, 60.f, LIN, "note", nullptr, "The lowest key of the UPPER zone (LEARN: play a key to set it).") \
+X(SplitLowOct,   "split.lo.oct",  "Lower Octave", "Global", Int, -3.f, 3.f, 0.f, LIN, "oct", nullptr, "Octave shift of the LOWER sound.") \
+X(SplitUpOct,    "split.up.oct",  "Upper Octave", "Global", Int, -3.f, 3.f, 0.f, LIN, "oct", nullptr, "Octave shift of the UPPER sound.") \
+X(SplitLowVol,   "split.lo.vol",  "Lower Volume", "Global", Float, -40.f, 6.f, 0.f, LIN, "dB", nullptr, "Level of the LOWER sound.") \
+X(SplitUpVol,    "split.up.vol",  "Upper Volume", "Global", Float, -40.f, 6.f, 0.f, LIN, "dB", nullptr, "Level of the UPPER sound.") \
 
 #define ZS_OSC_WT_PARAMS(X, n) \
 X(Osc##n##WtTable, "osc" #n ".wt.table", "Osc " #n " Table", "Wavetable", Choice, 0, 0, 0.f, LIN, "", ZS_CH_OSC_TABLE, "Wavetable for this oscillator (Wavetable wave): SECTION = the WAVETABLE section's TABLE.") \

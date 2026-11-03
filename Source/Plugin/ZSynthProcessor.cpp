@@ -12,6 +12,20 @@ namespace
     constexpr int kStateVersion = 1;
     // The sound a new instance (and a first launch of the app) starts with.
     constexpr const char* kStartupPreset = "OB-Xa - Jump";
+    // The LOWER part's sound on a new instance.
+    constexpr const char* kDefaultLowerPreset = "Classic Saw Bass";
+
+    /** Parameters both parts share (setup, master, split): always the panel's values. */
+    const std::array<bool, kNumParams>& sharedParams()
+    {
+        static const auto flags = [] {
+            std::array<bool, kNumParams> f {};
+            for (int i = 0; i < kNumParams; ++i)
+                f[(size_t) i] = isGlobalSetupParam(i);
+            return f;
+        }();
+        return flags;
+    }
 
     std::vector<PresetManager::Bank> factoryBanks()
     {
@@ -52,6 +66,19 @@ ZSynthProcessor::ZSynthProcessor(juce::File userPresetDir, AudioInput input)
             startup = i;
     if (startup >= 0)
         presets->load(startup);
+
+    // The LOWER part starts as a bass (it only sounds once SPLIT or LAYER is chosen).
+    {
+        PresetData lower;
+        if (! presets->getPresetData(presets->findFactory(kDefaultLowerPreset), lower))
+            lower = capturePreset(apvts);
+        storeSound(lower);
+    }
+    for (auto& part : noteMap)
+        for (auto& ch : part)
+            std::fill(std::begin(ch), std::end(ch), (int8_t) -1);
+    partEvents[0].reserve(kMaxEventsPerBlock);
+    partEvents[1].reserve(kMaxEventsPerBlock);
     loadBuiltInClip(0);
 
     startTimerHz(30);
@@ -141,8 +168,12 @@ bool ZSynthProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 void ZSynthProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = sampleRate;
-    engine.prepare(sampleRate, std::max(32, samplesPerBlock));
+    for (auto& e : engines)
+        e.prepare(sampleRate, std::max(32, samplesPerBlock));
     monoScratch.assign((size_t) std::max(32, samplesPerBlock) * 2, 0.0f);
+    partL.assign((size_t) std::max(32, samplesPerBlock), 0.0f);
+    partR.assign((size_t) std::max(32, samplesPerBlock), 0.0f);
+    partTail[0] = partTail[1] = 0;
     trackInput.assign((size_t) std::max(32, samplesPerBlock) * 2, 0.0f);
     tracker.prepare(sampleRate);
     keyboardState.reset();
@@ -267,28 +298,75 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
         }
     }
 
-    for (int i = 0; i < kNumParams; ++i)
-        snapshot[i] = rawValues[(size_t) i]->load(std::memory_order_relaxed);
+    // Both parts' parameters. The panel holds the edited part; the other comes from
+    // `stored`. If setEditPart is swapping them right now, keep last block's values.
+    {
+        const uint32_t seq = swapSequence.load(std::memory_order_acquire);
+        if ((seq & 1u) == 0)
+        {
+            const int edit = editPart.load(std::memory_order_acquire);
+            for (int i = 0; i < kNumParams; ++i)
+                snapshot[i] = rawValues[(size_t) i]->load(std::memory_order_relaxed);
+            const auto& shared = sharedParams();
+            float other[kNumParams];
+            for (int i = 0; i < kNumParams; ++i)
+                other[i] = shared[(size_t) i] ? snapshot[i] : stored[(size_t) i].load(std::memory_order_relaxed);
+            if (swapSequence.load(std::memory_order_acquire) == seq)
+            {
+                std::memcpy(partParams[edit], snapshot, sizeof(snapshot));
+                std::memcpy(partParams[1 - edit], other, sizeof(other));
+            }
+        }
+    }
+    routeEvents(partParams[getEditPart()]);
 
     dsp::TransportInfo transport;
     readTransport(transport);
 
     float* left = buffer.getWritePointer(0);
     float* right = buffer.getNumChannels() > 1 ? buffer.getWritePointer(1) : nullptr;
+    std::fill(left, left + n, 0.0f);
     if (right != nullptr)
+        std::fill(right, right + n, 0.0f);
+    if ((int) partL.size() < n)
+        return; // host exceeded its announced block size: never allocate here
+
+    const auto* g = partParams[getEditPart()];
+    const auto mode = (SplitMode) juce::roundToInt(g[P::SplitMode]);
+    const int tail = (int) (currentSampleRate * 15.0); // reverb and delay tails of a part that stopped playing
+    for (int part = 0; part < 2; ++part)
     {
-        engine.process(left, right, n, snapshot, events.data(), (int) events.size(), transport);
-    }
-    else
-    {
-        // Mono output bus: render stereo into a scratch channel prepared in
-        // prepareToPlay, then fold down.
-        float* scratch = monoScratch.data();
-        if ((int) monoScratch.size() < n)
-            return; // host exceeded its announced block size: never allocate here
-        engine.process(left, scratch, n, snapshot, events.data(), (int) events.size(), transport);
-        for (int i = 0; i < n; ++i)
-            left[i] = 0.5f * (left[i] + scratch[i]);
+        auto& ev = partEvents[(size_t) part];
+        auto& eng = engines[(size_t) part];
+        if (! ev.empty() || eng.getActiveVoices() > 0)
+            partTail[part] = tail;
+        else if (partTail[part] <= 0)
+            continue; // silent: skip it entirely
+        else
+            partTail[part] -= n;
+
+        eng.process(partL.data(), partR.data(), n, partParams[part], ev.data(), (int) ev.size(), transport);
+
+        // Part levels (split / layer); smoothed over the block.
+        const float target = mode == SplitMode::Single ? 1.0f
+                           : juce::Decibels::decibelsToGain(g[part == kLower ? P::SplitLowVol : P::SplitUpVol], -40.0f);
+        const float g0 = partGain[part], step = (target - g0) / (float) n;
+        partGain[part] = target;
+        if (right != nullptr)
+        {
+            for (int i = 0; i < n; ++i)
+            {
+                const float k = g0 + step * (float) (i + 1);
+                left[i] += partL[(size_t) i] * k;
+                right[i] += partR[(size_t) i] * k;
+            }
+        }
+        else
+        {
+            // Mono output bus: fold down.
+            for (int i = 0; i < n; ++i)
+                left[i] += 0.5f * (partL[(size_t) i] + partR[(size_t) i]) * (g0 + step * (float) (i + 1));
+        }
     }
 
     // DRY: the instrument itself, mixed with the synth.
@@ -318,7 +396,9 @@ juce::AudioProcessorEditor* ZSynthProcessor::createEditor()
 void ZSynthProcessor::panic()
 {
     audition.stop();
-    engine.requestPanic();
+    for (auto& e : engines)
+        e.requestPanic();
+    clearNoteMaps.store(true);
     keyboardState.allNotesOff(0);
 }
 
@@ -337,10 +417,139 @@ void ZSynthProcessor::setModWheel(float unipolar)
     pendingModWheel.store(juce::jlimit(0, 127, (int) std::lround(unipolar * 127.0f)));
 }
 
+// ---- keyboard split / layer
+void ZSynthProcessor::routeEvents(const float* g)
+{
+    if (clearNoteMaps.exchange(false))
+        for (auto& part : noteMap)
+            for (auto& ch : part)
+                std::fill(std::begin(ch), std::end(ch), (int8_t) -1);
+
+    const auto mode = (SplitMode) juce::roundToInt(g[P::SplitMode]);
+    const int point = juce::roundToInt(g[P::SplitPoint]);
+    const int octave[2] = { juce::roundToInt(g[P::SplitUpOct]), juce::roundToInt(g[P::SplitLowOct]) };
+    const int edit = getEditPart();
+    partEvents[0].clear();
+    partEvents[1].clear();
+
+    for (const auto& e : events)
+    {
+        const int kind = e.status & 0xF0, ch = e.status & 0x0F, key = e.data1 & 0x7F;
+        const bool on = kind == 0x90 && e.data2 > 0;
+        const bool off = kind == 0x80 || (kind == 0x90 && e.data2 == 0);
+        if (on && learningSplit.load(std::memory_order_relaxed))
+        {
+            // LEARN: this key becomes the split point (applied on the message thread); it does not sound.
+            learnedNote.store(key);
+            learningSplit.store(false);
+            continue;
+        }
+        if (on)
+        {
+            for (int part = 0; part < 2; ++part)
+            {
+                const bool plays = mode == SplitMode::Layer || (mode == SplitMode::Single ? part == edit
+                                                                                           : (key < point) == (part == kLower));
+                if (! plays)
+                    continue;
+                const int sounding = mode == SplitMode::Single ? key : juce::jlimit(0, 127, key + 12 * octave[part]);
+                noteMap[part][ch][key] = (int8_t) sounding;
+                auto routed = e;
+                routed.data1 = (uint8_t) sounding;
+                partEvents[(size_t) part].push_back(routed);
+            }
+        }
+        else if (off || kind == 0xA0)
+        {
+            // Releases (and poly pressure) follow the note to wherever it went.
+            for (int part = 0; part < 2; ++part)
+            {
+                const int sounding = noteMap[part][ch][key];
+                if (sounding < 0)
+                    continue;
+                auto routed = e;
+                routed.data1 = (uint8_t) sounding;
+                partEvents[(size_t) part].push_back(routed);
+                if (off)
+                    noteMap[part][ch][key] = -1;
+            }
+        }
+        else
+        {
+            // Controllers, pitch bend, channel pressure: both parts.
+            if (kind == 0xB0 && (e.data1 == 120 || e.data1 == 123))
+                for (auto& part : noteMap)
+                    std::fill(std::begin(part[ch]), std::end(part[ch]), (int8_t) -1);
+            partEvents[0].push_back(e);
+            partEvents[1].push_back(e);
+        }
+    }
+}
+
+void ZSynthProcessor::storeSound(const PresetData& p)
+{
+    for (int i = 0; i < kNumParams; ++i)
+        stored[(size_t) i].store(p.values[(size_t) i], std::memory_order_relaxed);
+    const juce::ScopedLock sl(storedLock);
+    storedName = p.name;
+    storedCategory = p.category;
+}
+
+juce::String ZSynthProcessor::getPartName(int part) const
+{
+    if (part == getEditPart())
+        return presets->getCurrentName();
+    const juce::ScopedLock sl(storedLock);
+    return storedName;
+}
+
+void ZSynthProcessor::setEditPart(int part)
+{
+    part = juce::jlimit(0, 1, part);
+    if (part == getEditPart())
+        return;
+    // The audio thread keeps last block's parameters while the sequence number is odd.
+    swapSequence.fetch_add(1, std::memory_order_acq_rel);
+    PresetData leaving = capturePreset(apvts);
+    leaving.name = presets->getCurrentName();
+    leaving.category = presets->getCurrentCategory();
+    PresetData arriving;
+    {
+        const juce::ScopedLock sl(storedLock);
+        arriving.name = storedName;
+        arriving.category = storedCategory;
+    }
+    for (int i = 0; i < kNumParams; ++i)
+        arriving.values[(size_t) i] = stored[(size_t) i].load(std::memory_order_relaxed);
+    storeSound(leaving);
+    applyPreset(arriving, apvts, ApplyScope::SoundOnly);
+    editPart.store(part, std::memory_order_release);
+    swapSequence.fetch_add(1, std::memory_order_acq_rel);
+    presets->setCurrentNameFromState(arriving.name, arriving.category);
+}
+
 void ZSynthProcessor::timerCallback()
 {
+    applyLearnedSplit();
     midiLearn.dispatchPending(apvts);
     audition.collectGarbage();
+}
+
+bool ZSynthProcessor::applyLearnedSplit()
+{
+    // LEARN: apply the key the audio thread caught (switching SINGLE to SPLIT).
+    const int learned = learnedNote.exchange(-1);
+    if (learned >= 0)
+    {
+        auto set = [this](const char* id, float v) {
+            if (auto* prm = apvts.getParameter(id))
+                prm->setValueNotifyingHost(prm->convertTo0to1(v));
+        };
+        set("split.point", (float) juce::jlimit(12, 120, learned));
+        if (juce::roundToInt(getValue(P::SplitMode)) == (int) SplitMode::Single)
+            set("split.mode", (float) SplitMode::Split);
+    }
+    return learned >= 0;
 }
 
 // ---- programs: the preset library is exposed to hosts as programs
@@ -368,6 +577,21 @@ void ZSynthProcessor::getStateInformation(juce::MemoryBlock& destData)
     if (auto learnXml = midiLearn.toValueTree().createXml())
         root.addChildElement(learnXml.release());
 
+    // Keyboard split / layer: the other part's sound, and which part is on the panel.
+    {
+        PresetData other;
+        for (int i = 0; i < kNumParams; ++i)
+            other.values[(size_t) i] = stored[(size_t) i].load();
+        {
+            const juce::ScopedLock sl(storedLock);
+            other.name = storedName;
+            other.category = storedCategory;
+        }
+        auto* split = root.createNewChildElement("Split");
+        split->setAttribute("editPart", getEditPart());
+        split->addChildElement(presetToXml(other).release());
+    }
+
     copyXmlToBinary(root, destData);
 }
 
@@ -389,6 +613,20 @@ void ZSynthProcessor::setStateInformation(const void* data, int sizeInBytes)
     }
     if (auto* learn = xml->getChildByName("MidiLearn"))
         midiLearn.fromValueTree(juce::ValueTree::fromXml(*learn));
+    if (auto* split = xml->getChildByName("Split"))
+    {
+        if (auto* other = split->getChildByName("ZSynthPreset"))
+        {
+            PresetData p;
+            if (presetFromXml(*other, p).ok)
+            {
+                swapSequence.fetch_add(1, std::memory_order_acq_rel);
+                storeSound(p);
+                editPart.store(juce::jlimit(0, 1, split->getIntAttribute("editPart", kUpper)), std::memory_order_release);
+                swapSequence.fetch_add(1, std::memory_order_acq_rel);
+            }
+        }
+    }
 }
 
 } // namespace zsynth

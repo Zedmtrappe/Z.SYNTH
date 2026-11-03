@@ -74,6 +74,8 @@ juce::String formatValue(int index, float v)
                 return i == 0 ? "Omni" : "Ch " + juce::String(i);
             if (unit == "st" || unit == "oct")
                 return (i > 0 ? "+" : "") + juce::String(i) + " " + unit;
+            if (unit == "note")
+                return juce::MidiMessage::getMidiNoteName(i, true, true, 4);
             return juce::String(i);
         }
         case ParamType::Float:
@@ -125,6 +127,15 @@ float parseValue(int index, const juce::String& text)
 
     if (index == P::MidiChannel && t.equalsIgnoreCase("omni"))
         return 0.0f;
+    if (juce::String(d.unit) == "note" && t.isNotEmpty() && ! juce::CharacterFunctions::isDigit(t[0]))
+    {
+        // "C4", "F#3", "Bb2": middle C = C4 = 60.
+        static const char* names[12] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+        auto u = t.toUpperCase().replace("DB", "C#").replace("EB", "D#").replace("GB", "F#").replace("AB", "G#").replace("BB", "A#");
+        for (int k = 11; k >= 0; --k)
+            if (u.startsWith(names[k]) && (juce::String(names[k]).length() == 2 || ! u.substring(1).startsWith("#")))
+                return juce::jlimit(d.min, d.max, (float) (k + 12 * (u.substring(juce::String(names[k]).length()).getIntValue() + 1)));
+    }
     if (t.containsIgnoreCase("inf"))
         return t.startsWithChar('-') ? d.min : d.max;
 

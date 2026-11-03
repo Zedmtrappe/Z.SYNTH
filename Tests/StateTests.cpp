@@ -671,7 +671,8 @@ ZS_TEST(layout_controls_inside_sections_and_not_overlapping)
                             || id.startsWith("b5.") || id.startsWith("g560.")
                             || id == "tape.speed" || id == "tape.bias" || id == "tape.hiss" || id == "tape.out"
                             || (id.contains(".wt.") && ! id.endsWith(".wt.pos")) || id.startsWith("wt.evo.")
-                            || id == "wt.drift" || id == "wt.drate";
+                            || id == "wt.drift" || id == "wt.drate"
+                            || (id.startsWith("split.") && id != "split.mode");
         ZS_CHECK(advanced == (c.page != ui::kMainPage));
     }
 }
@@ -1003,6 +1004,134 @@ ZS_TEST(activity_rules_examples)
 }
 
 // ================================================================ editor ====
+
+
+// ============================================================ keyboard split ====
+
+namespace
+{
+    struct SplitRig
+    {
+        explicit SplitRig(const char* name) : p(tempDir(name), ZSynthProcessor::AudioInput::Disabled)
+        {
+            p.prepareToPlay(48000.0, 256);
+        }
+        void set(const char* id, float v)
+        {
+            auto* prm = p.getState().getParameter(id);
+            prm->setValueNotifyingHost(prm->convertTo0to1(v));
+        }
+        float run(std::initializer_list<juce::MidiMessage> msgs, int blocks = 20)
+        {
+            juce::AudioBuffer<float> buffer(2, 256);
+            float peak = 0.0f;
+            for (int b = 0; b < blocks; ++b)
+            {
+                juce::MidiBuffer midi;
+                if (b == 0)
+                    for (const auto& m : msgs)
+                        midi.addEvent(m, 0);
+                buffer.clear();
+                p.processBlock(buffer, midi);
+                peak = std::max(peak, buffer.getMagnitude(0, 256));
+            }
+            return peak;
+        }
+        int voices(int part) const { return p.getPartEngine(part).getActiveVoices(); }
+        ZSynthProcessor p;
+    };
+}
+
+ZS_TEST(split_routes_keys_to_two_sounds)
+{
+    SplitRig r("split1");
+    ZS_CHECK(r.p.getPartName(ZSynthProcessor::kLower) == "Classic Saw Bass");
+    // SINGLE: everything plays the part on the panel.
+    r.run({ juce::MidiMessage::noteOn(1, 40, (uint8_t) 100) });
+    ZS_CHECK(r.voices(ZSynthProcessor::kUpper) > 0);
+    ZS_CHECK(r.voices(ZSynthProcessor::kLower) == 0);
+    r.run({ juce::MidiMessage::noteOff(1, 40) }, 200);
+
+    // SPLIT at C4: below to LOWER, from C4 up to UPPER.
+    r.set("split.mode", (float) SplitMode::Split);
+    r.set("split.point", 60.0f);
+    r.run({ juce::MidiMessage::noteOn(1, 48, (uint8_t) 100) });
+    ZS_CHECK(r.voices(ZSynthProcessor::kLower) > 0);
+    ZS_CHECK(r.voices(ZSynthProcessor::kUpper) == 0);
+    r.run({ juce::MidiMessage::noteOn(1, 72, (uint8_t) 100) });
+    ZS_CHECK(r.voices(ZSynthProcessor::kUpper) > 0);
+
+    // Moving the split point while a key is held: its release still reaches the part it went to.
+    r.set("split.point", 40.0f);
+    const float peak = r.run({ juce::MidiMessage::noteOff(1, 48), juce::MidiMessage::noteOff(1, 72) }, 400);
+    ZS_CHECK(r.voices(ZSynthProcessor::kLower) == 0);
+    ZS_CHECK(r.voices(ZSynthProcessor::kUpper) == 0);
+    ZS_CHECK(std::isfinite(peak));
+
+    // LAYER: both sounds on every key.
+    r.set("split.mode", (float) SplitMode::Layer);
+    const float layered = r.run({ juce::MidiMessage::noteOn(1, 64, (uint8_t) 100) });
+    ZS_CHECK(r.voices(ZSynthProcessor::kLower) > 0 && r.voices(ZSynthProcessor::kUpper) > 0);
+    ZS_CHECK(layered > 0.01f);
+    // Part volumes: both at -40 dB is (nearly) silent.
+    r.run({ juce::MidiMessage::allNotesOff(1) }, 400);
+    r.set("split.up.vol", -40.0f);
+    r.set("split.lo.vol", -40.0f);
+    r.run({}, 2); // the level change glides over one block
+    const float quiet = r.run({ juce::MidiMessage::noteOn(1, 64, (uint8_t) 100) });
+    std::printf("    layer peak %.3f, both parts at -40 dB %.4f\n", layered, quiet);
+    ZS_CHECK(quiet < 0.02f * layered);
+}
+
+ZS_TEST(split_edit_part_swaps_the_panel)
+{
+    SplitRig r("split2");
+    const auto upperName = r.p.getPartName(ZSynthProcessor::kUpper);
+    PresetData upper = capturePreset(r.p.getState());
+    r.p.setEditPart(ZSynthProcessor::kLower);
+    ZS_CHECK(r.p.getEditPart() == ZSynthProcessor::kLower);
+    ZS_CHECK(r.p.getPresets().getCurrentName() == "Classic Saw Bass");
+    ZS_CHECK(r.p.getPartName(ZSynthProcessor::kUpper) == upperName);
+    // Editing the LOWER part changes only it.
+    r.set("flt.cutoff", 321.0f);
+    r.p.setEditPart(ZSynthProcessor::kUpper);
+    const PresetData back = capturePreset(r.p.getState());
+    int differing = 0;
+    for (int i = 0; i < kNumParams; ++i)
+        differing += std::abs(back.values[(size_t) i] - upper.values[(size_t) i]) > 1.0e-4f ? 1 : 0;
+    ZS_CHECK(differing == 0);
+    ZS_CHECK(r.p.getPresets().getCurrentName() == upperName);
+    r.p.setEditPart(ZSynthProcessor::kLower);
+    ZS_CHECK_NEAR(r.p.getValue(P::FltCutoff), 321.0, 0.5);
+
+    // The whole setup survives a session save / recall.
+    r.set("split.mode", (float) SplitMode::Split);
+    r.set("split.point", 55.0f);
+    juce::MemoryBlock state;
+    r.p.getStateInformation(state);
+    SplitRig q("split3");
+    q.p.setStateInformation(state.getData(), (int) state.getSize());
+    ZS_CHECK(q.p.getEditPart() == ZSynthProcessor::kLower);
+    ZS_CHECK_NEAR(q.p.getValue(P::FltCutoff), 321.0, 0.5);
+    ZS_CHECK(q.p.getPartName(ZSynthProcessor::kUpper) == upperName);
+    ZS_CHECK(juce::roundToInt(q.p.getValue(P::SplitPoint)) == 55);
+    q.p.setEditPart(ZSynthProcessor::kUpper);
+    ZS_CHECK(q.p.getPresets().getCurrentName() == upperName);
+}
+
+ZS_TEST(split_learn_takes_the_next_key)
+{
+    SplitRig r("split4");
+    r.p.setLearningSplit(true);
+    r.run({ juce::MidiMessage::noteOn(1, 53, (uint8_t) 100) });
+    ZS_CHECK(r.voices(ZSynthProcessor::kUpper) == 0 && r.voices(ZSynthProcessor::kLower) == 0); // the learn key is silent
+    ZS_CHECK(r.p.applyLearnedSplit());
+    ZS_CHECK(juce::roundToInt(r.p.getValue(P::SplitPoint)) == 53);
+    ZS_CHECK(juce::roundToInt(r.p.getValue(P::SplitMode)) == (int) SplitMode::Split);
+    ZS_CHECK(! r.p.isLearningSplit());
+    ZS_CHECK(formatValue(P::SplitPoint, 60.0f) == "C4");
+    ZS_CHECK(std::abs(parseValue(P::SplitPoint, "F#3") - 54.0f) < 0.01f);
+}
 
 ZS_TEST(pitch_track_plays_the_synth_from_the_audio_input)
 {
@@ -1361,6 +1490,17 @@ static int snapshots(const juce::File& dir)
         out.truncate();
         juce::PNGImageFormat().writeImageToStream(img, out);
     };
+    // Keyboard split.
+    set("split.mode", (float) SplitMode::Split);
+    set("split.point", 55.0f);
+    set("split.lo.oct", -1.0f);
+    set("split.lo.vol", -3.0f);
+    shoot("split", "split");
+    shoot("splitmain", {});
+    set("split.mode", (float) SplitMode::Single);
+    if (const char* only = std::getenv("ZS_SNAP_ONLY"); only != nullptr && juce::String(only) == "split")
+        return 0;
+
     // Wavetable engine: three oscillators on different tables, warps and stacks.
     set("osc1.wave", (float) OscWave::Wavetable);
     set("osc1.wt.table", 1.0f + (float) WavetableId::Aurora);

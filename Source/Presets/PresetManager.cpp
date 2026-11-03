@@ -150,6 +150,19 @@ juce::StringArray PresetManager::getCategories() const
     return cats;
 }
 
+bool PresetManager::getPresetData(int index, PresetData& out) const
+{
+    if (index < 0 || index >= (int) entries.size())
+        return false;
+    const Entry& e = entries[(size_t) index];
+    if (e.factory)
+    {
+        out = factory[(size_t) e.factoryIndex];
+        return true;
+    }
+    return loadPresetFile(e.file, out).ok;
+}
+
 bool PresetManager::load(int index)
 {
     if (index < 0 || index >= (int) entries.size())

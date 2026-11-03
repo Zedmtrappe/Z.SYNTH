@@ -413,7 +413,12 @@ PanelLayout::PanelLayout()
     utilityAt("kbdOctDown", 22, 1154, 56, 28);
     utilityAt("kbdOctUp", 84, 1154, 56, 28);
     sectionAt("keys", "", 168, 972, 1742, 218);
-    utilityAt("auditionBar", 176, 976, 1726, 30);
+    utilityAt("auditionBar", 176, 976, 1240, 30);
+    // KEYBOARD: SINGLE / SPLIT / LAYER, which part is on the panel, and the SPLIT window.
+    add("split.mode", K::Segmented, 1426, 980, "KEYBOARD", 186, 22);
+    utilityAt("partUpper", 1620, 978, 92, 26);
+    utilityAt("partLower", 1716, 978, 92, 26);
+    utilityAt("openSplit", 1814, 978, 88, 26);
     utilityAt("keyboard", 172, 1010, 1734, 176);
 
     // ======================================================================
@@ -483,6 +488,29 @@ PanelLayout::PanelLayout()
     add("vec.x", K::HSlider, 370, 290, "X", 220, 24);
     text("A  OSC 1\nB  OSC 2\nC  OSC 3\nD  FM part\n\nDrag the joystick, or move it with an LFO / ENV 3 (VECTOR X / Y).",
          640, 110, 92, 200, juce::Justification::topLeft);
+
+    // ------------------------------------------------------- keyboard split
+    pageList.push_back({ "split", "KEYBOARD SPLIT", { 1180, 640, 720, 330 } });
+    page("split");
+    sectionAt("splitPage", "KEYBOARD  SPLIT  /  LAYER", 0, 0, 720, 330);
+    utilityAt("splitClose", 680, 3, 34, 20);
+    utilityAt("splitMap", 20, 34, 680, 92);
+    heading("LOWER", 20, 138, 200);
+    add("split.lo.oct", K::Knob, 20, 158, "OCTAVE");
+    add("split.lo.vol", K::Knob, 80, 158, "LEVEL");
+    utilityAt("editLower", 140, 170, 120, 26);
+    heading("SPLIT POINT", 290, 138, 140);
+    add("split.point", K::Knob, 300, 158, "KEY");
+    utilityAt("splitLearn", 360, 170, 70, 26);
+    heading("UPPER", 460, 138, 200);
+    add("split.up.oct", K::Knob, 460, 158, "OCTAVE");
+    add("split.up.vol", K::Knob, 520, 158, "LEVEL");
+    utilityAt("editUpper", 580, 170, 120, 26);
+    text("Two complete sounds, each with its own oscillators, filter, envelopes and effects.  SPLIT: LOWER plays below the "
+         "split point, UPPER from it up.  LAYER: both on every key.  SINGLE: just the sound on the panel.  "
+         "UPPER / LOWER (next to KEYBOARD, under the panel) choose which sound the panel edits: load a preset or tweak "
+         "anything and it goes to that part.  LEARN: press it, then play the key that should start the UPPER zone.",
+         20, 236, 680, 84, juce::Justification::topLeft);
 
     // ------------------------------------------------------ wavetable engine
     pageList.push_back({ "wtengine", "WAVETABLE ENGINE", { 340, 130, 1220, 480 } });

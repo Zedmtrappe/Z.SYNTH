@@ -18,6 +18,9 @@ public:
     void shiftOctave(int delta);
     int getLowestKey() const { return lowestKey; }
     void resized() override;
+    void paint(juce::Graphics&) override;
+    /** Shows the split: keys below `point` tinted (LOWER zone) and a marker. point < 0 = no split. */
+    void setSplit(int point);
 
 protected:
     void drawWhiteNote(int note, juce::Graphics&, juce::Rectangle<float> area, bool isDown, bool isOver, juce::Colour lineColour, juce::Colour textColour) override;
@@ -26,6 +29,7 @@ protected:
 
 private:
     int lowestKey = 36; // C2, 61 keys shown
+    int splitPoint = -1;
 };
 
 /** Pitch (spring-loaded, bipolar) or modulation (stays put, unipolar) wheel. */

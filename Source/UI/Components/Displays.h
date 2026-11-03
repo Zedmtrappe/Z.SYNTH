@@ -360,10 +360,23 @@ public:
     explicit PresetDisplay(ZSynthProcessor& p);
     ~PresetDisplay() override;
     void paint(juce::Graphics&) override;
+    void refresh() override;
     std::function<void()> onClick;
     void mouseUp(const juce::MouseEvent&) override { if (onClick) onClick(); }
 private:
     void changeListenerCallback(juce::ChangeBroadcaster*) override { repaint(); }
+    int shownPart = -1;
+};
+
+/** KEYBOARD SPLIT window: the two zones across the key range, with each
+    part's sound, octave and level; the part on the panel is lit. */
+class SplitMap : public CachedDisplay
+{
+public:
+    using CachedDisplay::CachedDisplay;
+    void paint(juce::Graphics&) override;
+protected:
+    uint64_t stateHash() const override;
 };
 
 class Logo : public juce::Component

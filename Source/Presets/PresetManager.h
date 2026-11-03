@@ -62,6 +62,10 @@ public:
     juce::String getCurrentCategory() const { const juce::ScopedLock sl(nameLock); return currentCategory; }
 
     bool load(int index);
+    /** The sound of entry `index` without loading it (false if unreadable). */
+    bool getPresetData(int index, PresetData& out) const;
+    /** Index of a factory preset by name, or -1. */
+    int findFactory(const juce::String& name) const { return findIndexByName(name, true); }
     void loadInit();
     void next();
     void previous();
