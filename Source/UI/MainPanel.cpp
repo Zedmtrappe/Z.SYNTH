@@ -1,4 +1,5 @@
 #include "MainPanel.h"
+#include "Components/SkipGrime.h"
 
 #include "Components/AuditionBar.h"
 #include "Components/Materials.h"
@@ -286,6 +287,11 @@ MainPanel::MainPanel(ZSynthProcessor& p) : processor(p), browser(p)
 
     updateSkins();
     updateActivity();
+
+    // SKIP EDITION: the grime sits on top of everything and lets every click through.
+    addAndMakeVisible(grime);
+    grime.setBounds(0, 0, PanelLayout::kWidth, PanelLayout::kHeight);
+    grime.setAlwaysOnTop(true);
     startTimerHz(30);
 }
 

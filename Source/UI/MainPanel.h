@@ -6,6 +6,7 @@
 
 #include "../Plugin/ZSynthProcessor.h"
 #include "Components/Displays.h"
+#include "Components/SkipGrime.h"
 #include "Components/Keyboard.h"
 #include "Components/MusicalTyping.h"
 #include "Components/ParamControl.h"
@@ -114,6 +115,7 @@ private:
     void updateSplit();
     juce::TextButton* partButtons[4] {};
     juce::TextButton* learnButton = nullptr;
+    SkipGrime grime;
     int oscViewShown[3] {};
     void showFxPresetMenu(const std::vector<FxPreset>& list, const juce::String& anchor, int onParam);
     juce::Component& parentForPage(const juce::String& page);
