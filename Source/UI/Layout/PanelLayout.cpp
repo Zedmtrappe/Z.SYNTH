@@ -416,8 +416,8 @@ PanelLayout::PanelLayout()
     utilityAt("auditionBar", 176, 976, 1240, 30);
     // KEYBOARD: SINGLE / SPLIT / LAYER, which part is on the panel, and the SPLIT window.
     add("split.mode", K::Segmented, 1426, 980, "KEYBOARD", 186, 22);
-    utilityAt("partUpper", 1620, 978, 92, 26);
-    utilityAt("partLower", 1716, 978, 92, 26);
+    utilityAt("partLower", 1620, 978, 92, 26); // LOWER left, UPPER right, as on the keyboard
+    utilityAt("partUpper", 1716, 978, 92, 26);
     utilityAt("openSplit", 1814, 978, 88, 26);
     utilityAt("keyboard", 172, 1010, 1734, 176);
 

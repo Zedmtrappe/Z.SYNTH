@@ -328,6 +328,11 @@ void MainPanel::buildControls()
             continue;
         auto c = std::make_unique<ParamControl>(state, index, spec.kind, spec.label, &processor.getMidiLearn());
         c->setBounds(spec.bounds);
+        if (juce::String(spec.paramId) == "trk.on")
+        {
+            c->setGlowWhenOn(true);
+            trackSwitch = c.get();
+        }
         c->setAccent(sectionColour(spec.section));
         {
             const juce::String section(spec.section);
@@ -392,9 +397,11 @@ void MainPanel::buildUtilities()
         showPage(getVisiblePage() == "fm" ? juce::String() : juce::String("fm")); });
     button("openSeq", juce::String::fromUTF8("STEPS \xe2\x96\xb8"), "Edit the 16 sequencer steps", [this] {
         showPage(getVisiblePage() == "seq" ? juce::String() : juce::String("seq")); });
-    button("openDelay", juce::String::fromUTF8("ADV \xe2\x96\xb8"), "Delay presets, wow, flutter, age, spread and ducking", [this] {
+    blockButtons.push_back({ P::DelayOn, nullptr });
+    blockButtons.back().second = &button("openDelay", juce::String::fromUTF8("ADV \xe2\x96\xb8"), "Delay presets, wow, flutter, age, spread and ducking", [this] {
         showPage(getVisiblePage() == "delay" ? juce::String() : juce::String("delay")); });
-    button("openReverb", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Reverb presets, decay, low cut, diffusion, modulation, early/late and width", [this] {
+    blockButtons.push_back({ P::ReverbOn, nullptr });
+    blockButtons.back().second = &button("openReverb", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Reverb presets, decay, low cut, diffusion, modulation, early/late and width", [this] {
         showPage(getVisiblePage() == "reverb" ? juce::String() : juce::String("reverb")); });
     button("delayPresets", juce::String::fromUTF8("DELAY PRESETS \xe2\x96\xbe"), "Load a delay starting point (sets only the delay)", [this] {
         showFxPresetMenu(delayPresets(), "delayPresets", P::DelayOn); });
@@ -402,7 +409,8 @@ void MainPanel::buildUtilities()
         showFxPresetMenu(reverbPresets(), "reverbPresets", P::ReverbOn); });
     typingButton = &button("musicalTyping", "QWERTY", "QWERTY keyboard: play ZYNTH from your computer keyboard (floating window)", [this] {
         showMusicalTyping(! isMusicalTypingVisible()); });
-    button("openComp", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Compressor ratio, attack, release, knee, side-chain and colour", [this] {
+    blockButtons.push_back({ P::CompOn, nullptr });
+    blockButtons.back().second = &button("openComp", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Compressor ratio, attack, release, knee, side-chain and colour", [this] {
         showPage(getVisiblePage() == "comp" ? juce::String() : juce::String("comp")); });
     auto setValue = [this](int index, float value) {
         if (auto* param = processor.getState().getParameter(paramDef(index).id))
@@ -457,13 +465,15 @@ void MainPanel::buildUtilities()
         setValue(P::EqDrive, 0.0f);
         setValue(P::PeqOutput, 0.0f);
     });
-    button("openPeq", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Edit the output EQ: five bands with variable Q, low cut, high cut, output", [this] {
+    blockButtons.push_back({ P::PeqOn, nullptr });
+    blockButtons.back().second = &button("openPeq", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Edit the output EQ: five bands with variable Q, low cut, high cut, output", [this] {
         showPage(getVisiblePage() == "peq" ? juce::String() : juce::String("peq")); });
     button("openWtEngine", juce::String::fromUTF8("ENGINE \xe2\x96\xb8"), "Wavetable engine: a table, warp and stack per oscillator, EVOLVE and DRIFT", [this] {
         showPage(getVisiblePage() == "wtengine" ? juce::String() : juce::String("wtengine")); });
     button("openWave", juce::String::fromUTF8("SEQ / VECTOR \xe2\x96\xb8"), "Wave sequencing and vector mixing (Wavestation style)", [this] {
         showPage(getVisiblePage() == "wave" ? juce::String() : juce::String("wave")); });
-    button("openValve", juce::String::fromUTF8("ADV \xe2\x96\xb8"), "Valve type, bias, sag, warmth and mix", [this] {
+    blockButtons.push_back({ P::ValveOn, nullptr });
+    blockButtons.back().second = &button("openValve", juce::String::fromUTF8("ADV \xe2\x96\xb8"), "Valve type, bias, sag, warmth and mix", [this] {
         showPage(getVisiblePage() == "valve" ? juce::String() : juce::String("valve")); });
 
     auto& version = addUtility<juce::Label>("version", "version", "v" + juce::String(JucePlugin_VersionString));
@@ -510,7 +520,8 @@ void MainPanel::buildUtilities()
     displays.push_back(&addUtility<EqCurve>("reverbEqCurveBig", processor, EqCurve::Which::Reverb, true));
     displays.push_back(&addUtility<CompMeter>("compMeterBig", processor));
     displays.push_back(&addUtility<TrackDisplay>("trackDisplay", processor));
-    button("openTape", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Tape speed, bias, hiss and output, with the transport", [this] {
+    blockButtons.push_back({ P::TapeOn, nullptr });
+    blockButtons.back().second = &button("openTape", juce::String::fromUTF8("ADVANCED \xe2\x96\xb8"), "Tape speed, bias, hiss and output, with the transport", [this] {
         showPage(getVisiblePage() == "tape" ? juce::String() : juce::String("tape")); });
     // KEYBOARD split / layer: which part the panel edits.
     for (int part = 0; part < 2; ++part)
@@ -830,6 +841,13 @@ void MainPanel::timerCallback()
 
     updateSkins();
     updateTracking();
+    // ADVANCED buttons of switched-off blocks look greyed out (they still open the window).
+    for (auto& [param, b] : blockButtons)
+        if (b != nullptr)
+            b->setAlpha(processor.getValue(param) >= 0.5f ? 1.0f : 0.32f);
+    // PITCH TRACK pulses while it is on.
+    if (trackSwitch != nullptr && processor.getValue(P::TrkOn) >= 0.5f)
+        trackSwitch->repaint();
     if (++activityCounter % 3 == 0)
         updateActivity();
     if (modSelector != nullptr)

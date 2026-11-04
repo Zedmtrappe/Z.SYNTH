@@ -760,13 +760,46 @@ void ParamControl::paintSwitch(juce::Graphics& g)
         button = r.withSizeKeepingCentre(juce::jmin(r.getWidth(), 40.0f), 20.0f);
     }
 
+    const bool glow = glowWhenOn && on;
+    if (glow)
+    {
+        // A slow (about 2 s) orange pulse around the button.
+        const double t = juce::Time::getMillisecondCounterHiRes() * 0.001;
+        const float pulse = 0.5f + 0.5f * (float) std::sin(t * juce::MathConstants<double>::twoPi * 0.5);
+        for (int k = 3; k >= 1; --k)
+        {
+            g.setColour(Colours::accent.withAlpha((0.07f + 0.09f * pulse) * (float) (4 - k) / 3.0f));
+            g.fillRoundedRectangle(button.expanded((float) k * 1.6f), 3.0f + (float) k);
+        }
+    }
     buttonCap(g, button, 3.0f, hovered, dragging);
+    if (glow)
+    {
+        const double t = juce::Time::getMillisecondCounterHiRes() * 0.001;
+        const float pulse = 0.5f + 0.5f * (float) std::sin(t * juce::MathConstants<double>::twoPi * 0.5);
+        g.setColour(Colours::accent.withAlpha(0.10f + 0.12f * pulse));
+        g.fillRoundedRectangle(button.reduced(1.0f), 3.0f);
+    }
     const float ledSize = compact ? 6.0f : 8.0f;
     const juce::Rectangle<float> led(button.getX() + (compact ? 4.5f : button.getWidth() * 0.5f - ledSize * 0.5f),
                                      button.getCentreY() - ledSize * 0.5f, ledSize, ledSize);
-    ledLens(g, led, on, Colours::ledOn);
+    ledLens(g, led, on, glowWhenOn ? Colours::accent : Colours::ledOn);
 
-    if (compact)
+    if (compact && glowWhenOn)
+    {
+        // Plainly printed (not engraved): light grey when off, glowing orange when on.
+        const auto area = button.withTrimmedLeft(12.0f).toNearestInt();
+        g.setFont(labelFont(10.0f));
+        if (on)
+        {
+            g.setColour(Colours::accent.withAlpha(0.35f));
+            for (const auto& d : { juce::Point<int>(-1, 0), juce::Point<int>(1, 0), juce::Point<int>(0, -1), juce::Point<int>(0, 1) })
+                g.drawText(label, area.translated(d.x, d.y), juce::Justification::centred, false);
+        }
+        g.setColour(on ? Colours::accent.brighter(0.25f) : juce::Colour(0xffc2beb6));
+        g.drawText(label, area, juce::Justification::centred, false);
+    }
+    else if (compact)
         legend.draw(g, label, button.withTrimmedLeft(12.0f), labelFont(9.0f), juce::Justification::centred,
                     on ? m::kLegend : m::kLegend.withMultipliedBrightness(0.6f), on ? 0.6f : 0.2f);
 }
