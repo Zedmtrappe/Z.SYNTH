@@ -35,6 +35,19 @@ mix.drive = 0.5
 osc.drift = 0.3
 voice.vintage = 0.3
 amp.level = 0.478
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.on = on
+fx.rev.mix = 0
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [Minimoog - Solo Lead]
 category = Moog Minimoog
@@ -70,6 +83,15 @@ fx.dly.on = on
 fx.dly.div = 1/4D
 fx.dly.mix = 0.18
 amp.level = 0.447
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [Minimoog - Pluck Bass]
 category = Moog Minimoog
@@ -90,6 +112,19 @@ env1.s = 0.3
 env1.r = 0.08
 mix.drive = 0.4
 amp.level = 1.000
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.on = on
+fx.rev.mix = 0
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [Minimoog - Resonant Sweep]
 category = Moog Minimoog
@@ -110,6 +145,15 @@ env1.r = 0.4
 fx.dly.on = on
 fx.dly.mix = 0.2
 amp.level = 0.550
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 # -------------------------------------------------------- Moog Modular ----
 
@@ -136,6 +180,17 @@ env1.r = 0.1
 fx.rev.on = on
 fx.rev.mix = 0.15
 amp.level = 0.607
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [Modular - Sequenced Bass]
 category = Moog Modular
@@ -173,6 +228,19 @@ fx.dly.on = on
 fx.dly.div = 1/8D
 fx.dly.mix = 0.2
 amp.level = 0.919
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.on = on
+fx.rev.mix = 0
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [Modular - Big Brass Wall]
 category = Moog Modular
@@ -195,6 +263,17 @@ voice.vintage = 0.4
 fx.rev.on = on
 fx.rev.mix = 0.25
 amp.level = 0.259
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [Modular - Percussive Blip]
 category = Moog Modular
@@ -217,6 +296,15 @@ fx.dly.on = on
 fx.dly.div = 1/8D
 fx.dly.mix = 0.3
 amp.level = 1.000
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 # ----------------------------------------------------------- ARP 2600 ----
 
@@ -241,6 +329,17 @@ env1.r = 0.3
 fx.rev.on = on
 fx.rev.mix = 0.25
 amp.level = 0.319
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [2600 - Ring Mod Bell]
 category = ARP 2600
@@ -260,6 +359,17 @@ env1.r = 1.2
 fx.rev.on = on
 fx.rev.mix = 0.3
 amp.level = 0.462
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [2600 - Sync Lead]
 category = ARP 2600
@@ -281,6 +391,15 @@ env1.r = 0.15
 fx.dly.on = on
 fx.dly.mix = 0.18
 amp.level = 0.477
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [2600 - Space Wind]
 category = ARP 2600
@@ -303,6 +422,17 @@ fx.rev.on = on
 fx.rev.size = 0.9
 fx.rev.mix = 0.4
 amp.level = 0.236
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 # --------------------------------------------------------- ARP Odyssey ----
 
@@ -328,6 +458,15 @@ env2.s = 0.4
 env1.s = 1
 env1.r = 0.15
 amp.level = 0.519
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [Odyssey - Funk Bass]
 category = ARP Odyssey
@@ -346,6 +485,19 @@ env1.d = 0.3
 env1.s = 0.5
 env1.r = 0.05
 amp.level = 1.000
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.on = on
+fx.rev.mix = 0
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [Odyssey - Sync Sweep]
 category = ARP Odyssey
@@ -363,6 +515,15 @@ flt.cutoff = 3500
 env1.s = 1
 env1.r = 0.2
 amp.level = 0.555
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 # --------------------------------------------------------- Korg MS-20 ----
 
@@ -389,6 +550,15 @@ mod1.amt = 0.3
 fx.dly.on = on
 fx.dly.mix = 0.15
 amp.level = 0.488
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [MS-20 - Growl Bass]
 category = Korg MS-20
@@ -409,6 +579,19 @@ flt.hpf = 60
 env1.s = 1
 env1.r = 0.08
 amp.level = 0.435
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.on = on
+fx.rev.mix = 0
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [MS-20 - High-Pass Pluck]
 category = Korg MS-20
@@ -426,6 +609,15 @@ env1.r = 0.2
 fx.dly.on = on
 fx.dly.mix = 0.2
 amp.level = 1.000
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [MS-20 - Noise Sweep FX]
 category = Korg MS-20
@@ -446,6 +638,17 @@ env1.r = 1
 fx.rev.on = on
 fx.rev.mix = 0.3
 amp.level = 0.573
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 # -------------------------------------------------------- Roland SH-101 ----
 
@@ -464,6 +667,19 @@ env2.s = 0.1
 env1.s = 1
 env1.r = 0.05
 amp.level = 0.556
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.on = on
+fx.rev.mix = 0
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [SH-101 - Arp Lead]
 category = Roland SH-101
@@ -488,6 +704,15 @@ fx.dly.on = on
 fx.dly.div = 1/8D
 fx.dly.mix = 0.2
 amp.level = 1.000
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [SH-101 - Square Blip]
 category = Roland SH-101
@@ -504,6 +729,15 @@ env1.d = 0.15
 env1.s = 0
 env1.r = 0.05
 amp.level = 0.794
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [SH-101 - Pulse Width Bass]
 category = Roland SH-101
@@ -523,6 +757,19 @@ env2.s = 0.3
 env1.s = 1
 env1.r = 0.06
 amp.level = 0.525
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.on = on
+fx.rev.mix = 0
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 # -------------------------------------------------------- Roland TB-303 ----
 
@@ -574,6 +821,15 @@ fx.dly.on = on
 fx.dly.div = 1/8D
 fx.dly.mix = 0.15
 amp.level = 1.000
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [TB-303 - Square Squelch]
 category = Roland TB-303
@@ -604,6 +860,15 @@ env2.vel = 0.8
 env1.s = 0.9
 env1.r = 0.02
 amp.level = 0.741
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [TB-303 - Distorted Acid]
 category = Roland TB-303
@@ -652,6 +917,15 @@ fx.dly.on = on
 fx.dly.div = 1/8D
 fx.dly.mix = 0.2
 amp.level = 0.792
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 # -------------------------------------------------- Sequential Prophet-5 ----
 
@@ -683,6 +957,15 @@ voice.vintage = 0.35
 fx.dly.on = on
 fx.dly.mix = 0.18
 amp.level = 0.706
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [Prophet-5 - Poly Brass]
 category = Sequential Prophet-5
@@ -702,6 +985,15 @@ voice.vintage = 0.4
 fx.cho.on = on
 fx.cho.mix = 0.2
 amp.level = 0.445
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [Prophet-5 - Poly-Mod Bell]
 category = Sequential Prophet-5
@@ -726,6 +1018,17 @@ voice.vintage = 0.3
 fx.rev.on = on
 fx.rev.mix = 0.3
 amp.level = 0.617
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [Prophet-5 - Soft Strings]
 category = Sequential Prophet-5
@@ -748,6 +1051,17 @@ fx.cho.mix = 0.35
 fx.rev.on = on
 fx.rev.mix = 0.25
 amp.level = 0.253
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 # --------------------------------------------------------- Oberheim OB-X ----
 
@@ -1118,6 +1432,17 @@ fx.cho.mix = 0.3
 fx.rev.on = on
 fx.rev.mix = 0.3
 amp.level = 0.221
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [OB-Xa - Unison Lead]
 category = Oberheim OB-Xa
@@ -1136,6 +1461,15 @@ env2.s = 0.5
 env1.s = 1
 env1.r = 0.2
 amp.level = 0.220
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 # --------------------------------------------------------- Oberheim SEM ----
 
@@ -1160,6 +1494,17 @@ env1.r = 1.2
 fx.rev.on = on
 fx.rev.mix = 0.3
 amp.level = 0.192
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [SEM - Bandpass Bass]
 category = Oberheim SEM
@@ -1179,6 +1524,19 @@ env2.s = 0.2
 env1.s = 1
 env1.r = 0.06
 amp.level = 1.000
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.on = on
+fx.rev.mix = 0
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [SEM - Brass]
 category = Oberheim SEM
@@ -1195,6 +1553,15 @@ env1.s = 0.9
 env1.r = 0.35
 voice.vintage = 0.35
 amp.level = 0.298
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 # ------------------------------------------------------ Roland Jupiter-8 ----
 
@@ -1224,6 +1591,15 @@ fx.cho.mix = 0.25
 fx.dly.on = on
 fx.dly.mix = 0.15
 amp.level = 0.375
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [Jupiter-8 - Arp Pulse]
 category = Roland Jupiter-8
@@ -1253,6 +1629,15 @@ fx.dly.on = on
 fx.dly.div = 1/8D
 fx.dly.mix = 0.2
 amp.level = 1.000
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [Jupiter-8 - Lush Strings]
 category = Roland Jupiter-8
@@ -1273,6 +1658,17 @@ fx.cho.mix = 0.4
 fx.rev.on = on
 fx.rev.mix = 0.3
 amp.level = 0.252
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [Jupiter-8 - Hollow Pad]
 category = Roland Jupiter-8
@@ -1294,6 +1690,17 @@ fx.cho.mix = 0.4
 fx.rev.on = on
 fx.rev.mix = 0.35
 amp.level = 0.276
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 # ------------------------------------------------------ Roland Juno-60 ----
 
@@ -1323,6 +1730,15 @@ fx.cho.rate = 0.5
 fx.cho.depth = 0.65
 fx.cho.mix = 0.55
 amp.level = 0.410
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [Juno-60 - Sub Bass]
 category = Roland Juno
@@ -1339,6 +1755,19 @@ env1.s = 1
 env1.r = 0.05
 osc.drift = 0
 amp.level = 0.501
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.on = on
+fx.rev.mix = 0
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [Juno-106 - Hoover]
 category = Roland Juno
@@ -1366,6 +1795,15 @@ env1.r = 0.3
 fx.cho.on = on
 fx.cho.mix = 0.6
 amp.level = 0.245
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [Juno-60 - PWM Strings]
 category = Roland Juno
@@ -1385,6 +1823,17 @@ fx.cho.mix = 0.6
 fx.rev.on = on
 fx.rev.mix = 0.2
 amp.level = 0.345
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 # -------------------------------------------------------- Yamaha CS-80 ----
 
@@ -1418,6 +1867,17 @@ fx.rev.on = on
 fx.rev.size = 0.9
 fx.rev.mix = 0.4
 amp.level = 0.133
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [CS-80 - Ribbon Lead]
 category = Yamaha CS-80
@@ -1446,6 +1906,17 @@ mod1.amt = 0.03
 fx.rev.on = on
 fx.rev.mix = 0.35
 amp.level = 0.315
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [CS-80 - Dream Strings]
 category = Yamaha CS-80
@@ -1467,6 +1938,17 @@ fx.rev.on = on
 fx.rev.size = 0.9
 fx.rev.mix = 0.45
 amp.level = 0.349
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 # -------------------------------------------------------- Korg Polysix ----
 
@@ -1484,6 +1966,15 @@ fx.ens.on = on
 fx.ens.mix = 0.75
 fx.ens.depth = 0.8
 amp.level = 0.800
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [Polysix - Chord Stab]
 category = Korg Polysix
@@ -1510,6 +2001,15 @@ fx.dly.on = on
 fx.dly.div = 1/8D
 fx.dly.mix = 0.2
 amp.level = 1.000
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [Polysix - PWM Pad]
 category = Korg Polysix
@@ -1533,6 +2033,15 @@ fx.pha.mix = 0.35
 fx.ens.on = on
 fx.ens.mix = 0.5
 amp.level = 0.547
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 # ---------------------------------------------------------- Yamaha DX7 ----
 
@@ -1614,6 +2123,15 @@ env1.r = 0.7
 env1.vel = 0.2
 fx.cho.on = on
 fx.cho.mix = 0.25
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [DX7 - FM Bass]
 category = Yamaha DX7
@@ -1682,6 +2200,19 @@ env1.a = 0.001
 env1.s = 1
 env1.r = 0.15
 env1.vel = 0.3
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.on = on
+fx.rev.mix = 0
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [DX7 - Tubular Bells]
 category = Yamaha DX7
@@ -1757,6 +2288,17 @@ env1.vel = 0.3
 fx.rev.on = on
 fx.rev.size = 0.8
 fx.rev.mix = 0.3
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [DX7 - Brass]
 category = Yamaha DX7
@@ -1827,6 +2369,17 @@ mod1.dst = LFO1 Amount
 mod1.amt = 0.02
 fx.rev.on = on
 fx.rev.mix = 0.2
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [DX7 - Marimba]
 category = Yamaha DX7
@@ -1898,6 +2451,17 @@ env1.r = 0.5
 env1.vel = 0.3
 fx.rev.on = on
 fx.rev.mix = 0.2
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [DX7 - Clav]
 category = Yamaha DX7
@@ -1965,6 +2529,15 @@ env1.a = 0.001
 env1.s = 1
 env1.r = 0.08
 env1.vel = 0.3
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [DX7 - Glass Keys]
 category = Yamaha DX7
@@ -2042,6 +2615,17 @@ fx.dly.on = on
 fx.dly.mix = 0.15
 fx.rev.on = on
 fx.rev.mix = 0.25
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 # ------------------------------------------------------------ PPG Wave ----
 
@@ -2071,6 +2655,17 @@ fx.cho.mix = 0.25
 fx.rev.on = on
 fx.rev.mix = 0.25
 amp.level = 0.368
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [PPG - Digital Choir]
 category = PPG Wave
@@ -2094,6 +2689,17 @@ fx.cho.mix = 0.4
 fx.rev.on = on
 fx.rev.mix = 0.35
 amp.level = 0.814
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [PPG - Glass Arp]
 category = PPG Wave
@@ -2120,6 +2726,17 @@ fx.dly.mix = 0.3
 fx.rev.on = on
 fx.rev.mix = 0.2
 amp.level = 1.000
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [PPG - Sync Bass]
 category = PPG Wave
@@ -2140,6 +2757,19 @@ env1.s = 1
 env1.r = 0.08
 osc.sub.level = 0.4
 amp.level = 0.589
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.on = on
+fx.rev.mix = 0
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 # ------------------------------------------------------- Roland JD-800 ----
 
@@ -2176,6 +2806,17 @@ fx.cho.mix = 0.3
 fx.rev.on = on
 fx.rev.mix = 0.25
 amp.level = 0.973
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [JD-800 - Bright Strings]
 category = Roland JD-800
@@ -2201,6 +2842,17 @@ fx.ens.mix = 0.5
 fx.rev.on = on
 fx.rev.mix = 0.3
 amp.level = 0.444
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 # -------------------------------------------------------- Elka Synthex ----
 
@@ -2599,6 +3251,17 @@ fx.cho.mix = 0.5
 fx.rev.on = on
 fx.rev.mix = 0.3
 amp.level = 0.383
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 # --------------------------------------------------------- ARP Solina ----
 
@@ -2624,6 +3287,17 @@ fx.ens.depth = 0.9
 fx.rev.on = on
 fx.rev.mix = 0.2
 amp.level = 0.576
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [Solina - Cellos]
 category = ARP Solina
@@ -2642,6 +3316,17 @@ fx.ens.mix = 0.8
 fx.rev.on = on
 fx.rev.mix = 0.2
 amp.level = 0.977
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 # ------------------------------------------------------------- Buchla ----
 
@@ -2670,6 +3355,17 @@ env1.r = 0.2
 fx.rev.on = on
 fx.rev.mix = 0.2
 amp.level = 0.713
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [Buchla - Fold Lead]
 category = Buchla
@@ -2691,6 +3387,15 @@ env1.r = 0.25
 fx.dly.on = on
 fx.dly.mix = 0.2
 amp.level = 0.472
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [Buchla - Random Voltages]
 category = Buchla
@@ -2716,6 +3421,15 @@ fx.dly.div = 1/8D
 fx.dly.mix = 0.3
 fx.dly.fb = 0.5
 amp.level = 0.274
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 # =============================================================================
 #  Digital and virtual-analogue classics of the 90s. The ROM waves, wave
@@ -2759,6 +3473,15 @@ fx.rev.on = on
 fx.rev.type = Lexicon 480L
 fx.rev.mix = 0.22
 amp.level = 0.635
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [JP-8000 - Trance Pad]
 category = Roland JP-8000
@@ -2793,6 +3516,15 @@ fx.rev.type = Lexicon 480L
 fx.rev.size = 0.8
 fx.rev.mix = 0.35
 amp.level = 0.566
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [JP-8000 - Supersaw Stab]
 category = Roland JP-8000
@@ -2821,6 +3553,17 @@ fx.dly.mix = 0.25
 fx.rev.on = on
 fx.rev.mix = 0.2
 amp.level = 1.000
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [JP-8000 - Saw Bass]
 category = Roland JP-8000
@@ -2845,6 +3588,19 @@ env1.d = 0.5
 env1.s = 0.7
 env1.r = 0.12
 amp.level = 0.867
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.on = on
+fx.rev.mix = 0
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [JP-8000 - Resonant Sweep]
 category = Roland JP-8000
@@ -3272,6 +4028,15 @@ fx.dly.mix = 0.2
 fx.rev.on = on
 fx.rev.type = Lexicon 480L
 fx.rev.mix = 0.28
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [AXEL F]
 category = Roland JP-8000
@@ -3698,6 +4463,15 @@ fx.dly.sync = on
 fx.dly.div = 1/8D
 fx.dly.mix = 0.2
 amp.level = 0.318
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [Virus - Hoover]
 category = Access Virus
@@ -3733,6 +4507,15 @@ fx.cho.type = Virus
 fx.cho.depth = 0.8
 fx.cho.mix = 0.6
 amp.level = 0.362
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [Virus - Spectral Pad]
 category = Access Virus
@@ -3760,9 +4543,19 @@ fx.cho.on = on
 fx.cho.type = Virus
 fx.cho.mix = 0.35
 fx.rev.on = on
-fx.rev.type = Hall
 fx.rev.mix = 0.35
 amp.level = 0.466
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [Virus - Rave Stab]
 category = Access Virus
@@ -3789,6 +4582,15 @@ fx.rev.on = on
 fx.rev.type = Yamaha REV7
 fx.rev.mix = 0.25
 amp.level = 0.450
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [Virus - Acid Bass]
 category = Access Virus
@@ -3813,6 +4615,19 @@ fx.drive.on = on
 fx.drive.amt = 0.3
 fx.drive.mix = 0.5
 amp.level = 0.566
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.on = on
+fx.rev.mix = 0
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [Virus - Sync Wobble]
 category = Access Virus
@@ -3842,6 +4657,15 @@ env1.r = 0.1
 
 # ----------------------------------------------------- Korg Wavestation ----
 amp.level = 0.425
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [Wavestation - Rhythmic Seq]
 category = Korg Wavestation
@@ -3871,9 +4695,19 @@ fx.dly.div = 1/8D
 fx.dly.fb = 0.35
 fx.dly.mix = 0.25
 fx.rev.on = on
-fx.rev.type = Hall
 fx.rev.mix = 0.35
 amp.level = 0.460
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [Wavestation - Digital Seq Pad]
 category = Korg Wavestation
@@ -3912,6 +4746,15 @@ fx.rev.type = Lexicon 480L
 fx.rev.size = 0.85
 fx.rev.mix = 0.4
 amp.level = 0.635
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [Wavestation - Vector Choir]
 category = Korg Wavestation
@@ -3949,6 +4792,15 @@ fx.rev.type = Lexicon 480L
 fx.rev.size = 0.9
 fx.rev.mix = 0.4
 amp.level = 0.460
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [Wavestation - Vocal Seq]
 category = Korg Wavestation
@@ -3975,9 +4827,19 @@ fx.cho.on = on
 fx.cho.type = Korg Stereo
 fx.cho.mix = 0.3
 fx.rev.on = on
-fx.rev.type = Hall
 fx.rev.mix = 0.35
 amp.level = 0.681
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [Wavestation - Bell Seq]
 category = Korg Wavestation
@@ -4004,9 +4866,19 @@ fx.dly.div = 1/4D
 fx.dly.fb = 0.4
 fx.dly.mix = 0.3
 fx.rev.on = on
-fx.rev.type = Hall
 fx.rev.mix = 0.35
 amp.level = 0.705
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [Wavestation - Glass Spectrum]
 category = Korg Wavestation
@@ -4039,6 +4911,15 @@ fx.rev.mix = 0.4
 
 # ------------------------------------------------------- Roland JD-800 ----
 amp.level = 0.541
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [JD-800 - Crystal Pad]
 category = Roland JD-800
@@ -4065,6 +4946,15 @@ fx.rev.type = Yamaha REV7
 fx.rev.size = 0.8
 fx.rev.mix = 0.35
 amp.level = 0.499
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [JD-800 - Spectrum Lead]
 category = Roland JD-800
@@ -4095,6 +4985,15 @@ fx.cho.mix = 0.25
 fx.dly.on = on
 fx.dly.mix = 0.2
 amp.level = 0.621
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [JD-800 - Digital Bell Pad]
 category = Roland JD-800
@@ -4119,6 +5018,15 @@ fx.rev.on = on
 fx.rev.type = Yamaha REV7
 fx.rev.mix = 0.35
 amp.level = 0.337
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [JD-800 - Breath Vox]
 category = Roland JD-800
@@ -4143,9 +5051,19 @@ fx.cho.on = on
 fx.cho.type = Roland Digital
 fx.cho.mix = 0.35
 fx.rev.on = on
-fx.rev.type = Hall
 fx.rev.mix = 0.35
 amp.level = 0.430
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [JD-800 - Fat Brass]
 category = Roland JD-800
@@ -4174,6 +5092,17 @@ fx.cho.mix = 0.25
 fx.rev.on = on
 fx.rev.mix = 0.2
 amp.level = 0.466
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [JD-800 - Metal Pad]
 category = Roland JD-800
@@ -4204,6 +5133,15 @@ fx.rev.mix = 0.35
 
 # ------------------------------------------------------ Roland JV-1080 ----
 amp.level = 0.614
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [JV-1080 - Strings]
 category = Roland JV-1080
@@ -4226,9 +5164,19 @@ fx.cho.on = on
 fx.cho.type = Roland Digital
 fx.cho.mix = 0.3
 fx.rev.on = on
-fx.rev.type = Hall
 fx.rev.mix = 0.3
 amp.level = 0.406
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [JV-1080 - Choir Aahs]
 category = Roland JV-1080
@@ -4250,10 +5198,20 @@ fx.cho.on = on
 fx.cho.type = Roland Digital
 fx.cho.mix = 0.4
 fx.rev.on = on
-fx.rev.type = Hall
 fx.rev.size = 0.8
 fx.rev.mix = 0.35
 amp.level = 0.396
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [JV-1080 - Warm Synth Pad]
 category = Roland JV-1080
@@ -4281,6 +5239,17 @@ fx.cho.mix = 0.35
 fx.rev.on = on
 fx.rev.mix = 0.3
 amp.level = 0.614
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [JV-1080 - Digital E.Piano]
 category = Roland JV-1080
@@ -4307,6 +5276,15 @@ fx.rev.on = on
 fx.rev.type = Room
 fx.rev.mix = 0.2
 amp.level = 0.535
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [JV-1080 - Heaven Pad]
 category = Roland JV-1080
@@ -4332,6 +5310,15 @@ fx.rev.type = Lexicon 480L
 fx.rev.size = 0.9
 fx.rev.mix = 0.45
 amp.level = 0.366
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [JV-1080 - Pluck Harp]
 category = Roland JV-1080
@@ -4355,11 +5342,21 @@ fx.dly.sync = on
 fx.dly.div = 1/4D
 fx.dly.mix = 0.2
 fx.rev.on = on
-fx.rev.type = Hall
 fx.rev.mix = 0.4
 
 # ---------------------------------------------- Korg Trinity / Triton ----
 amp.level = 0.430
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [Triton - Lush Pad]
 category = Korg Trinity-Triton
@@ -4389,6 +5386,15 @@ fx.rev.on = on
 fx.rev.type = Lexicon 480L
 fx.rev.mix = 0.4
 amp.level = 0.392
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [Triton - Ambient Vox]
 category = Korg Trinity-Triton
@@ -4422,6 +5428,15 @@ fx.rev.type = Lexicon 480L
 fx.rev.size = 0.9
 fx.rev.mix = 0.45
 amp.level = 0.353
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [Triton - Digital Bells]
 category = Korg Trinity-Triton
@@ -4448,6 +5463,15 @@ fx.rev.on = on
 fx.rev.type = Quantec QRS
 fx.rev.mix = 0.35
 amp.level = 0.357
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [Trinity - Metal Sweep]
 category = Korg Trinity-Triton
@@ -4476,6 +5500,17 @@ fx.cho.mix = 0.3
 fx.rev.on = on
 fx.rev.mix = 0.35
 amp.level = 0.466
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [Triton - Mallet Keys]
 category = Korg Trinity-Triton
@@ -4504,6 +5539,17 @@ fx.dly.mix = 0.2
 fx.rev.on = on
 fx.rev.mix = 0.3
 amp.level = 0.523
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [Trinity - Brass Section]
 category = Korg Trinity-Triton
@@ -4531,11 +5577,21 @@ env1.a = 0.03
 env1.s = 1
 env1.r = 0.4
 fx.rev.on = on
-fx.rev.type = Hall
 fx.rev.mix = 0.25
 
 # ------------------------------------------------------------ Alesis QS ----
 amp.level = 0.308
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [QS - Velvet Pad]
 category = Alesis QS
@@ -4559,6 +5615,15 @@ fx.rev.on = on
 fx.rev.type = Lexicon PCM70
 fx.rev.mix = 0.35
 amp.level = 0.466
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [QS - Air Choir]
 category = Alesis QS
@@ -4583,6 +5648,15 @@ fx.rev.type = Lexicon PCM70
 fx.rev.size = 0.8
 fx.rev.mix = 0.4
 amp.level = 0.387
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [QS - Bright Keys]
 category = Alesis QS
@@ -4607,6 +5681,15 @@ fx.rev.on = on
 fx.rev.type = Room
 fx.rev.mix = 0.2
 amp.level = 0.410
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
 [QS - Glass Strings]
 category = Alesis QS
@@ -4627,9 +5710,19 @@ env1.r = 1.2
 fx.cho.on = on
 fx.cho.mix = 0.3
 fx.rev.on = on
-fx.rev.type = Hall
 fx.rev.mix = 0.3
 amp.level = 0.455
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
+fx.rev.type = Bricasti M7
+fx.rev.lowcut = 250
 
 [QS - Bowed Pad]
 category = Alesis QS
@@ -4654,4 +5747,13 @@ fx.rev.type = Lexicon PCM70
 fx.rev.size = 0.9
 fx.rev.mix = 0.45
 amp.level = 0.341
+comp.on = on
+comp.thresh = 0
+out.valve.on = on
+out.valve.drive = 0.5
+out.xfmr.on = on
+out.xfmr.amt = 0.5
+tape.on = on
+tape.model = Otari MTR-90
+tape.speed = 30 ips
 
