@@ -152,6 +152,7 @@ asks for permission to use the audio input; allow it.
 | GAIN | Input level: strong picking should go well past the gate line on the meter |
 | GATE | Level that starts a note (notes end 6 dB below it); raise it if hum or string noise triggers notes |
 | TRACKING | How sure the detector must be: loose = fastest, strict = steadiest |
+| CLEAN UP | Removes tracking glitches: the stray, short, low notes a detector produces as a note decays (it briefly hears an octave or more down) or when a tail is re-read without a new pick. Readings like that must hold steady for longer before they play (up to about 20 ms on guitar, 30 ms on bass), and an unpicked jump to an exact octave / octave-and-a-fifth / two octaves down is ignored. Notes you pick with a clean pitch are never delayed. 0 = off, 0.5 = default, 1 = strongest |
 | VELOCITY | How much picking strength sets velocity (0 = always 100) |
 | DRY | Blends the instrument's own sound with the synth |
 

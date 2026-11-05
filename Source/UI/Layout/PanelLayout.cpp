@@ -639,23 +639,25 @@ PanelLayout::PanelLayout()
     }
 
     // --------------------------------------------------------- pitch track
-    pageList.push_back({ "track", "PITCH TRACK", { 640, 250, 640, 300 } });
+    pageList.push_back({ "track", "PITCH TRACK", { 640, 250, 640, 340 } });
     page("track");
-    sectionAt("trackPage", "PITCH TRACK  -  GUITAR / BASS IN", 0, 0, 640, 300);
+    sectionAt("trackPage", "PITCH TRACK  -  GUITAR / BASS IN", 0, 0, 640, 340);
     utilityAt("trackClose", 600, 3, 34, 20);
     utilityAt("trackDisplay", 20, 40, 300, 156);
     add("trk.input", K::Selector, 340, 44, "INPUT", 130);
     add("trk.range", K::Selector, 484, 44, "RANGE", 130);
     add("trk.bend", K::Switch, 340, 96, "BEND FOLLOW", 92);
+    add("trk.clean", K::Knob, 470, 88, "CLEAN UP");
     const std::pair<const char*, const char*> trackKnobs[5] = { { "trk.gain", "GAIN" }, { "trk.gate", "GATE" },
         { "trk.thresh", "TRACKING" }, { "trk.vel", "VELOCITY" }, { "trk.dry", "DRY" } };
     for (int k = 0; k < 5; ++k)
         add(trackKnobs[k].first, K::Knob, 20 + k * 62, 214, trackKnobs[k].second);
     text("Play one note at a time.  GAIN: strong picking should reach well past the gate line on the meter.  "
          "GATE: raise it if hum or string noise starts notes.  TRACKING: loose = fastest, strict = steadiest.  "
+         "CLEAN UP: removes stray short low notes (doubtful readings must be confirmed; picked notes stay instant).  "
          "Choose the audio interface and input in Options > Audio/MIDI Settings.  While PITCH TRACK is on the "
          "keyboards, QWERTY and MIDI notes are off (MIDI controllers such as sustain still work).",
-         340, 150, 280, 140, juce::Justification::topLeft);
+         340, 162, 280, 170, juce::Justification::topLeft);
 
     // ---------------------------------------------------------- tape page
     pageList.push_back({ "tape", "TAPE", { 600, 400, 720, 170 } });

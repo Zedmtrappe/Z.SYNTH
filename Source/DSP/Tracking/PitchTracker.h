@@ -19,6 +19,17 @@
 // (scaled to the synth's bend range); past that range, or without bend
 // follow, a pitch change plays the new note legato.
 //
+// CLEAN UP. The typical tracking glitch is a short, low note: the detector
+// briefly locks onto a subharmonic (an octave or more down) as a note
+// decays, or re-voices a note in the tail with no new pick. A candidate is
+// SUSPICIOUS when it arrives without a fresh pick attack and lies well below
+// the note being played (or just played), sits below the instrument's range,
+// or comes from a weak pitch reading. Suspicious candidates must hold steady
+// for longer (up to ~20 ms guitar / ~30 ms bass at full CLEAN UP) before they
+// play, and an unpicked jump to an exact subharmonic (an octave, an octave and
+// a fifth, two octaves down) is ignored outright. Notes that come with a pick
+// attack and a clean reading are never delayed: no added latency.
+//
 // Real-time safe: all memory is allocated in prepare().
 
 #include "../Engine/SynthEngine.h"
@@ -41,6 +52,7 @@ struct TrackerSettings
     bool bendFollow = true;
     float bendRange = 2.0f;    // the synth's pitch-bend range in semitones
     int channel = 1;           // MIDI channel of the events (1..16)
+    float cleanUp = 0.5f;      // CLEAN UP 0 = off .. 1 = strongest glitch suppression
 };
 
 class PitchTracker
@@ -83,6 +95,9 @@ public:
         lastMidi = -100.0f;
         stable = 0;
         velocityNow = 100;
+        recentNote = -1;
+        sinceNoteEnd = 1 << 20;
+        lastAperiodicity = 1.0f;
         uiLevelDb.store(-120.0f);
         uiFrequency.store(0.0f);
         uiNote.store(-1);
@@ -227,6 +242,10 @@ private:
         slowAttack = std::exp(-1.0f / (0.012f * fs));
         slowRelease = std::exp(-1.0f / (0.25f * fs));
         holdSamples = (int) (0.03f * fs);
+        // CLEAN UP timing, in analysis hops: up to ~20 ms (guitar) / ~32 ms (bass) of extra
+        // confirmation for suspicious readings; "just played" = the last 0.4 s.
+        cleanHops = 8;
+        recentHops = (int) std::lround(0.4f * cfg.fsd / (float) cfg.hop);
         minOnsetGap = (int) (0.07f * fs);
         histLen = 0;
         decimPhase = hopPhase = 0;
@@ -305,6 +324,7 @@ private:
         // twice as long was also examined (guards against octave-up errors).
         if (best < 0 || (early && 2 * best > tauLim) || best >= tauLim)
             return 0.0f;
+        lastAperiodicity = d[best];
         float refined = (float) best;
         if (best > 1)
         {
@@ -318,6 +338,8 @@ private:
 
     void analyse(int offset, const TrackerSettings& s, float thr, int needStable, float gateOn)
     {
+        if (sinceNoteEnd < (1 << 20))
+            ++sinceNoteEnd;
         const float f = gateOpen ? detect(thr) : 0.0f;
         const bool voiced = f > 0.0f;
         uiFrequency.store(f);
@@ -330,7 +352,37 @@ private:
         const float midi = 69.0f + 12.0f * std::log2(f / 440.0f);
         stable = std::abs(midi - lastMidi) < 0.5f ? stable + 1 : 1;
         lastMidi = midi;
-        if (stable < needStable)
+
+        // CLEAN UP: does this reading look like a glitch? (see the header)
+        const float clean = std::clamp(s.cleanUp, 0.0f, 1.0f);
+        int need = needStable;
+        if (clean > 0.0f)
+        {
+            const bool picked = onset; // a pick attack since the last note started
+            const int ref = noteOn ? note : (sinceNoteEnd < recentHops ? recentNote : -1);
+            const float drop = ref >= 0 ? (float) ref - midi : 0.0f;
+            const float lowest = s.bass ? 23.0f : 38.0f; // low B of a 5-string bass / drop-D guitar
+            const bool weak = lastAperiodicity > thr * 0.55f;
+            bool suspicious = false;
+            if (! picked && drop >= 5.0f)
+                suspicious = true;                                      // fell well below what is playing
+            if (! picked && ! noteOn && ref >= 0)
+                suspicious = true;                                      // re-voiced in a tail, no new pick
+            if (midi < lowest - 0.5f)
+                suspicious = true;                                      // below the instrument's range
+            if (weak && drop > 0.5f)
+                suspicious = true;                                      // a doubtful reading, and lower
+            if (suspicious)
+            {
+                // An unpicked exact subharmonic of the note is a detector error: never play it.
+                if (! picked && ref >= 0 && clean >= 0.25f)
+                    for (float sub : { 12.0f, 19.0f, 24.0f })
+                        if (std::abs(drop - sub) < 0.45f)
+                            return;
+                need += (int) std::lround(clean * (float) cleanHops);
+            }
+        }
+        if (stable < need)
             return;
 
         const float bendRange = std::max(0.5f, s.bendRange);
@@ -396,6 +448,8 @@ private:
 
     void endNote(int offset)
     {
+        recentNote = note;
+        sinceNoteEnd = 0;
         emit(offset, (uint8_t) (0x80 | (channel - 1)), (uint8_t) note, 0);
         noteOn = false;
         note = -1;
@@ -431,6 +485,8 @@ private:
 
     bool noteOn = false;
     int note = -1, velocityNow = 100, stable = 0;
+    int recentNote = -1, sinceNoteEnd = 1 << 20, cleanHops = 8, recentHops = 160;
+    float lastAperiodicity = 1.0f;
     float lastMidi = -100.0f, lastBend = 0.0f;
 
     MidiEvent* events = nullptr;

@@ -1676,6 +1676,53 @@ ZS_TEST(pitch_tracker_guitar_and_bass)
         ZS_CHECK(on == off);
     }
 
+    // CLEAN UP: a stray subharmonic in a note's tail (no new pick) is the classic
+    // glitch: a short note an octave down. It is dialled out, and the real notes
+    // still start just as fast.
+    {
+        auto withGlitch = [&] {
+            std::vector<float> in((size_t) (fs * 2.0f), 0.0f);
+            pluck(in, 0.2, 220.0f, 1.4f);     // A3 = 57
+            // 60 ms of 110 Hz (A2) in the tail, faded in and out (no pick attack).
+            const int g0 = (int) (0.9f * fs), gl = (int) (0.06f * fs);
+            for (int i = 0; i < gl; ++i)
+            {
+                const float w = std::sin(3.14159265f * (float) i / (float) gl);
+                in[(size_t) (g0 + i)] += 0.06f * w * std::sin(2.0f * 3.14159265f * 110.0f * (float) (g0 + i) / fs);
+            }
+            pluck(in, 1.5, 98.0f, 0.4f);      // then a real, picked, lower note: G2 = 43
+            return in;
+        };
+        const auto in = withGlitch();
+        auto lowNotes = [&](float clean, double& firstLatency, double& lowLatency) {
+            TrackerSettings s;
+            s.bendFollow = false;
+            s.cleanUp = clean;
+            int strays = 0;
+            firstLatency = lowLatency = -1.0;
+            for (const auto& [t, nn] : noteOns(run(in, s)))
+            {
+                if (t > 0.2 && firstLatency < 0.0)
+                    firstLatency = t - 0.2;
+                if (t >= 0.25 && t < 1.45 && nn < 55)
+                    ++strays;
+                if (t >= 1.5 && nn == 43 && lowLatency < 0.0)
+                    lowLatency = t - 1.5;
+            }
+            return strays;
+        };
+        double l0, low0, l1, low1;
+        const int raw = lowNotes(0.0f, l0, low0);
+        const int cleaned = lowNotes(1.0f, l1, low1);
+        std::printf("    tail glitch: %d stray low note(s) with CLEAN UP 0, %d with CLEAN UP 1; "
+                    "A3 latency %.1f / %.1f ms, picked G2 %.1f / %.1f ms\n",
+                    raw, cleaned, l0 * 1000.0, l1 * 1000.0, low0 * 1000.0, low1 * 1000.0);
+        ZS_CHECK(raw >= 1);      // the glitch is real without CLEAN UP
+        ZS_CHECK(cleaned == 0);  // and gone with it
+        ZS_CHECK(std::abs(l1 - l0) < 0.0005);     // no added latency on the picked notes
+        ZS_CHECK(low1 >= 0.0 && std::abs(low1 - low0) < 0.0005);
+    }
+
     // Below the gate: nothing plays.
     {
         std::vector<float> in((size_t) fs, 0.0f);

@@ -370,6 +370,7 @@ X(SplitLowOct,   "split.lo.oct",  "Lower Octave", "Global", Int, -3.f, 3.f, 0.f,
 X(SplitUpOct,    "split.up.oct",  "Upper Octave", "Global", Int, -3.f, 3.f, 0.f, LIN, "oct", nullptr, "Octave shift of the UPPER sound.") \
 X(SplitLowVol,   "split.lo.vol",  "Lower Volume", "Global", Float, -40.f, 6.f, 0.f, LIN, "dB", nullptr, "Level of the LOWER sound.") \
 X(SplitUpVol,    "split.up.vol",  "Upper Volume", "Global", Float, -40.f, 6.f, 0.f, LIN, "dB", nullptr, "Level of the UPPER sound.") \
+X(TrkClean,      "trk.clean",     "Track Clean Up", "Global", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "CLEAN UP: suppresses tracking glitches (short stray low notes). Only doubtful readings wait to be confirmed: picked, clean notes are never delayed.") \
 
 #define ZS_OSC_WT_PARAMS(X, n) \
 X(Osc##n##WtTable, "osc" #n ".wt.table", "Osc " #n " Table", "Wavetable", Choice, 0, 0, 0.f, LIN, "", ZS_CH_OSC_TABLE, "Wavetable for this oscillator (Wavetable wave): SECTION = the WAVETABLE section's TABLE.") \
