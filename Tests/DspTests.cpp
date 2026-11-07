@@ -14,6 +14,7 @@
 #include "DSP/Effects/VintageEq.h"
 #include "DSP/FM/FmAlgorithms.h"
 #include "DSP/Tracking/PitchTracker.h"
+#include "DSP/Performance/Harmonizer.h"
 #include "DSP/FM/FmVoice.h"
 #include "DSP/Filters/Filters.h"
 #include "DSP/Oscillators/Oscillator.h"
@@ -368,6 +369,253 @@ ZS_TEST(wavetable_defaults_unchanged)
     for (size_t i = 0; i < a.size(); ++i)
         d = std::max(d, (double) std::abs(a[i] - b[i]));
     ZS_CHECK_LT(d, 1.0e-6);
+}
+
+
+// ============================================================== harmoniser ====
+
+namespace
+{
+    struct HarmRig
+    {
+        dsp::Harmonizer h;
+        dsp::HarmonySettings s;
+        std::vector<std::pair<int64_t, dsp::MidiEvent>> got;
+        int64_t t = 0;
+        HarmRig() { h.prepare(48000.0); }
+        void block(std::initializer_list<dsp::MidiEvent> in, int n = 256)
+        {
+            std::vector<dsp::MidiEvent> ev(in), out(256);
+            const int c = h.process(ev.data(), (int) ev.size(), n, s, out.data(), 256);
+            for (int k = 0; k < c; ++k)
+                got.push_back({ t + out[(size_t) k].offset, out[(size_t) k] });
+            t += n;
+        }
+        static dsp::MidiEvent on(int k, int v = 100) { return { 0, 0x90, (uint8_t) k, (uint8_t) v }; }
+        static dsp::MidiEvent off(int k) { return { 0, 0x80, (uint8_t) k, 0 }; }
+        std::vector<int> sounding() const
+        {
+            std::vector<int> c(128, 0);
+            for (const auto& [time, e] : got)
+            {
+                if ((e.status & 0xF0) == 0x90 && e.data2 > 0) ++c[e.data1];
+                else if ((e.status & 0xF0) == 0x80) --c[e.data1];
+            }
+            std::vector<int> r;
+            for (int k = 0; k < 128; ++k)
+                if (c[(size_t) k] != 0)
+                    r.push_back(k * (c[(size_t) k] > 0 ? 1 : -1000)); // a negative = an off without an on
+            return r;
+        }
+    };
+}
+
+ZS_TEST(harmoniser_plays_in_key)
+{
+    using dsp::Harmonizer;
+    // Diatonic 3rds and 5ths in C major.
+    {
+        HarmRig r;
+        r.s.key = 0;
+        r.s.scale = HarmScale::Major;
+        r.s.voices = 2;
+        r.s.interval[0] = HarmInterval::Third;
+        r.s.interval[1] = HarmInterval::Fifth;
+        r.s.down[0] = r.s.down[1] = false;
+        r.block({ HarmRig::on(64) }); // E4: 3rd = G4, 5th = B4
+        ZS_CHECK((r.sounding() == std::vector<int> { 64, 67, 71 }));
+        r.block({ HarmRig::off(64), HarmRig::on(65) }); // F4: A4, C5
+        ZS_CHECK((r.sounding() == std::vector<int> { 65, 69, 72 }));
+        r.block({ HarmRig::off(65) });
+        ZS_CHECK(r.sounding().empty());
+        // Velocity follows LEVEL.
+        int harmonyVel = 0;
+        for (const auto& [t, e] : r.got)
+            if ((e.status & 0xF0) == 0x90 && e.data1 == 67)
+                harmonyVel = e.data2;
+        ZS_CHECK(harmonyVel == 80);
+    }
+    // A natural minor, a 3rd up from B is D; a 6th down from C is E.
+    ZS_CHECK(Harmonizer::harmonyFor(59, HarmInterval::Third, false, 9, HarmScale::NaturalMinor) == 62);
+    ZS_CHECK(Harmonizer::harmonyFor(60, HarmInterval::Sixth, true, 9, HarmScale::NaturalMinor) == 52);
+    // Harmonic minor raises the 7th: a 3rd up from E in A harmonic minor is G#.
+    ZS_CHECK(Harmonizer::harmonyFor(64, HarmInterval::Third, false, 9, HarmScale::HarmonicMinor) == 68);
+    // Octave and 10th; FIXED ignores the key (3rd = major 3rd).
+    ZS_CHECK(Harmonizer::harmonyFor(62, HarmInterval::Octave, true, 0, HarmScale::Major) == 50);
+    ZS_CHECK(Harmonizer::harmonyFor(60, HarmInterval::Tenth, false, 0, HarmScale::Major) == 76);
+    ZS_CHECK(Harmonizer::harmonyFor(61, HarmInterval::Third, false, 0, HarmScale::Fixed) == 65);
+    // Pentatonic: the interval's size snapped into the scale (A minor pentatonic: A C D E G).
+    const int p = Harmonizer::harmonyFor(57, HarmInterval::Third, false, 9, HarmScale::MinorPentatonic);
+    ZS_CHECK(p == 60 || p == 62);
+    ZS_CHECK(Harmonizer::inScale(Harmonizer::harmonyFor(64, HarmInterval::Fifth, false, 9, HarmScale::MinorPentatonic), 9,
+                                 HarmScale::MinorPentatonic));
+}
+
+ZS_TEST(harmoniser_out_of_key_top_note_strum_and_range)
+{
+    // OUT OF KEY: C# in C major.
+    {
+        HarmRig snap;
+        snap.s.voices = 1;
+        snap.s.interval[0] = HarmInterval::Third;
+        snap.s.down[0] = false;
+        snap.s.outOfKey = HarmOutOfKey::Snap;
+        snap.block({ HarmRig::on(61) });
+        ZS_CHECK((snap.sounding() == std::vector<int> { 60, 64 })); // played as C, harmony E
+        snap.block({ HarmRig::off(61) });
+        ZS_CHECK(snap.sounding().empty());
+
+        HarmRig alone;
+        alone.s = snap.s;
+        alone.s.outOfKey = HarmOutOfKey::PlayAlone;
+        alone.block({ HarmRig::on(61) });
+        ZS_CHECK((alone.sounding() == std::vector<int> { 61 }));
+
+        HarmRig anyway;
+        anyway.s = snap.s;
+        anyway.s.outOfKey = HarmOutOfKey::Harmonise;
+        anyway.block({ HarmRig::on(61) });
+        ZS_CHECK((anyway.sounding() == std::vector<int> { 61, 65 })); // moves with it: E + 1
+    }
+    // TOP NOTE: a C major chord is harmonised on its top note only; releasing it
+    // moves the harmony to the next note down.
+    {
+        HarmRig r;
+        r.s.voices = 1;
+        r.s.interval[0] = HarmInterval::Third;
+        r.s.down[0] = false;
+        r.s.topNoteOnly = true;
+        r.block({ HarmRig::on(60), HarmRig::on(64), HarmRig::on(67) });
+        ZS_CHECK((r.sounding() == std::vector<int> { 60, 64, 67, 71 }));
+        r.block({ HarmRig::off(67) });
+        ZS_CHECK((r.sounding() == std::vector<int> { 60, 64, 67 })); // E's 3rd is G
+        r.block({ HarmRig::off(64), HarmRig::off(60) });
+        ZS_CHECK(r.sounding().empty());
+    }
+    // STRUM: harmony notes follow 20 ms apart; released before they start = never played.
+    {
+        HarmRig r;
+        r.s.voices = 2;
+        r.s.interval[0] = HarmInterval::Third;
+        r.s.interval[1] = HarmInterval::Fifth;
+        r.s.down[0] = r.s.down[1] = false;
+        r.s.strumMs = 20.0f;
+        r.block({ HarmRig::on(60) }, 512);
+        r.block({}, 2048);
+        int64_t tE = -1, tG = -1;
+        for (const auto& [t, e] : r.got)
+            if ((e.status & 0xF0) == 0x90)
+            {
+                if (e.data1 == 64) tE = t;
+                if (e.data1 == 67) tG = t;
+            }
+        std::printf("    strum: E at %.1f ms, G at %.1f ms\n", (double) tE / 48.0, (double) tG / 48.0);
+        ZS_CHECK(tE == 960 && tG == 1920);
+        r.block({ HarmRig::off(60) });
+        ZS_CHECK(r.sounding().empty());
+
+        HarmRig q;
+        q.s = r.s;
+        q.block({ HarmRig::on(60) }, 256);
+        q.block({ HarmRig::off(60) }, 256); // gone before the strum
+        q.block({}, 4096);
+        ZS_CHECK(q.sounding().empty());
+        ZS_CHECK(q.got.size() == 2);
+    }
+    // RANGE: an octave up from C5 with the top at C6 folds; outside it entirely it is skipped.
+    {
+        HarmRig r;
+        r.s.voices = 1;
+        r.s.interval[0] = HarmInterval::Fifth;
+        r.s.down[0] = false;
+        r.s.highest = 74;
+        r.block({ HarmRig::on(72) }); // G5 (79) folds to G4 (67)
+        ZS_CHECK((r.sounding() == std::vector<int> { 67, 72 }));
+    }
+}
+
+ZS_TEST(harmoniser_never_leaves_notes_hanging)
+{
+    // Random playing (chords, repeats, every mode, strums, a harmony that collides
+    // with played notes): every note it starts ends, and it never ends one it did not start.
+    uint32_t seed = 99;
+    auto rnd = [&seed](int n) { seed = seed * 1664525u + 1013904223u; return (int) ((seed >> 8) % (uint32_t) n); };
+    for (int round = 0; round < 40; ++round)
+    {
+        HarmRig r;
+        r.s.key = rnd(12);
+        r.s.scale = (HarmScale) rnd((int) HarmScale::Count);
+        r.s.voices = 1 + rnd(3);
+        for (int v = 0; v < 3; ++v)
+        {
+            r.s.interval[v] = (HarmInterval) rnd((int) HarmInterval::Count);
+            r.s.down[v] = rnd(2) == 1;
+        }
+        r.s.outOfKey = (HarmOutOfKey) rnd(3);
+        r.s.topNoteOnly = rnd(2) == 1;
+        r.s.strumMs = rnd(2) ? 0.0f : (float) rnd(40);
+        r.s.lowest = 30 + rnd(20);
+        r.s.highest = 70 + rnd(30);
+        std::vector<int> down;
+        for (int step = 0; step < 300; ++step)
+        {
+            std::vector<dsp::MidiEvent> ev;
+            if (! down.empty() && rnd(2))
+            {
+                const int i = rnd((int) down.size());
+                ev.push_back(HarmRig::off(down[(size_t) i]));
+                down.erase(down.begin() + i);
+            }
+            if (down.size() < 5 && rnd(2))
+            {
+                const int k = 48 + rnd(30);
+                if (std::find(down.begin(), down.end(), k) == down.end())
+                {
+                    ev.push_back(HarmRig::on(k, 1 + rnd(127)));
+                    down.push_back(k);
+                }
+            }
+            std::vector<dsp::MidiEvent> out(256);
+            const int c = r.h.process(ev.data(), (int) ev.size(), 64 + rnd(512), r.s, out.data(), 256);
+            for (int k = 0; k < c; ++k)
+                r.got.push_back({ 0, out[(size_t) k] });
+            for (int k = 1; k < c; ++k)
+                ZS_CHECK(out[(size_t) k].offset >= out[(size_t) k - 1].offset); // time-ordered
+        }
+        std::vector<dsp::MidiEvent> ev;
+        for (int k : down)
+            ev.push_back(HarmRig::off(k));
+        std::vector<dsp::MidiEvent> out(256);
+        const int c = r.h.process(ev.data(), (int) ev.size(), 8192, r.s, out.data(), 256);
+        for (int k = 0; k < c; ++k)
+            r.got.push_back({ 0, out[(size_t) k] });
+        ZS_CHECK(r.sounding().empty());
+        ZS_CHECK(! r.h.isActive());
+    }
+}
+
+ZS_TEST(harmoniser_detects_the_key)
+{
+    auto detect = [](std::initializer_list<int> melody) {
+        dsp::KeyDetector d;
+        d.prepare(48000.0);
+        d.start();
+        for (int k : melody)
+        {
+            dsp::MidiEvent on { 0, 0x90, (uint8_t) k, 100 }, off { 12000, 0x80, (uint8_t) k, 0 };
+            dsp::MidiEvent both[2] = { on, off };
+            d.observe(both, 2, 24000); // a quarter second each
+        }
+        return d.takeResult();
+    };
+    // Twinkle twinkle in G major (G G D D E E D, C C B B A A G, D D C C B B A).
+    const int g = detect({ 67, 67, 74, 74, 76, 76, 74, 72, 72, 71, 71, 69, 69, 67, 74, 74, 72 });
+    std::printf("    G major tune -> %d (7 = G major)\n", g);
+    ZS_CHECK(g == 7);
+    // A minor: A C E A G# A B C B A E A (with the leading tone).
+    const int a = detect({ 57, 60, 64, 69, 68, 69, 71, 72, 71, 69, 64, 57, 60, 64, 69, 57 });
+    std::printf("    A minor tune -> %d (21 = A minor)\n", a);
+    ZS_CHECK(a == 9 + 12);
 }
 
 // ================================================================= filters ====

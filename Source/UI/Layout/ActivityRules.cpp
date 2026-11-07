@@ -16,6 +16,22 @@ Activity activityFor(int i, const float* v, bool hostTempo)
 {
     const auto engine = (EngineMode) choice(v, P::Engine);
 
+    // ---- harmoniser
+    if (inRange(i, P::HarmKey, P::HarmPart))
+    {
+        if (! on(v, P::HarmOn))
+            return inactive("HARMONY is off. Switch it on (under PITCH TRACK).");
+        const int voices = choice(v, P::HarmVoices);
+        if ((i == P::HarmV2Int || i == P::HarmV2Dir) && voices < 2)
+            return inactive("VOICES is 1: voice 2 is not used.");
+        if ((i == P::HarmV3Int || i == P::HarmV3Dir) && voices < 3)
+            return inactive("VOICES is below 3: voice 3 is not used.");
+        if ((i == P::HarmKey || i == P::HarmOutKey) && (HarmScale) choice(v, P::HarmScale) == HarmScale::Fixed)
+            return inactive("FIXED intervals ignore the key.");
+        if (i == P::HarmPart && (SplitMode) choice(v, P::SplitMode) == SplitMode::Single)
+            return inactive("KEYBOARD is SINGLE: the harmony plays the one sound.");
+    }
+
     // ---- keyboard split / layer
     if (inRange(i, P::SplitPoint, P::SplitUpVol))
     {

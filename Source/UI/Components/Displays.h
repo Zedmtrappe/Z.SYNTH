@@ -368,6 +368,18 @@ private:
     int shownPart = -1;
 };
 
+/** HARMONY window: the key and scale, the voices, an example (the key's
+    tonic and what it becomes) and DETECT's progress. */
+class HarmonyInfo : public Display
+{
+public:
+    using Display::Display;
+    void refresh() override;
+    void paint(juce::Graphics&) override;
+private:
+    uint64_t lastHash = 0;
+};
+
 /** KEYBOARD SPLIT window: the two zones across the key range, with each
     part's sound, octave and level; the part on the panel is lit. */
 class SplitMap : public CachedDisplay

@@ -371,6 +371,24 @@ X(SplitUpOct,    "split.up.oct",  "Upper Octave", "Global", Int, -3.f, 3.f, 0.f,
 X(SplitLowVol,   "split.lo.vol",  "Lower Volume", "Global", Float, -40.f, 6.f, 0.f, LIN, "dB", nullptr, "Level of the LOWER sound.") \
 X(SplitUpVol,    "split.up.vol",  "Upper Volume", "Global", Float, -40.f, 6.f, 0.f, LIN, "dB", nullptr, "Level of the UPPER sound.") \
 X(TrkClean,      "trk.clean",     "Track Clean Up", "Global", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "CLEAN UP: suppresses tracking glitches (short stray low notes). Only doubtful readings wait to be confirmed: picked, clean notes are never delayed.") \
+/* ------------------------------------------------------------- Harmoniser */ \
+X(HarmOn,        "harm.on",       "Harmony", "Global", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "HARMONY: adds up to three notes in key to every note you play (keyboard, MIDI or PITCH TRACK).") \
+X(HarmKey,       "harm.key",      "Harmony Key", "Global", Choice, 0, 0, 0.f, LIN, "", ZS_CH_KEY, "KEY of the harmony (DETECT can find it from what you play).") \
+X(HarmScale,     "harm.scale",    "Harmony Scale", "Global", Choice, 0, 0, 0.f, LIN, "", ZS_CH_HARM_SCALE, "SCALE: the harmony stays in it. FIXED: exact intervals, no key.") \
+X(HarmVoices,    "harm.voices",   "Harmony Voices", "Global", Int, 1.f, 3.f, 2.f, LIN, "", nullptr, "VOICES: how many harmony notes (1-3).") \
+X(HarmV1Int,     "harm.v1.int",   "Harmony 1 Interval", "Global", Choice, 0, 0, 1.f, LIN, "", ZS_CH_HARM_INTERVAL, "Interval of harmony voice 1 (in scale steps).") \
+X(HarmV1Dir,     "harm.v1.dir",   "Harmony 1 Direction", "Global", Choice, 0, 0, 0.f, LIN, "", ZS_CH_UP_DOWN, "Voice 1 above or below the played note.") \
+X(HarmV2Int,     "harm.v2.int",   "Harmony 2 Interval", "Global", Choice, 0, 0, 3.f, LIN, "", ZS_CH_HARM_INTERVAL, "Interval of harmony voice 2 (in scale steps).") \
+X(HarmV2Dir,     "harm.v2.dir",   "Harmony 2 Direction", "Global", Choice, 0, 0, 0.f, LIN, "", ZS_CH_UP_DOWN, "Voice 2 above or below the played note.") \
+X(HarmV3Int,     "harm.v3.int",   "Harmony 3 Interval", "Global", Choice, 0, 0, 6.f, LIN, "", ZS_CH_HARM_INTERVAL, "Interval of harmony voice 3 (in scale steps).") \
+X(HarmV3Dir,     "harm.v3.dir",   "Harmony 3 Direction", "Global", Choice, 0, 0, 1.f, LIN, "", ZS_CH_UP_DOWN, "Voice 3 above or below the played note.") \
+X(HarmOutKey,    "harm.outkey",   "Harmony Out of Key", "Global", Choice, 0, 0, 1.f, LIN, "", ZS_CH_HARM_OUTKEY, "Played notes outside the scale: snap them to it, harmonise them anyway, or play them alone.") \
+X(HarmMode,      "harm.mode",     "Harmonise", "Global", Choice, 0, 0, 1.f, LIN, "", ZS_CH_HARM_MODE, "EVERY NOTE, or the TOP NOTE only (the melody of a chord: much cleaner on keyboard chords).") \
+X(HarmLevel,     "harm.level",    "Harmony Level", "Global", Float, 0.f, 1.f, 0.8f, LIN, "", nullptr, "LEVEL: velocity of the harmony notes against the played note.") \
+X(HarmStrum,     "harm.strum",    "Harmony Strum", "Global", Float, 0.f, 50.f, 0.f, LIN, "ms", nullptr, "STRUM: each harmony note follows the one before by this much (played, not stacked).") \
+X(HarmLow,       "harm.lo",       "Harmony Lowest", "Global", Int, 12.f, 120.f, 36.f, LIN, "note", nullptr, "RANGE: harmony notes below this fold up by octaves.") \
+X(HarmHigh,      "harm.hi",       "Harmony Highest", "Global", Int, 12.f, 120.f, 96.f, LIN, "note", nullptr, "RANGE: harmony notes above this fold down by octaves.") \
+X(HarmPart,      "harm.part",     "Harmony Applies To", "Global", Choice, 0, 0, 0.f, LIN, "", ZS_CH_HARM_PART, "With SPLIT / LAYER: harmonise both sounds, or only UPPER or LOWER.") \
 
 #define ZS_OSC_WT_PARAMS(X, n) \
 X(Osc##n##WtTable, "osc" #n ".wt.table", "Osc " #n " Table", "Wavetable", Choice, 0, 0, 0.f, LIN, "", ZS_CH_OSC_TABLE, "Wavetable for this oscillator (Wavetable wave): SECTION = the WAVETABLE section's TABLE.") \

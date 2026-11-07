@@ -672,7 +672,8 @@ ZS_TEST(layout_controls_inside_sections_and_not_overlapping)
                             || id == "tape.speed" || id == "tape.bias" || id == "tape.hiss" || id == "tape.out"
                             || (id.contains(".wt.") && ! id.endsWith(".wt.pos")) || id.startsWith("wt.evo.")
                             || id == "wt.drift" || id == "wt.drate"
-                            || (id.startsWith("split.") && id != "split.mode");
+                            || (id.startsWith("split.") && id != "split.mode")
+                            || (id.startsWith("harm.") && id != "harm.on");
         ZS_CHECK(advanced == (c.page != ui::kMainPage));
     }
 }
@@ -1133,6 +1134,43 @@ ZS_TEST(split_learn_takes_the_next_key)
     ZS_CHECK(std::abs(parseValue(P::SplitPoint, "F#3") - 54.0f) < 0.01f);
 }
 
+
+ZS_TEST(harmony_plays_through_the_processor)
+{
+    SplitRig plain("harm1");
+    plain.run({ juce::MidiMessage::noteOn(1, 64, (uint8_t) 100) });
+    const int one = plain.voices(ZSynthProcessor::kUpper);
+
+    SplitRig r("harm2");
+    r.set("harm.on", 1.0f);
+    r.set("harm.voices", 2.0f);
+    r.run({ juce::MidiMessage::noteOn(1, 64, (uint8_t) 100) });
+    const int three = r.voices(ZSynthProcessor::kUpper);
+    std::printf("    voices: %d without harmony, %d with two harmony notes\n", one, three);
+    ZS_CHECK(three == 3 * one);
+    r.run({ juce::MidiMessage::noteOff(1, 64) }, 400);
+    ZS_CHECK(r.voices(ZSynthProcessor::kUpper) == 0);
+
+    // Switched off mid-note: nothing is left hanging.
+    r.run({ juce::MidiMessage::noteOn(1, 60, (uint8_t) 100) });
+    r.set("harm.on", 0.0f);
+    r.run({ juce::MidiMessage::noteOff(1, 60) }, 400);
+    ZS_CHECK(r.voices(ZSynthProcessor::kUpper) == 0);
+
+    // DETECT sets KEY and SCALE (an A minor tune).
+    SplitRig d("harm3");
+    d.p.startKeyDetect();
+    for (int k : { 57, 60, 64, 69, 68, 69, 71, 72, 71, 69, 64, 57, 60, 64, 69, 57 })
+    {
+        d.run({ juce::MidiMessage::noteOn(1, k, (uint8_t) 100) }, 10);
+        d.run({ juce::MidiMessage::noteOff(1, k) }, 10);
+    }
+    ZS_CHECK(d.p.applyDetectedKey());
+    ZS_CHECK(juce::roundToInt(d.p.getValue(P::HarmKey)) == 9);
+    ZS_CHECK(juce::roundToInt(d.p.getValue(P::HarmScale)) == (int) HarmScale::NaturalMinor);
+    ZS_CHECK(! d.p.isDetectingKey());
+}
+
 ZS_TEST(pitch_track_plays_the_synth_from_the_audio_input)
 {
     const auto dir = tempDir("track");
@@ -1549,6 +1587,9 @@ static int snapshots(const juce::File& dir)
         set("tape.model", (float) m);
         shoot("tape" + juce::String(m), "tape");
     }
+    set("harm.on", 1.0f);
+    shoot("harm", "harm");
+    set("harm.on", 0.0f);
     set("trk.on", 1.0f);
     shoot("track", "track");
     set("trk.on", 0.0f);

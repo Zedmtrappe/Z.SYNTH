@@ -77,6 +77,19 @@ inline const char* wavetableCategory(int id)
 // Per-oscillator table: "Section" = the WAVETABLE section's TABLE.
 #define ZS_CH_OSC_TABLE "Section|" ZS_WT_NAMES
 
+// Harmoniser.
+#define ZS_CH_KEY "C|C#|D|D#|E|F|F#|G|G#|A|A#|B"
+#define ZS_CH_HARM_SCALE "Major|Natural Minor|Harmonic Minor|Melodic Minor|Dorian|Phrygian|Lydian|Mixolydian|Major Pentatonic|Minor Pentatonic|Blues|Fixed"
+enum class HarmScale : int { Major, NaturalMinor, HarmonicMinor, MelodicMinor, Dorian, Phrygian, Lydian, Mixolydian,
+                             MajorPentatonic, MinorPentatonic, Blues, Fixed, Count };
+#define ZS_CH_HARM_INTERVAL "2nd|3rd|4th|5th|6th|7th|Octave|9th|10th"
+enum class HarmInterval : int { Second, Third, Fourth, Fifth, Sixth, Seventh, Octave, Ninth, Tenth, Count };
+#define ZS_CH_UP_DOWN "Up|Down"
+#define ZS_CH_HARM_OUTKEY "Snap to Key|Harmonise|Play Alone"
+enum class HarmOutOfKey : int { Snap, Harmonise, PlayAlone, Count };
+#define ZS_CH_HARM_MODE "Every Note|Top Note"
+#define ZS_CH_HARM_PART "Both|Upper|Lower"
+
 // Keyboard split / layer.
 #define ZS_CH_SPLIT_MODE "Single|Split|Layer"
 enum class SplitMode : int { Single, Split, Layer, Count };

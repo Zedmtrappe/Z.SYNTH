@@ -333,6 +333,11 @@ void MainPanel::buildControls()
             c->setGlowWhenOn(true);
             trackSwitch = c.get();
         }
+        if (juce::String(spec.paramId) == "harm.on")
+        {
+            c->setGlowWhenOn(true);
+            harmSwitch = c.get();
+        }
         c->setAccent(sectionColour(spec.section));
         {
             const juce::String section(spec.section);
@@ -480,12 +485,14 @@ void MainPanel::buildUtilities()
     version.setColour(juce::Label::textColourId, Colours::textDim);
     version.setFont(labelFont(10.0f));
     version.setJustificationType(juce::Justification::centredRight);
+    version.setBorderSize({ 0, 0, 0, 2 });
 
     displays.push_back(&addUtility<ActivityLed>("midiLed", processor, true));
     displays.push_back(&addUtility<ActivityLed>("audioLed", processor, false));
     displays.push_back(&addUtility<VoiceCountDisplay>("voiceCount", processor));
     displays.push_back(&addUtility<WavetableDisplay>("wtDisplay", processor));
     displays.push_back(&addUtility<SplitMap>("splitMap", processor));
+    displays.push_back(&addUtility<HarmonyInfo>("harmInfo", processor));
     for (int i = 0; i < 3; ++i)
         displays.push_back(&addUtility<WavetableView3D>("wt3d" + juce::String(i + 1), processor, i));
     displays.push_back(&addUtility<FilterCurveDisplay>("filterCurve", processor));
@@ -541,6 +548,55 @@ void MainPanel::buildUtilities()
         processor.setLearningSplit(! processor.isLearningSplit()); });
     button("openSplit", juce::String::fromUTF8("SPLIT \xe2\x96\xb8"), "Keyboard split / layer: split point, octaves and levels of the two sounds", [this] {
         showPage(getVisiblePage() == "split" ? juce::String() : juce::String("split")); });
+    // HARMONY
+    button("openHarm", juce::String::fromUTF8("\xe2\x96\xb8"), "Open the HARMONY window (key, scale, voices, detect)", [this] {
+        showPage(getVisiblePage() == "harm" ? juce::String() : juce::String("harm")); });
+    detectButton = &button("harmDetect", "DETECT", "DETECT: play a few bars and ZYNTH finds the key and scale", [this] {
+        if (processor.isDetectingKey())
+            processor.stopKeyDetect();
+        else
+            processor.startKeyDetect();
+    });
+    button("harmStyle", juce::String::fromUTF8("STYLE \xe2\x96\xbe"), "Fill the voices in from a harmony style", [this] {
+        struct Style { const char* name; int voices; int iv[3]; int dir[3]; };
+        static const Style styles[] = {
+            { "Thirds above", 1, { 1, 3, 6 }, { 0, 0, 0 } },
+            { "Thirds below", 1, { 1, 3, 6 }, { 1, 0, 0 } },
+            { "Sixths below", 1, { 4, 3, 6 }, { 1, 0, 0 } },
+            { "Triad (3rd + 5th up)", 2, { 1, 3, 6 }, { 0, 0, 0 } },
+            { "Power (5th + octave up)", 2, { 3, 6, 6 }, { 0, 0, 0 } },
+            { "Sus4 (4th + 5th up)", 2, { 2, 3, 6 }, { 0, 0, 0 } },
+            { "Open (5th + 10th up, octave down)", 3, { 3, 8, 6 }, { 0, 0, 1 } },
+            { "Full (3rd + 5th up, octave down)", 3, { 1, 3, 6 }, { 0, 0, 1 } },
+            { "Octaves (up + down)", 2, { 6, 6, 6 }, { 0, 1, 0 } },
+        };
+        juce::PopupMenu menu;
+        menu.addSectionHeader("HARMONY STYLE");
+        for (int i = 0; i < (int) (sizeof(styles) / sizeof(styles[0])); ++i)
+            menu.addItem(i + 1, styles[i].name);
+        juce::Component::SafePointer<MainPanel> safe(this);
+        menu.showMenuAsync(juce::PopupMenu::Options(), [safe](int result) {
+            if (safe == nullptr || result <= 0)
+                return;
+            const auto& st = styles[result - 1];
+            auto set = [&](const char* id, float v) {
+                if (auto* prm = safe->processor.getState().getParameter(id))
+                {
+                    prm->beginChangeGesture();
+                    prm->setValueNotifyingHost(prm->convertTo0to1(v));
+                    prm->endChangeGesture();
+                }
+            };
+            set("harm.voices", (float) st.voices);
+            const char* ints[3] = { "harm.v1.int", "harm.v2.int", "harm.v3.int" };
+            const char* dirs[3] = { "harm.v1.dir", "harm.v2.dir", "harm.v3.dir" };
+            for (int k = 0; k < 3; ++k)
+            {
+                set(ints[k], (float) st.iv[k]);
+                set(dirs[k], (float) st.dir[k]);
+            }
+        });
+    });
     button("openTrack", juce::String::fromUTF8("\xe2\x96\xb8"), "Open the PITCH TRACK window (input, gate, tracking, velocity, dry)", [this] {
         showPage(getVisiblePage() == "track" ? juce::String() : juce::String("track")); });
     displays.push_back(&addUtility<OutputMeter>("meter", processor));
@@ -848,6 +904,14 @@ void MainPanel::timerCallback()
     // PITCH TRACK pulses while it is on.
     if (trackSwitch != nullptr && processor.getValue(P::TrkOn) >= 0.5f)
         trackSwitch->repaint();
+    if (harmSwitch != nullptr && processor.getValue(P::HarmOn) >= 0.5f)
+        harmSwitch->repaint();
+    if (detectButton != nullptr)
+    {
+        const bool listening = processor.isDetectingKey();
+        detectButton->setButtonText(listening ? "STOP" : "DETECT");
+        detectButton->setToggleState(listening && (juce::Time::getMillisecondCounter() / 400) % 2 == 0, juce::dontSendNotification);
+    }
     if (++activityCounter % 3 == 0)
         updateActivity();
     if (modSelector != nullptr)

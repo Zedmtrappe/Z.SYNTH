@@ -116,6 +116,8 @@ private:
     juce::TextButton* learnButton = nullptr;
     std::vector<std::pair<int, juce::TextButton*>> blockButtons; // (on param, ADVANCED button)
     ParamControl* trackSwitch = nullptr;
+    ParamControl* harmSwitch = nullptr;
+    juce::TextButton* detectButton = nullptr;
     int oscViewShown[3] {};
     void showFxPresetMenu(const std::vector<FxPreset>& list, const juce::String& anchor, int onParam);
     juce::Component& parentForPage(const juce::String& page);

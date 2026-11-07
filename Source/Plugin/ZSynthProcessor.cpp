@@ -79,6 +79,7 @@ ZSynthProcessor::ZSynthProcessor(juce::File userPresetDir, AudioInput input)
             std::fill(std::begin(ch), std::end(ch), (int8_t) -1);
     partEvents[0].reserve(kMaxEventsPerBlock);
     partEvents[1].reserve(kMaxEventsPerBlock);
+    harmScratch.resize(kMaxEventsPerBlock);
     loadBuiltInClip(0);
 
     startTimerHz(30);
@@ -174,6 +175,9 @@ void ZSynthProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
     partL.assign((size_t) std::max(32, samplesPerBlock), 0.0f);
     partR.assign((size_t) std::max(32, samplesPerBlock), 0.0f);
     partTail[0] = partTail[1] = 0;
+    for (auto& h : harmonizers)
+        h.prepare(sampleRate);
+    keyDetector.prepare(sampleRate);
     trackInput.assign((size_t) std::max(32, samplesPerBlock) * 2, 0.0f);
     tracker.prepare(sampleRate);
     keyboardState.reset();
@@ -319,7 +323,9 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
             }
         }
     }
+    keyDetector.observe(events.data(), (int) events.size(), n);
     routeEvents(partParams[getEditPart()]);
+    harmonise(n, partParams[getEditPart()]);
 
     dsp::TransportInfo transport;
     readTransport(transport);
@@ -487,6 +493,69 @@ void ZSynthProcessor::routeEvents(const float* g)
     }
 }
 
+void ZSynthProcessor::harmonise(int n, const float* g)
+{
+    dsp::HarmonySettings hs;
+    hs.key = juce::roundToInt(g[P::HarmKey]);
+    hs.scale = (HarmScale) juce::roundToInt(g[P::HarmScale]);
+    hs.voices = juce::roundToInt(g[P::HarmVoices]);
+    const int ints[3] = { P::HarmV1Int, P::HarmV2Int, P::HarmV3Int }, dirs[3] = { P::HarmV1Dir, P::HarmV2Dir, P::HarmV3Dir };
+    for (int v = 0; v < 3; ++v)
+    {
+        hs.interval[v] = (HarmInterval) juce::roundToInt(g[ints[v]]);
+        hs.down[v] = juce::roundToInt(g[dirs[v]]) == 1;
+    }
+    hs.outOfKey = (HarmOutOfKey) juce::roundToInt(g[P::HarmOutKey]);
+    hs.topNoteOnly = juce::roundToInt(g[P::HarmMode]) == 1;
+    hs.level = g[P::HarmLevel];
+    hs.strumMs = g[P::HarmStrum];
+    hs.lowest = juce::roundToInt(g[P::HarmLow]);
+    hs.highest = juce::roundToInt(g[P::HarmHigh]);
+
+    const bool on = g[P::HarmOn] >= 0.5f;
+    const auto mode = (SplitMode) juce::roundToInt(g[P::SplitMode]);
+    const int applies = juce::roundToInt(g[P::HarmPart]); // 0 both, 1 upper, 2 lower
+    for (int part = 0; part < 2; ++part)
+    {
+        const bool wanted = on && (mode == SplitMode::Single || applies == 0 || (applies == 1) == (part == kUpper));
+        auto& ev = partEvents[(size_t) part];
+        auto& h = harmonizers[(size_t) part];
+        const int cap = (int) std::min(harmScratch.size(), ev.capacity());
+        int c = 0;
+        if (wanted)
+        {
+            c = h.process(ev.data(), (int) ev.size(), n, hs, harmScratch.data(), cap);
+        }
+        else if (h.isActive())
+        {
+            // Switched off (or no longer this part): release what it played, then pass the block on.
+            c = h.flush(harmScratch.data(), cap);
+            for (const auto& e : ev)
+                if (c < cap)
+                    harmScratch[(size_t) c++] = e;
+        }
+        else
+        {
+            continue;
+        }
+        ev.assign(harmScratch.begin(), harmScratch.begin() + c);
+    }
+}
+
+bool ZSynthProcessor::applyDetectedKey()
+{
+    const int found = keyDetector.takeResult();
+    if (found < 0)
+        return false;
+    auto set = [this](const char* id, float v) {
+        if (auto* prm = apvts.getParameter(id))
+            prm->setValueNotifyingHost(prm->convertTo0to1(v));
+    };
+    set("harm.key", (float) (found % 12));
+    set("harm.scale", (float) (found >= 12 ? HarmScale::NaturalMinor : HarmScale::Major));
+    return true;
+}
+
 void ZSynthProcessor::storeSound(const PresetData& p)
 {
     for (int i = 0; i < kNumParams; ++i)
@@ -532,6 +601,7 @@ void ZSynthProcessor::setEditPart(int part)
 void ZSynthProcessor::timerCallback()
 {
     applyLearnedSplit();
+    applyDetectedKey();
     midiLearn.dispatchPending(apvts);
     audition.collectGarbage();
 }

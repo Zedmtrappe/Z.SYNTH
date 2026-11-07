@@ -6,6 +6,7 @@
 
 #include "../DSP/Engine/SynthEngine.h"
 #include "../DSP/Tracking/PitchTracker.h"
+#include "../DSP/Performance/Harmonizer.h"
 #include "../MIDI/MidiLearn.h"
 #include "../Parameters/ParameterLayout.h"
 #include "../Presets/PresetManager.h"
@@ -99,6 +100,15 @@ public:
     /** Message thread (the processor's timer calls it): applies a learned split key. */
     bool applyLearnedSplit();
 
+    // ---- harmoniser
+    /** DETECT: listen to what is played and set KEY / SCALE (message thread). */
+    void startKeyDetect() { keyDetector.start(); }
+    void stopKeyDetect() { keyDetector.stop(); }
+    bool isDetectingKey() const { return keyDetector.isListening(); }
+    int getKeyDetectNotes() const { return keyDetector.notesHeard(); }
+    /** Message thread (the timer calls it): applies a detected key. */
+    bool applyDetectedKey();
+
     uint32_t getAudioCallbackCount() const { return audioCallbacks.load(); }
     /** Smoothed fraction of the real-time budget used by processBlock. */
     float getCpuLoad() const { return cpuLoad.load(); }
@@ -129,6 +139,10 @@ private:
     std::atomic<int> learnedNote { -1 };
     std::atomic<bool> clearNoteMaps { false };
     void routeEvents(const float* globals);
+    void harmonise(int n, const float* globals);
+    std::array<dsp::Harmonizer, 2> harmonizers;
+    dsp::KeyDetector keyDetector;
+    std::vector<dsp::MidiEvent> harmScratch;
     void storeSound(const PresetData& p);
     juce::MidiKeyboardState keyboardState;
     MidiLearn midiLearn;

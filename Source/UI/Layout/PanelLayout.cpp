@@ -121,12 +121,15 @@ PanelLayout::PanelLayout()
     utilityAt("audioLed", 1508, 26, 54, 40);
     utilityAt("voiceCount", 1570, 20, 100, 54);
     add("master.volume", K::Knob, 1680, 16, "MASTER");
-    utilityAt("panic", 1744, 10, 84, 30);
-    utilityAt("musicalTyping", 1836, 10, 74, 30); // in line with PANIC
+    utilityAt("panic", 1744, 6, 84, 26);
+    utilityAt("musicalTyping", 1836, 6, 74, 26); // in line with PANIC
     // PITCH TRACK: play from a guitar / bass on the audio input; the arrow reopens its window.
-    add("trk.on", K::Switch, 1744, 46, "PITCH TRACK", 138, 22);
-    utilityAt("openTrack", 1886, 46, 24, 22);
-    utilityAt("version", 1836, 70, 74, 18);
+    add("trk.on", K::Switch, 1744, 36, "PITCH TRACK", 138, 20);
+    utilityAt("openTrack", 1886, 36, 24, 20);
+    // HARMONY: in-key harmony notes; the arrow opens its window.
+    add("harm.on", K::Switch, 1744, 60, "HARMONY", 138, 20);
+    utilityAt("openHarm", 1886, 60, 24, 20);
+    utilityAt("version", 1836, 82, 74, 13);
 
     // -------------------------------------------------------- oscillators
     sectionAt("osc", "OSCILLATORS", 10, 104, 980, 320);
@@ -658,6 +661,42 @@ PanelLayout::PanelLayout()
          "Choose the audio interface and input in Options > Audio/MIDI Settings.  While PITCH TRACK is on the "
          "keyboards, QWERTY and MIDI notes are off (MIDI controllers such as sustain still work).",
          340, 162, 280, 170, juce::Justification::topLeft);
+
+    // ------------------------------------------------------------ harmony
+    pageList.push_back({ "harm", "HARMONY", { 1100, 110, 780, 410 } });
+    page("harm");
+    sectionAt("harmPage", "HARMONY  -  INTELLIGENT HARMONISER", 0, 0, 780, 410);
+    utilityAt("harmClose", 740, 3, 34, 20);
+    add("harm.key", K::Selector, 20, 40, "KEY", 80);
+    add("harm.scale", K::Selector, 108, 40, "SCALE", 150);
+    utilityAt("harmDetect", 266, 54, 104, 26);
+    utilityAt("harmInfo", 386, 36, 374, 70);
+    heading("VOICES", 20, 120, 200);
+    add("harm.voices", K::Knob, 20, 140, "VOICES");
+    utilityAt("harmStyle", 80, 156, 112, 26);
+    for (int v = 0; v < 3; ++v)
+    {
+        const juce::String n(v + 1);
+        const int x = 214 + v * 186;
+        heading("VOICE " + n, x, 120, 160);
+        add("harm.v" + n + ".int", K::Selector, x, 144, "INTERVAL", 96);
+        add("harm.v" + n + ".dir", K::Selector, x + 102, 144, "UP / DOWN", 70);
+    }
+    heading("PLAYING", 20, 222, 200);
+    add("harm.mode", K::Selector, 20, 244, "HARMONISE", 116);
+    add("harm.outkey", K::Selector, 144, 244, "OUT OF KEY", 120);
+    add("harm.part", K::Selector, 272, 244, "APPLIES TO", 96);
+    add("harm.level", K::Knob, 400, 236, "LEVEL");
+    add("harm.strum", K::Knob, 460, 236, "STRUM");
+    add("harm.lo", K::Knob, 540, 236, "LOWEST");
+    add("harm.hi", K::Knob, 600, 236, "HIGHEST");
+    text("RANGE", 540, 222, 112, 14, juce::Justification::centred, true);
+    text("Every note you play (keyboard, MIDI or PITCH TRACK) gets up to three more, in KEY: intervals count scale steps, "
+         "so a 3rd above is always a note of the scale.  DETECT: play a few bars and it finds the key.  STYLE fills the voices "
+         "in (thirds, triad, power, sus4, open).  HARMONISE: EVERY NOTE, or the TOP NOTE only (the melody of a chord: much "
+         "cleaner on keyboard chords).  OUT OF KEY: what happens to a played note outside the scale.  STRUM staggers the "
+         "harmony notes; RANGE folds them back by octaves.  Harmony notes use voices: raise POLY if notes drop out.",
+         20, 318, 740, 84, juce::Justification::topLeft);
 
     // ---------------------------------------------------------- tape page
     pageList.push_back({ "tape", "TAPE", { 600, 400, 720, 170 } });

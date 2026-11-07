@@ -1,5 +1,6 @@
 #include "Displays.h"
 #include "../../DSP/Oscillators/WavetableStack.h"
+#include "../../DSP/Performance/Harmonizer.h"
 #include "Skins.h"
 #include "Materials.h"
 
@@ -1993,6 +1994,66 @@ void PresetDisplay::paint(juce::Graphics& g)
         counter = juce::String(idx + 1).paddedLeft('0', 3) + " / " + juce::String((int) pm.getEntries().size());
     drawLcdText(g, counter, top, 10.5f, Colours::lcdDim.brighter(0.8f), juce::Justification::centredRight);
     drawLcdText(g, pm.getCurrentName(), inner, 22.0f);
+}
+
+// ========================================================== harmony info ====
+void HarmonyInfo::refresh()
+{
+    uint64_t h = 1469598103934665603ull;
+    auto mixIn = [&h](float x) { uint32_t b; std::memcpy(&b, &x, 4); h = (h ^ b) * 1099511628211ull; };
+    for (int i = P::HarmOn; i <= P::HarmPart; ++i)
+        mixIn(v(i));
+    mixIn(processor.isDetectingKey() ? 1.0f : 0.0f);
+    mixIn((float) processor.getKeyDetectNotes());
+    mixIn(processor.isDetectingKey() ? (float) ((juce::Time::getMillisecondCounter() / 400) % 2) : 0.0f);
+    if (h != lastHash)
+    {
+        lastHash = h;
+        repaint();
+    }
+}
+
+void HarmonyInfo::paint(juce::Graphics& g)
+{
+    const auto r = getLocalBounds().toFloat();
+    drawLcd(g, r);
+    auto inner = getLocalBounds().reduced(10, 6);
+    const auto keys = juce::StringArray::fromTokens(ZS_CH_KEY, "|", "");
+    const auto scales = juce::StringArray::fromTokens(ZS_CH_HARM_SCALE, "|", "");
+    const auto intervals = juce::StringArray::fromTokens(ZS_CH_HARM_INTERVAL, "|", "");
+    const int key = iv(P::HarmKey);
+    const auto scale = (HarmScale) iv(P::HarmScale);
+    const bool on = iv(P::HarmOn) == 1;
+
+    if (processor.isDetectingKey())
+    {
+        const bool blink = (juce::Time::getMillisecondCounter() / 400) % 2 == 0;
+        drawLcdText(g, blink ? "LISTENING..." : "", inner.removeFromTop(22), 16.0f, Colours::accent);
+        drawLcdText(g, juce::String(processor.getKeyDetectNotes()) + " / 16 notes heard", inner.removeFromTop(16), 10.5f);
+        drawLcdText(g, "Play the tune or the chords of the song", inner, 10.0f, Colours::lcdDim.brighter(0.6f));
+        return;
+    }
+
+    const juce::String title = scale == HarmScale::Fixed ? juce::String("FIXED INTERVALS")
+                                                         : keys[key] + "  " + scales[(int) scale].toUpperCase();
+    drawLcdText(g, title, inner.removeFromTop(22), 16.0f, on ? Colours::lcdText : Colours::lcdDim);
+
+    // The voices, and what the key's tonic (around middle C) becomes.
+    const int voices = juce::jlimit(1, 3, iv(P::HarmVoices));
+    const int ints[3] = { P::HarmV1Int, P::HarmV2Int, P::HarmV3Int }, dirs[3] = { P::HarmV1Dir, P::HarmV2Dir, P::HarmV3Dir };
+    juce::String desc, example;
+    const int tonic = 60 + (scale == HarmScale::Fixed ? 0 : key);
+    example << juce::MidiMessage::getMidiNoteName(tonic, true, false, 4) << "  ->";
+    for (int k = 0; k < voices; ++k)
+    {
+        const auto iv_ = (HarmInterval) iv(ints[k]);
+        const bool down = iv(dirs[k]) == 1;
+        desc << (k > 0 ? "  +  " : "") << intervals[(int) iv_] << (down ? " down" : " up");
+        const int note = dsp::Harmonizer::harmonyFor(tonic, iv_, down, key, scale);
+        example << "  " << juce::MidiMessage::getMidiNoteName(note, true, true, 4);
+    }
+    drawLcdText(g, desc, inner.removeFromTop(16), 10.5f, on ? Colours::lcdText : Colours::lcdDim);
+    drawLcdText(g, on ? example : juce::String("HARMONY IS OFF"), inner, 10.5f, Colours::lcdDim.brighter(0.7f));
 }
 
 // ============================================================= split map ====

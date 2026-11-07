@@ -13,7 +13,7 @@ advanced sections.
 |---|---|
 | Formats | Standalone app, VST3 and Audio Unit (macOS universal builds from CI, AU checked with auval) |
 | Engine | JUCE-free C++17 library, usable without any GUI |
-| Parameters | 496, all host-automatable, one authoritative table |
+| Parameters | 514, all host-automatable, one authoritative table |
 | Factory library | 272 presets: *ZYNTH Originals* (160, 15 categories) and *Classic Machines* (112 sounds in 26 instrument folders), level-matched by measurement |
 | Tests | 51 DSP tests, 23 state/preset/layout/editor tests, a VST3 host test |
 | Tested on | Ubuntu 24.04, x86-64, GCC 13.3, CMake 3.28, JUCE 8.0.9 |
@@ -40,6 +40,9 @@ advanced sections.
   EVOLVE sweeps or ping-pongs the position over up to a minute from each
   note; DRIFT wanders it at random per voice and per copy. A 3D view shows
   each table and the frame playing now. 20 Ambient presets.
+* **Intelligent harmoniser** — up to three harmony notes in key (12 scales,
+  diatonic intervals, key DETECT), every note or the top note only, strum,
+  range folding; works on the keyboard, MIDI and PITCH TRACK.
 * **Keyboard split / layer** — two complete sounds (each with its own
   effects): SPLIT with a learnable split point, or LAYER; octave and level
   per part; UPPER / LOWER buttons choose which sound the panel edits.
@@ -247,7 +250,7 @@ These are honest gaps in the current version, not hidden features:
   circuits or copies of their factory patches. Instrument names are trademarks
   of their owners, used descriptively; ZYNTH is not affiliated with them.
 * The VST3 exposes JUCE's 2048 hidden MIDI-CC proxy parameters in addition to
-  the 496 synth parameters (needed for controller input in VST3 hosts).
+  the 514 synth parameters (needed for controller input in VST3 hosts).
 
 ## Licence
 

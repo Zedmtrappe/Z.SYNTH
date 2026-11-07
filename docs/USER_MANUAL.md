@@ -103,6 +103,33 @@ Loaded files are trimmed to the music: playback starts at the bar holding the
 first note and loops at the end of the bar holding the last one, so silent
 intros and tails in exported files are skipped.
 
+## Harmony (intelligent harmoniser)
+
+**HARMONY** (in the header, under PITCH TRACK) adds up to three notes to
+every note you play, kept in key. It works on the keyboard, on MIDI and on
+your guitar through PITCH TRACK: play a single line, hear it in harmony.
+When it is on, the button glows orange; **▸** opens its window.
+
+| Control | What it does |
+|---|---|
+| KEY / SCALE | The key the harmony stays in: Major, Natural / Harmonic / Melodic Minor, Dorian, Phrygian, Lydian, Mixolydian, Major / Minor Pentatonic, Blues, or FIXED (exact intervals, no key: 3rd = major 3rd, 7th = minor 7th) |
+| DETECT | Press it and play a few bars (the tune or the chords): after 16 notes (or 12 s) it sets KEY and SCALE (major or minor). Press again to stop |
+| VOICES | 1 to 3 harmony notes |
+| STYLE ▾ | Fills the voices in: thirds above / below, sixths below, triad, power, sus4, open, full, octaves |
+| INTERVAL / UP-DOWN | Each voice's interval (2nd ... 10th, octave), above or below. In the seven-note scales intervals count scale steps: a 3rd above E in C major is G, above F it is A, as a singer would harmonise |
+| HARMONISE | EVERY NOTE, or the TOP NOTE only (the melody of a chord: much cleaner when you play chords on the keyboard; with a single line it makes no difference) |
+| OUT OF KEY | A played note outside the scale: SNAP it to the nearest scale note, HARMONISE it anyway, or PLAY it ALONE |
+| APPLIES TO | With SPLIT / LAYER: harmonise both sounds, or only UPPER or LOWER |
+| LEVEL | Velocity of the harmony notes against yours |
+| STRUM | Each harmony note follows the one before by up to 50 ms (played, not stacked) |
+| RANGE | Harmony notes outside LOWEST ... HIGHEST fold back by octaves |
+
+The window shows the key and an example (what the key note becomes).
+Harmony notes are synth voices: three voices on chords can use a lot of
+polyphony, so raise POLY if notes drop out (or use TOP NOTE). The harmony
+settings are part of your setup (saved with the project), not of the
+preset, so they stay as you change sounds.
+
 ## Keyboard split and layer
 
 ZYNTH can play **two complete sounds** at once. Each part (UPPER and LOWER)
