@@ -61,8 +61,8 @@ void ZLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& b, cons
     g.setColour(juce::Colours::black.withAlpha(0.6f));
     g.fillRoundedRectangle(r.translated(0.4f, 1.5f - sink * 0.5f), 4.0f);
     r = r.translated(0.0f, sink);
-    const auto top = on ? Colours::accentDim.brighter(0.35f) : juce::Colour(0xff4a4d55).brighter(highlighted ? 0.12f : 0.0f);
-    const auto bottom = on ? Colours::accentDim.darker(0.4f) : juce::Colour(0xff17181b);
+    const auto top = on ? Colours::accentDim.brighter(0.35f) : juce::Colour(0xffe04a9c).brighter(highlighted ? 0.12f : 0.0f);
+    const auto bottom = on ? Colours::accentDim.darker(0.4f) : juce::Colour(0xff6e0a40);
     juce::ColourGradient grad(top, r.getX(), r.getY(), bottom, r.getX(), r.getBottom(), false);
     grad.addColour(0.5, top.interpolatedWith(bottom, 0.6f));
     g.setGradientFill(grad);

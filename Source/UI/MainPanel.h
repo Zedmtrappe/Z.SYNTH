@@ -6,6 +6,7 @@
 
 #include "../Plugin/ZSynthProcessor.h"
 #include "Components/Displays.h"
+#include "Components/GlamOverlay.h"
 #include "Components/Keyboard.h"
 #include "Components/MusicalTyping.h"
 #include "Components/ParamControl.h"
@@ -114,6 +115,7 @@ private:
     void updateSplit();
     juce::TextButton* partButtons[4] {};
     juce::TextButton* learnButton = nullptr;
+    GlamOverlay glamour;
     std::vector<std::pair<int, juce::TextButton*>> blockButtons; // (on param, ADVANCED button)
     ParamControl* trackSwitch = nullptr;
     ParamControl* harmSwitch = nullptr;

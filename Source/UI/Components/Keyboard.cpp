@@ -95,8 +95,8 @@ void ZKeyboard::drawWhiteNote(int note, juce::Graphics& g, juce::Rectangle<float
     const auto key = area.reduced(0.6f, 0.0f);
     const float front = isDown ? 5.0f : 9.0f;
     const auto top = key.withTrimmedBottom(front);
-    juce::ColourGradient grad(isDown ? juce::Colour(0xffd9cfbf) : juce::Colour(0xfff6f1e7), top.getX(), top.getY(),
-                              isDown ? juce::Colour(0xffc8bda9) : juce::Colour(0xffe4ddd0), top.getX(), top.getBottom(), false);
+    juce::ColourGradient grad(isDown ? juce::Colour(0xfff0c6dc) : juce::Colour(0xfffff7fb), top.getX(), top.getY(),
+                              isDown ? juce::Colour(0xffe0a8c6) : juce::Colour(0xfff6dde9), top.getX(), top.getBottom(), false);
     g.setGradientFill(grad);
     g.fillRect(top);
     // Rounded side edges.
@@ -108,7 +108,7 @@ void ZKeyboard::drawWhiteNote(int note, juce::Graphics& g, juce::Rectangle<float
     g.fillRect(top.withLeft(top.getRight() - 4.0f));
     // Front face of the key.
     const auto face = key.withTop(top.getBottom());
-    juce::ColourGradient fg(juce::Colour(0xffcfc6b5), 0.0f, face.getY(), juce::Colour(0xff8f877a), 0.0f, face.getBottom(), false);
+    juce::ColourGradient fg(juce::Colour(0xfff2cfe0), 0.0f, face.getY(), juce::Colour(0xffb07894), 0.0f, face.getBottom(), false);
     g.setGradientFill(fg);
     g.fillRoundedRectangle(face, 2.0f);
     g.setColour(juce::Colours::white.withAlpha(0.7f));
@@ -138,7 +138,7 @@ void ZKeyboard::drawWhiteNote(int note, juce::Graphics& g, juce::Rectangle<float
     g.drawVerticalLine(juce::roundToInt(key.getRight()), key.getY(), key.getBottom());
     if (note % 12 == 0)
     {
-        g.setColour(juce::Colour(0xff7a7264));
+        g.setColour(juce::Colour(0xffc04a88));
         g.setFont(labelFont(10.0f));
         g.drawText("C" + juce::String(note / 12 - 1), top.withTrimmedTop(top.getHeight() - 18.0f).toNearestInt(), juce::Justification::centred, false);
     }
@@ -152,12 +152,12 @@ void ZKeyboard::drawBlackNote(int note, juce::Graphics& g, juce::Rectangle<float
     g.fillRoundedRectangle(key.expanded(2.5f, 0.0f).translated(3.0f, 4.0f), 4.0f);
     g.setColour(juce::Colours::black.withAlpha(0.45f));
     g.fillRoundedRectangle(key.translated(1.5f, 2.0f), 3.0f);
-    g.setColour(juce::Colour(0xff050506));
+    g.setColour(juce::Colour(0xff4a0628));
     g.fillRoundedRectangle(key, 2.5f);
     const float front = isDown ? 6.0f : 11.0f;
     const auto top = key.reduced(2.0f, 0.0f).withTrimmedBottom(front);
-    juce::ColourGradient grad(isDown ? juce::Colour(0xff201d1a) : juce::Colour(0xff2c2d31), top.getX(), top.getY(),
-                              isDown ? juce::Colour(0xff0d0c0b) : juce::Colour(0xff121215), top.getX(), top.getBottom(), false);
+    juce::ColourGradient grad(isDown ? juce::Colour(0xffc81f78) : juce::Colour(0xffff5cb6), top.getX(), top.getY(),
+                              isDown ? juce::Colour(0xff7a0c44) : juce::Colour(0xffb0145e), top.getX(), top.getBottom(), false);
     g.setGradientFill(grad);
     g.fillRoundedRectangle(top, 2.0f);
     if (splitPoint >= 0 && note < splitPoint)
@@ -166,11 +166,11 @@ void ZKeyboard::drawBlackNote(int note, juce::Graphics& g, juce::Rectangle<float
         g.fillRoundedRectangle(top, 2.0f);
     }
     // Gloss streak along the top surface.
-    g.setColour(juce::Colours::white.withAlpha(isDown ? 0.06f : 0.13f));
+    g.setColour(juce::Colours::white.withAlpha(isDown ? 0.2f : 0.45f));
     g.fillRoundedRectangle(top.getX() + top.getWidth() * 0.18f, top.getY() + 10.0f, top.getWidth() * 0.22f, top.getHeight() - 16.0f, 1.5f);
     // Sloped front with a lit edge.
     const auto face = key.reduced(1.0f, 0.0f).withTop(top.getBottom());
-    juce::ColourGradient fg(juce::Colour(0xff3d3e43), 0.0f, face.getY(), juce::Colour(0xff0b0b0c), 0.0f, face.getBottom(), false);
+    juce::ColourGradient fg(juce::Colour(0xffff7cc6), 0.0f, face.getY(), juce::Colour(0xff6a0838), 0.0f, face.getBottom(), false);
     g.setGradientFill(fg);
     g.fillRoundedRectangle(face, 2.0f);
     if (isDown)

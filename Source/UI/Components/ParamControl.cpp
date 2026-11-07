@@ -413,9 +413,9 @@ namespace
         g.setColour(juce::Colours::black.withAlpha(0.55f));
         g.fillRoundedRectangle(r.translated(0.5f, pressed ? 0.8f : 1.6f), radius);
         const auto body = r.translated(0.0f, pressed ? 0.8f : 0.0f);
-        juce::ColourGradient grad(juce::Colour(0xff4d5058).brighter(lit ? 0.12f : 0.0f), body.getX(), body.getY(),
-                                  juce::Colour(0xff17181b), body.getX(), body.getBottom(), false);
-        grad.addColour(0.5, juce::Colour(0xff2c2e33));
+        juce::ColourGradient grad(juce::Colour(0xffff9ad4).brighter(lit ? 0.12f : 0.0f), body.getX(), body.getY(),
+                                  juce::Colour(0xff8c0f52), body.getX(), body.getBottom(), false);
+        grad.addColour(0.5, juce::Colour(0xffe0358f)); // FABULOUS: pink candy buttons
         g.setGradientFill(grad);
         g.fillRoundedRectangle(body, radius);
         m::raisedEdge(g, body, radius, 0.9f);
@@ -481,8 +481,9 @@ void ParamControl::paintKnob(juce::Graphics& g, float diameter, bool showLabel)
     g.fillEllipse(body.expanded(0.8f).translated(1.0f, 2.2f));
 
     // Skirt: black moulding with knurled grip.
-    juce::ColourGradient skirt(juce::Colour(0xff45474d).brighter(hovered ? 0.1f : 0.0f), body.getX(), body.getY(),
-                               juce::Colour(0xff09090a), body.getRight(), body.getBottom(), false);
+    juce::ColourGradient skirt(juce::Colour(0xffff8fcf).brighter(hovered ? 0.1f : 0.0f), body.getX(), body.getY(),
+                               juce::Colour(0xff6e0a40), body.getRight(), body.getBottom(), false);
+    skirt.addColour(0.45, juce::Colour(0xffe8338f));
     g.setGradientFill(skirt);
     g.fillEllipse(body);
     const int knurls = diameter > 50.0f ? 60 : (diameter > 30.0f ? 44 : 30);
@@ -511,7 +512,8 @@ void ParamControl::paintKnob(juce::Graphics& g, float diameter, bool showLabel)
         wedge.lineTo(cx + std::cos(a0) * rCap, cy + std::sin(a0) * rCap);
         wedge.lineTo(cx + std::cos(a1) * rCap, cy + std::sin(a1) * rCap);
         wedge.closeSubPath();
-        g.setColour(juce::Colour::greyLevel(juce::jlimit(0.0f, 1.0f, b)).withMultipliedBrightness(hovered ? 1.06f : 1.0f));
+        g.setColour(juce::Colour::fromHSV(0.12f, 0.62f - 0.3f * juce::jmax(0.0f, b - 0.6f), juce::jlimit(0.0f, 1.0f, 0.3f + b * 0.85f), 1.0f)
+                        .withMultipliedBrightness(hovered ? 1.06f : 1.0f)); // FABULOUS: spun gold
         g.fillPath(wedge);
     }
     const auto cap = juce::Rectangle<float>(rCap * 2.0f, rCap * 2.0f).withCentre({ cx, cy });
@@ -896,12 +898,13 @@ void ParamControl::paintFader(juce::Graphics& g)
     const auto upper = cap.withHeight(cap.getHeight() * 0.5f - 1.0f);
     const auto lower = cap.withTrimmedTop(cap.getHeight() * 0.5f + 1.0f);
     // Cap moulding: the house grey, or the model's cap colour.
-    const auto mould = s != nullptr ? s->faderCap : juce::Colour(0xff4a4d54);
-    const auto upTop = s != nullptr ? mould.brighter(0.5f) : juce::Colour(0xff72767e);
-    const auto upBottom = s != nullptr ? mould.darker(0.1f) : juce::Colour(0xff3a3d43);
-    const auto downTop = s != nullptr ? mould.darker(0.45f) : juce::Colour(0xff2b2d32);
-    const auto downBottom = s != nullptr ? mould.darker(1.2f) : juce::Colour(0xff121316);
-    g.setColour(s != nullptr ? mould.darker(1.6f) : juce::Colour(0xff101114));
+    // FABULOUS: pearl-white caps.
+    const auto mould = s != nullptr ? s->faderCap : juce::Colour(0xfff4dbe7);
+    const auto upTop = s != nullptr ? mould.brighter(0.5f) : juce::Colour(0xffffffff);
+    const auto upBottom = s != nullptr ? mould.darker(0.1f) : juce::Colour(0xfff6dbe8);
+    const auto downTop = s != nullptr ? mould.darker(0.45f) : juce::Colour(0xffe2b5cb);
+    const auto downBottom = s != nullptr ? mould.darker(1.2f) : juce::Colour(0xff9c6683);
+    g.setColour(s != nullptr ? mould.darker(1.6f) : juce::Colour(0xff6a3550));
     g.fillRoundedRectangle(cap, 2.5f);
     // Upper face tilts towards the light, the lower face away from it.
     juce::ColourGradient up(upTop.brighter(lift), 0.0f, upper.getY(), upBottom.brighter(lift), 0.0f, upper.getBottom(), false);

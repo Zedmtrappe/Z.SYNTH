@@ -171,14 +171,17 @@ void paintFaceplate(juce::Graphics& g, juce::Rectangle<float> r, const Skin& s, 
         m::castShadow(g, r, 6.0f, 12.0f, { 2, 7 }, 0.85f);
     }
 
+    // FABULOUS EDITION: every faceplate gets sprayed pink, keeping its own lightness.
+    const auto pinked = juce::Colour::fromHSV(0.915f, s.plate.getBrightness() > 0.6f ? 0.32f : 0.62f,
+                                              juce::jlimit(0.25f, 0.97f, 0.25f + s.plate.getBrightness() * 0.8f), 1.0f);
     switch (s.finish)
     {
-        case PlateFinish::Brushed:  m::brushedMetal(g, plate, radius, s.plate, 1.0f); break;
-        case PlateFinish::Anodised: m::brushedMetal(g, plate, radius, s.plate, 0.45f); break;
-        case PlateFinish::Paint:    m::texturedPlastic(g, plate, radius, s.plate, 0.5f); break;
+        case PlateFinish::Brushed:  m::brushedMetal(g, plate, radius, pinked, 1.0f); break;
+        case PlateFinish::Anodised: m::brushedMetal(g, plate, radius, pinked, 0.45f); break;
+        case PlateFinish::Paint:    m::texturedPlastic(g, plate, radius, pinked, 0.5f); break;
         case PlateFinish::Hammertone:
         {
-            m::texturedPlastic(g, plate, radius, s.plate, 0.4f);
+            m::texturedPlastic(g, plate, radius, pinked, 0.4f);
             g.saveState();
             juce::Path clip;
             clip.addRoundedRectangle(plate, radius);

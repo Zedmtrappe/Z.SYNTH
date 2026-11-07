@@ -1528,6 +1528,11 @@ static int snapshots(const juce::File& dir)
         out.truncate();
         juce::PNGImageFormat().writeImageToStream(img, out);
     };
+    if (const char* only = std::getenv("ZS_SNAP_ONLY"); only != nullptr && juce::String(only) == "main")
+    {
+        shoot("main", {});
+        return 0;
+    }
     // Keyboard split.
     set("split.mode", (float) SplitMode::Split);
     set("split.point", 55.0f);

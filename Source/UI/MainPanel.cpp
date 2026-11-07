@@ -53,10 +53,76 @@ namespace
     const Skin* skinForSection(const juce::String& section) { return skinForSection(section, renderModels); }
 
     // Panel materials (see Components/Materials.h for the lighting model).
-    const juce::Colour kChassis   { 0xff0f1012 }; // black textured plastic body
-    const juce::Colour kPlate     { 0xff2e3035 }; // anodised, brushed steel section plates
-    const juce::Colour kSubPlate  { 0xff1d1f23 }; // recessed sub-panels
-    const juce::Colour kHeader    { 0xff1a1b1e }; // header moulding
+    // FABULOUS EDITION: hot-pink lacquer plates, plum sub-panels, a black patent
+    // header, and the whole thing upholstered in pink faux fur.
+    const juce::Colour kChassis   { 0xffff9ccf }; // pink faux fur body
+    const juce::Colour kPlate     { 0xffe8409a }; // hot-pink lacquer section plates
+    const juce::Colour kSubPlate  { 0xff8e1758 }; // plum lacquer sub-panels
+    const juce::Colour kHeader    { 0xff1c0a15 }; // black patent header
+
+    /** Deep, glossy lacquer: a lit top, a clear-coat highlight band and a darker foot. */
+    void lacquer(juce::Graphics& g, juce::Rectangle<float> r, float radius, juce::Colour base, float gloss = 1.0f)
+    {
+        juce::ColourGradient body(base.brighter(0.35f), 0.0f, r.getY(), base.darker(0.45f), 0.0f, r.getBottom(), false);
+        body.addColour(0.35, base);
+        g.setGradientFill(body);
+        g.fillRoundedRectangle(r, radius);
+        g.saveState();
+        juce::Path clip;
+        clip.addRoundedRectangle(r, radius);
+        g.reduceClipRegion(clip);
+        // Clear-coat reflection: a soft bright band across the upper part, a sharp window glint.
+        const float bandH = juce::jmin(60.0f, r.getHeight() * 0.32f);
+        juce::ColourGradient band(juce::Colours::white.withAlpha(0.32f * gloss), 0.0f, r.getY(), juce::Colours::white.withAlpha(0.0f), 0.0f,
+                                  r.getY() + bandH, false);
+        g.setGradientFill(band);
+        g.fillRect(r.withHeight(bandH));
+        juce::Path glint;
+        const float gx = r.getX() + r.getWidth() * 0.62f;
+        glint.startNewSubPath(gx, r.getY());
+        glint.lineTo(gx + 46.0f, r.getY());
+        glint.lineTo(gx - 40.0f, r.getBottom());
+        glint.lineTo(gx - 66.0f, r.getBottom());
+        glint.closeSubPath();
+        juce::ColourGradient streak(juce::Colours::white.withAlpha(0.13f * gloss), 0.0f, r.getY(), juce::Colours::white.withAlpha(0.02f), 0.0f,
+                                    r.getBottom(), false);
+        g.setGradientFill(streak);
+        g.fillPath(glint);
+        g.restoreState();
+        g.setColour(juce::Colours::white.withAlpha(0.55f * gloss));
+        g.drawHorizontalLine(juce::roundToInt(r.getY() + 1.0f), r.getX() + radius, r.getRight() - radius);
+    }
+
+    /** A seamless tile of pink faux fur: a plush base under curly strands. */
+    const juce::Image& furTile()
+    {
+        static const juce::Image tile = [] {
+            constexpr int n = 384;
+            juce::Image img(juce::Image::ARGB, n, n, true);
+            juce::Graphics g(img);
+            g.fillAll(kChassis.darker(0.25f));
+            juce::Random r(0xf0ff);
+            const juce::Colour shades[] = { juce::Colour(0xffffd6ec), juce::Colour(0xffffb3dc), juce::Colour(0xffff8ccb),
+                                            juce::Colour(0xffff6fbd), juce::Colour(0xffe84a9e), juce::Colour(0xfffff0f7) };
+            for (int i = 0; i < 9000; ++i)
+            {
+                const float x = r.nextFloat() * n, y = r.nextFloat() * n;
+                const float a = r.nextFloat() * juce::MathConstants<float>::twoPi, len = 6.0f + 12.0f * r.nextFloat();
+                const float curl = (r.nextFloat() - 0.5f) * 2.4f;
+                juce::Path p;
+                p.startNewSubPath(x, y);
+                p.quadraticTo(x + std::cos(a + curl) * len * 0.6f, y + std::sin(a + curl) * len * 0.6f, x + std::cos(a) * len, y + std::sin(a) * len);
+                g.setColour(shades[r.nextInt(6)].withAlpha(0.5f + 0.5f * r.nextFloat()));
+                // Draw each strand at every wrap so the tile repeats seamlessly.
+                for (int ox = -1; ox <= 1; ++ox)
+                    for (int oy = -1; oy <= 1; ++oy)
+                        g.strokePath(p, juce::PathStrokeType(0.9f + 1.4f * r.nextFloat(), juce::PathStrokeType::curved, juce::PathStrokeType::rounded),
+                                     juce::AffineTransform::translation((float) (ox * n), (float) (oy * n)));
+            }
+            return img;
+        }();
+        return tile;
+    }
 
     void paintSection(juce::Graphics& g, const SectionSpec& s)
     {
@@ -66,7 +132,7 @@ namespace
 
         if (s.id == "header")
         {
-            m::texturedPlastic(g, r, 0.0f, kHeader, 1.2f);
+            lacquer(g, r, 0.0f, kHeader, 0.6f);
             // Soft gloss on the moulded top edge.
             juce::ColourGradient gloss(juce::Colours::white.withAlpha(0.07f), 0.0f, r.getY(), juce::Colours::transparentWhite, 0.0f, r.getY() + 34.0f, false);
             g.setGradientFill(gloss);
@@ -92,7 +158,7 @@ namespace
 
         if (s.subPanel)
         {
-            m::brushedMetal(g, r, 4.0f, kSubPlate, 0.55f);
+            lacquer(g, r, 4.0f, kSubPlate, 0.5f);
             m::recess(g, r, 4.0f, juce::Colours::transparentBlack, 0.8f);
             if (s.title.isNotEmpty())
                 m::engravedText(g, s.title, r.reduced(7.0f, 2.0f).removeFromTop(14.0f), titleFont(10.5f),
@@ -108,7 +174,7 @@ namespace
 
         // A raised steel plate standing proud of the chassis.
         m::castShadow(g, r, 6.0f, 12.0f, { 2, 7 }, 0.85f);
-        m::brushedMetal(g, r, 6.0f, kPlate, 1.0f);
+        lacquer(g, r, 6.0f, kPlate);
         m::raisedEdge(g, r, 6.0f, 1.0f);
 
         if (s.title.isNotEmpty())
@@ -287,6 +353,11 @@ MainPanel::MainPanel(ZSynthProcessor& p) : processor(p), browser(p)
 
     updateSkins();
     updateActivity();
+
+    // FABULOUS EDITION: the glam sits on top of everything and lets every click through.
+    addAndMakeVisible(glamour);
+    glamour.setBounds(0, 0, PanelLayout::kWidth, PanelLayout::kHeight);
+    glamour.setAlwaysOnTop(true);
     startTimerHz(30);
 }
 
@@ -1082,7 +1153,8 @@ void MainPanel::renderBackground(float scale)
 
     // The chassis: black textured plastic, slightly darker towards the edges.
     const auto bounds = juce::Rectangle<float>(0.0f, 0.0f, (float) PanelLayout::kWidth, (float) PanelLayout::kHeight);
-    material::texturedPlastic(g, bounds, 0.0f, kChassis, 1.4f);
+    g.setTiledImageFill(furTile(), 0, 0, 1.0f);
+    g.fillRect(bounds);
     juce::ColourGradient vignette(juce::Colours::transparentBlack, bounds.getCentreX(), bounds.getCentreY() * 0.8f,
                                   juce::Colours::black.withAlpha(0.45f), 0.0f, 0.0f, true);
     g.setGradientFill(vignette);
