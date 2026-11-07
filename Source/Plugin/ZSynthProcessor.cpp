@@ -55,6 +55,9 @@ ZSynthProcessor::ZSynthProcessor(juce::File userPresetDir, AudioInput input)
 
     events.reserve(kMaxEventsPerBlock);
     presets = std::make_unique<PresetManager>(apvts, factoryBanks(), userPresetDir);
+    loadKeepPolicies();
+    presets->onLoaded = [this](const PresetData& p) { applyPresetSetup(p); };
+    presets->onCapture = [this](PresetData& p) { captureSplitPart(p); };
 
     presets->seedDefaultFavourites({ kStartupPreset, "AXEL F", "JP-8000 - Resonant Sweep", "Synthex - Galactic Lead" });
 
@@ -563,6 +566,113 @@ void ZSynthProcessor::storeSound(const PresetData& p)
     const juce::ScopedLock sl(storedLock);
     storedName = p.name;
     storedCategory = p.category;
+}
+
+void ZSynthProcessor::applyPresetSetup(const PresetData& p)
+{
+    // Loading a preset switches the keyboard split and the harmoniser off,
+    // unless the preset was saved with them on: then their settings come back
+    // with it (a split preset also brings the other part's sound).
+    auto set = [this](int index, float value) {
+        if (auto* prm = apvts.getParameter(paramDef(index).id))
+        {
+            prm->beginChangeGesture();
+            prm->setValueNotifyingHost(prm->convertTo0to1(value));
+            prm->endChangeGesture();
+        }
+    };
+    // The preset has none of its own: keep, switch off or (for the editor) ask.
+    auto noneInPreset = [this, &set](KeepItem item, int param, float offValue, bool engaged) {
+        if (! engaged)
+            return;
+        switch (getKeepPolicy(item))
+        {
+            case KeepPolicy::Keep:    break;
+            case KeepPolicy::TurnOff: set(param, offValue); break;
+            case KeepPolicy::Ask:     keepQuestion.fetch_or(item); break; // kept until answered
+        }
+    };
+    if ((SplitMode) juce::roundToInt(p.values[(size_t) P::SplitMode]) != SplitMode::Single)
+    {
+        for (int i = P::SplitMode; i <= P::SplitUpVol; ++i)
+            set(i, p.values[(size_t) i]);
+        if (p.splitPart != nullptr)
+        {
+            // The panel already holds the preset's main sound: that part is the
+            // one it was saved from, and the other part gets the stored sound.
+            swapSequence.fetch_add(1, std::memory_order_acq_rel);
+            storeSound(*p.splitPart);
+            editPart.store(juce::jlimit(0, 1, p.editPart), std::memory_order_release);
+            swapSequence.fetch_add(1, std::memory_order_acq_rel);
+        }
+    }
+    else
+    {
+        noneInPreset(kKeepSplit, P::SplitMode, (float) SplitMode::Single,
+                     (SplitMode) juce::roundToInt(getValue(P::SplitMode)) != SplitMode::Single);
+    }
+    if (p.values[(size_t) P::HarmOn] >= 0.5f)
+        for (int i = P::HarmOn; i <= P::HarmPart; ++i)
+            set(i, p.values[(size_t) i]);
+    else
+        noneInPreset(kKeepHarmony, P::HarmOn, 0.0f, getValue(P::HarmOn) >= 0.5f);
+}
+
+void ZSynthProcessor::turnOff(KeepItem item)
+{
+    const int index = item == kKeepSplit ? (int) P::SplitMode : (int) P::HarmOn;
+    if (auto* prm = apvts.getParameter(paramDef(index).id))
+    {
+        prm->beginChangeGesture();
+        prm->setValueNotifyingHost(prm->convertTo0to1(item == kKeepSplit ? (float) SplitMode::Single : 0.0f));
+        prm->endChangeGesture();
+    }
+}
+
+juce::File ZSynthProcessor::keepPolicyFile() const
+{
+    return presets->getUserDirectory().getParentDirectory().getChildFile("preset-change.txt");
+}
+
+void ZSynthProcessor::loadKeepPolicies()
+{
+    const auto lines = juce::StringArray::fromLines(keepPolicyFile().loadFileAsString());
+    auto parse = [&](const char* key) {
+        for (const auto& l : lines)
+            if (l.upToFirstOccurrenceOf("=", false, false).trim() == key)
+            {
+                const auto v = l.fromFirstOccurrenceOf("=", false, false).trim();
+                return v == "keep" ? 1 : (v == "off" ? 2 : 0);
+            }
+        return 0;
+    };
+    splitPolicy = parse("split");
+    harmPolicy = parse("harmony");
+}
+
+void ZSynthProcessor::setKeepPolicy(KeepItem item, KeepPolicy policy)
+{
+    (item == kKeepSplit ? splitPolicy : harmPolicy).store((int) policy);
+    auto word = [](int v) { return v == 1 ? "keep" : (v == 2 ? "off" : "ask"); };
+    const auto f = keepPolicyFile();
+    f.getParentDirectory().createDirectory();
+    f.replaceWithText(juce::String("split = ") + word(splitPolicy.load()) + "\nharmony = " + word(harmPolicy.load()) + "\n");
+}
+
+void ZSynthProcessor::captureSplitPart(PresetData& p)
+{
+    if ((SplitMode) juce::roundToInt(getValue(P::SplitMode)) == SplitMode::Single)
+        return;
+    auto other = std::make_shared<PresetData>();
+    for (int i = 0; i < kNumParams; ++i)
+        other->values[(size_t) i] = stored[(size_t) i].load(std::memory_order_relaxed);
+    {
+        const juce::ScopedLock sl(storedLock);
+        other->name = storedName;
+        other->category = storedCategory;
+    }
+    p.splitPart = std::move(other);
+    p.editPart = getEditPart();
 }
 
 juce::String ZSynthProcessor::getPartName(int part) const

@@ -152,6 +152,15 @@ effects. The controls are under the panel, at the right of the audition bar.
     the key (that key does not sound). LEARN also switches SINGLE to SPLIT.
   * **OCTAVE** (±3) and **LEVEL** for each part, and the EDIT buttons.
 
+**Changing presets.** A preset saved while SPLIT or LAYER is on brings
+back the split (or layer) and both sounds; one saved with HARMONY on brings
+back its harmony settings. Loading a preset that has none of its own while
+SPLIT / LAYER or HARMONY is on asks whether to **KEEP** them or **TURN OFF**
+(the new sound has already loaded; until you answer they stay on). Tick
+**Remember my choice** to stop being asked; the preset menu (click the preset
+name) has **When changing presets** to change it later: Ask, Keep it on or
+Turn it off, for SPLIT / LAYER and HARMONY separately.
+
 The on-screen keyboard tints the LOWER zone and marks the split; in SPLIT,
 the keys of the part you are not editing are greyed out (they still play
 that part). A note
@@ -446,8 +455,9 @@ The compressor's **PRE FX** moves it to just before the delay.
 
 The ADVANCED windows (and the other pop-up windows) open larger than the
 panel's own controls, up to 1.35×, for readability. Drag one by any empty
-part to move it; double-click its title bar to put it back. A soft glow
-behind the open window lifts it off the panel.
+part to move it; double-click its title bar to put it back. While a window is
+open the panel behind it dims, and the window has a warm halo and a lit rim
+(the panel still works).
 
 | Module | Controls |
 |---|---|

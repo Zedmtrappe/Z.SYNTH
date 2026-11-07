@@ -186,6 +186,8 @@ bool PresetManager::load(int index)
     }
 
     applyPreset(data, state);
+    if (onLoaded)
+        onLoaded(data);
     currentIndex = index;
     setCurrent(data.name, data.category);
     sendChangeMessage();
@@ -196,6 +198,8 @@ void PresetManager::loadInit()
 {
     PresetData init;
     applyPreset(init, state);
+    if (onLoaded)
+        onLoaded(init);
     currentIndex = -1;
     setCurrent("Init", "Init");
     sendChangeMessage();
@@ -275,6 +279,8 @@ juce::Result PresetManager::saveUser(const juce::String& rawName, const juce::St
     data.name = name;
     data.category = category.trim().isEmpty() ? juce::String("User") : category.trim();
     data.author = juce::SystemStats::getFullUserName();
+    if (onCapture)
+        onCapture(data);
 
     const auto result = savePresetFile(file, data);
     if (result.failed())

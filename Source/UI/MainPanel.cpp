@@ -339,6 +339,14 @@ MainPanel::MainPanel(ZSynthProcessor& p) : processor(p), browser(p)
     valueBubble.setInterceptsMouseClicks(false, false);
     addChildComponent(valueBubble);
     addChildComponent(pageGlow);
+    addChildComponent(keepPrompt);
+    keepPrompt.onAnswer = [this](int item, bool keep, bool remember) {
+        const auto which = (ZSynthProcessor::KeepItem) item;
+        if (! keep)
+            processor.turnOff(which);
+        if (remember)
+            processor.setKeepPolicy(which, keep ? ZSynthProcessor::KeepPolicy::Keep : ZSynthProcessor::KeepPolicy::TurnOff);
+    };
 
     addChildComponent(browser);
     browser.setBounds(460, 120, 1000, 760);
@@ -683,13 +691,113 @@ void MainPanel::buildUtilities()
 }
 
 // ------------------------------------------------------------------ pages
+// ------------------------------------------------------------ keep prompt
+KeepPrompt::KeepPrompt()
+{
+    for (int k = 0; k < 2; ++k)
+    {
+        const int item = k == 0 ? ZSynthProcessor::kKeepSplit : ZSynthProcessor::kKeepHarmony;
+        addChildComponent(rows[k].keep);
+        addChildComponent(rows[k].off);
+        rows[k].keep.onClick = [this, item] { answer(item, true); };
+        rows[k].off.onClick = [this, item] { answer(item, false); };
+        rows[k].keep.setTooltip("Keep it on with the new sound");
+        rows[k].off.setTooltip("Switch it off");
+    }
+    addAndMakeVisible(remember);
+    remember.setColour(juce::ToggleButton::textColourId, Colours::text);
+}
+
+void KeepPrompt::ask(int items)
+{
+    pending |= items;
+    layoutRows();
+    setVisible(pending != 0);
+    toFront(false);
+}
+
+void KeepPrompt::answer(int item, bool keep)
+{
+    pending &= ~item;
+    if (onAnswer)
+        onAnswer(item, keep, remember.getToggleState());
+    layoutRows();
+    if (pending == 0)
+    {
+        setVisible(false);
+        remember.setToggleState(false, juce::dontSendNotification);
+    }
+}
+
+void KeepPrompt::layoutRows()
+{
+    // The window sits under the preset display; one row per question.
+    const int n = juce::countNumberOfBits((uint32_t) pending);
+    setBounds(438, 92, 400, 60 + 36 * juce::jmax(1, n) + 30);
+    resized();
+    repaint();
+}
+
+void KeepPrompt::resized()
+{
+    int y = 44;
+    for (int k = 0; k < 2; ++k)
+    {
+        const int item = k == 0 ? ZSynthProcessor::kKeepSplit : ZSynthProcessor::kKeepHarmony;
+        const bool shown = (pending & item) != 0;
+        rows[k].keep.setVisible(shown);
+        rows[k].off.setVisible(shown);
+        if (shown)
+        {
+            rows[k].keep.setBounds(getWidth() - 196, y, 84, 26);
+            rows[k].off.setBounds(getWidth() - 104, y, 92, 26);
+            y += 36;
+        }
+    }
+    remember.setBounds(14, y + 6, getWidth() - 28, 22);
+}
+
+void KeepPrompt::paint(juce::Graphics& g)
+{
+    const auto r = getLocalBounds().toFloat();
+    g.setColour(juce::Colours::black.withAlpha(0.6f));
+    g.fillRoundedRectangle(r.translated(0.0f, 4.0f), 7.0f);
+    juce::ColourGradient body(Colours::titleBar, 0.0f, 0.0f, Colours::section.darker(0.3f), 0.0f, r.getHeight(), false);
+    g.setGradientFill(body);
+    g.fillRoundedRectangle(r.reduced(1.0f), 6.0f);
+    g.setColour(Colours::accent);
+    g.drawRoundedRectangle(r.reduced(1.0f), 6.0f, 1.6f);
+    g.setFont(titleFont(12.5f));
+    g.setColour(Colours::accent);
+    g.drawText("NEW PRESET", 14, 8, getWidth() - 28, 16, juce::Justification::centredLeft);
+    g.setFont(labelFont(10.5f));
+    g.setColour(Colours::textDim);
+    g.drawText("This preset has no keyboard split or harmony of its own.", 14, 24, getWidth() - 28, 14,
+               juce::Justification::centredLeft);
+    int y = 44;
+    g.setFont(labelFont(12.0f));
+    g.setColour(Colours::text);
+    if ((pending & ZSynthProcessor::kKeepSplit) != 0)
+    {
+        g.drawText("SPLIT / LAYER is on", 14, y, 180, 26, juce::Justification::centredLeft);
+        y += 36;
+    }
+    if ((pending & ZSynthProcessor::kKeepHarmony) != 0)
+        g.drawText("HARMONY is on", 14, y, 180, 26, juce::Justification::centredLeft);
+}
+
 void PageGlow::paint(juce::Graphics& g)
 {
-    const auto window = getLocalBounds().reduced(kMargin);
-    // Deep shadow below, then a warm halo all round, so the window floats above the panel.
-    juce::DropShadow(juce::Colours::black.withAlpha(0.85f), 44, { 0, 16 }).drawForRectangle(g, window);
-    juce::DropShadow(Colours::accent.withAlpha(0.32f), 34, {}).drawForRectangle(g, window);
-    juce::DropShadow(Colours::accent.withAlpha(0.22f), 10, {}).drawForRectangle(g, window);
+    // The panel behind steps back...
+    g.setColour(juce::Colours::black.withAlpha(0.5f));
+    g.fillRect(getLocalBounds());
+    // ...and the window floats above it: a deep shadow below, a warm halo all round,
+    // and a bright rim hugging its edge.
+    juce::DropShadow(juce::Colours::black.withAlpha(0.95f), 50, { 0, 18 }).drawForRectangle(g, window);
+    juce::DropShadow(Colours::accent.withAlpha(0.5f), 40, {}).drawForRectangle(g, window);
+    juce::DropShadow(Colours::accent.withAlpha(0.45f), 12, {}).drawForRectangle(g, window);
+    g.setColour(Colours::accent.withAlpha(0.85f));
+    g.drawRoundedRectangle(window.toFloat().expanded(1.5f), 7.0f, 1.6f);
 }
 
 void MainPanel::placeGlow()
@@ -914,6 +1022,19 @@ void MainPanel::showPresetMenu()
                                                  : juce::String::fromUTF8("\xe2\x98\x85 Add \"") + pm.getCurrentName() + "\" to favourites");
     menu.addItem(100000, "Init patch");
     menu.addItem(100001, "Open preset browser...");
+    {
+        // What happens to SPLIT / HARMONY when a preset without its own is loaded.
+        juce::PopupMenu keepMenu;
+        const char* names[] = { "Ask", "Keep it on", "Turn it off" };
+        for (int item : { (int) ZSynthProcessor::kKeepSplit, (int) ZSynthProcessor::kKeepHarmony })
+        {
+            keepMenu.addSectionHeader(item == ZSynthProcessor::kKeepSplit ? "SPLIT / LAYER" : "HARMONY");
+            const int current = (int) processor.getKeepPolicy((ZSynthProcessor::KeepItem) item);
+            for (int p = 0; p < 3; ++p)
+                keepMenu.addItem(100100 + item * 10 + p, names[p], true, current == p);
+        }
+        menu.addSubMenu("When changing presets", keepMenu);
+    }
 
     juce::Component::SafePointer<MainPanel> safe(this);
     const auto target = PanelLayout::get().utility("presetDisplay");
@@ -928,6 +1049,9 @@ void MainPanel::showPresetMenu()
                                safe->showPresetBrowser(true);
                            else if (result == 100002)
                                presets.setFavourite(presets.getCurrentIndex(), ! presets.isFavourite(presets.getCurrentIndex()));
+                           else if (result >= 100100 && result < 100200)
+                               safe->processor.setKeepPolicy((ZSynthProcessor::KeepItem) ((result - 100100) / 10),
+                                                             (ZSynthProcessor::KeepPolicy) ((result - 100100) % 10));
                            else if (result >= kFavouriteItemBase)
                            {
                                presets.setFavouritesMode(true);
@@ -980,6 +1104,8 @@ void MainPanel::timerCallback()
         w->refresh();
     updateOscViews(false);
     updateSplit();
+    if (const int ask = processor.takeKeepQuestion(); ask != 0)
+        keepPrompt.ask(ask);
 
     const int step = processor.getEngine().getSeqStep();
     const bool seqRunning = std::lround(processor.getValue(P::SeqMode)) != 0;

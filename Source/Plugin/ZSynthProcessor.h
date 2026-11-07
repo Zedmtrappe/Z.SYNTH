@@ -94,6 +94,18 @@ public:
     void setEditPart(int part);
     /** Preset name of a part. */
     juce::String getPartName(int part) const;
+
+    // ---- changing presets while SPLIT / LAYER or HARMONY is on
+    /** What happens to SPLIT / HARMONY when a preset without its own is loaded. */
+    enum class KeepPolicy { Ask = 0, Keep, TurnOff };
+    enum KeepItem { kKeepSplit = 1, kKeepHarmony = 2 };
+    KeepPolicy getKeepPolicy(KeepItem item) const { return (KeepPolicy) (item == kKeepSplit ? splitPolicy.load() : harmPolicy.load()); }
+    /** Sets (and remembers, across sessions) the policy for one item. */
+    void setKeepPolicy(KeepItem item, KeepPolicy policy);
+    /** Items (KeepItem bits) the editor should ask about after a preset load; clears them. */
+    int takeKeepQuestion() { return keepQuestion.exchange(0); }
+    /** Answer to the question: switch the item off (keeping needs nothing). */
+    void turnOff(KeepItem item);
     /** LEARN: the next key played sets the split point (and does not sound). */
     void setLearningSplit(bool on) { learnedNote.store(-1); learningSplit.store(on); }
     bool isLearningSplit() const { return learningSplit.load(); }
@@ -144,6 +156,14 @@ private:
     dsp::KeyDetector keyDetector;
     std::vector<dsp::MidiEvent> harmScratch;
     void storeSound(const PresetData& p);
+    std::atomic<int> splitPolicy { 0 }, harmPolicy { 0 }, keepQuestion { 0 };
+    juce::File keepPolicyFile() const;
+    void loadKeepPolicies();
+    /** After a preset load: split and harmony from the preset, or (when the
+        preset has none) kept, switched off or asked about, per the policy. */
+    void applyPresetSetup(const PresetData& p);
+    /** When saving: the other part's sound, if SPLIT or LAYER is on. */
+    void captureSplitPart(PresetData& p);
     juce::MidiKeyboardState keyboardState;
     MidiLearn midiLearn;
     std::unique_ptr<PresetManager> presets;

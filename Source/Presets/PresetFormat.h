@@ -8,6 +8,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <array>
+#include <memory>
 
 namespace zsynth
 {
@@ -24,6 +25,11 @@ struct PresetData
     juce::String author;
     juce::String comment;
     std::array<float, kNumParams> values {};
+
+    /** A preset saved while SPLIT or LAYER was on also holds the other part's
+        sound; editPart says which part `values` is (0 UPPER, 1 LOWER). */
+    std::shared_ptr<const PresetData> splitPart;
+    int editPart = 0;
 };
 
 struct PresetLoadResult

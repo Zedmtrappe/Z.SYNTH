@@ -60,16 +60,47 @@ private:
     juce::TextButton closeButton { juce::String::fromUTF8("\xc3\x97") };
 };
 
-/** The glow behind the open pop-up window, lifting it off the panel: a deep
-    soft shadow with a warm halo. Sits just behind the window, takes no clicks. */
+/** Lifts the open pop-up window off the panel: the panel behind is dimmed,
+    and the window gets a deep soft shadow, a warm halo and a lit rim. Covers
+    the panel just behind the window and takes no clicks (the panel still works). */
 class PageGlow : public juce::Component
 {
 public:
-    static constexpr int kMargin = 56;
     PageGlow() { setInterceptsMouseClicks(false, false); }
     /** area: the window as it appears on the panel (zoom included). */
-    void follow(juce::Rectangle<int> area) { setBounds(area.expanded(kMargin)); }
+    void follow(juce::Rectangle<int> area)
+    {
+        window = area;
+        setBounds(0, 0, PanelLayout::kWidth, PanelLayout::kHeight);
+        repaint();
+    }
     void paint(juce::Graphics&) override;
+
+private:
+    juce::Rectangle<int> window;
+};
+
+/** Asked after loading a preset that has no keyboard split / harmony of its own
+    while SPLIT (or LAYER) and / or HARMONY are on: keep them, or turn them off.
+    The sound has already changed; until answered, they stay on. */
+class KeepPrompt : public juce::Component
+{
+public:
+    KeepPrompt();
+    /** items: ZSynthProcessor::KeepItem bits (added to any still unanswered). */
+    void ask(int items);
+    /** item, keep, remember (make it the policy for next time). */
+    std::function<void(int, bool, bool)> onAnswer;
+    void paint(juce::Graphics&) override;
+    void resized() override;
+
+private:
+    int pending = 0;
+    struct Row { juce::TextButton keep { "KEEP" }, off { "TURN OFF" }; };
+    Row rows[2];
+    juce::ToggleButton remember { "Remember my choice (change it in the preset menu)" };
+    void answer(int item, bool keep);
+    void layoutRows();
 };
 
 /** The MODULATION block's EFFECT selector: picks which effect's controls are
@@ -162,6 +193,7 @@ private:
     ZSynthProcessor& processor;
     std::vector<std::unique_ptr<PopupPage>> pages;
     PageGlow pageGlow;
+    KeepPrompt keepPrompt;
     void placeGlow();
     std::vector<std::unique_ptr<ParamControl>> controls;
     juce::StringArray controlViews; // parallel to controls: the view each belongs to ("" = always shown)

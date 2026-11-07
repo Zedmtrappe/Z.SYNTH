@@ -9,6 +9,8 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+#include <functional>
+
 namespace zsynth
 {
 
@@ -62,6 +64,14 @@ public:
     juce::String getCurrentCategory() const { const juce::ScopedLock sl(nameLock); return currentCategory; }
 
     bool load(int index);
+
+    /** Set by the processor: after a preset (or INIT) is applied, sets up the
+        keyboard split and the harmoniser from it (both off unless the preset
+        was saved with them on). */
+    std::function<void(const PresetData&)> onLoaded;
+    /** Set by the processor: adds the other part's sound when saving while
+        SPLIT or LAYER is on. */
+    std::function<void(PresetData&)> onCapture;
     /** The sound of entry `index` without loading it (false if unreadable). */
     bool getPresetData(int index, PresetData& out) const;
     /** Index of a factory preset by name, or -1. */

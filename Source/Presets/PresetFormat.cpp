@@ -29,6 +29,12 @@ std::unique_ptr<juce::XmlElement> presetToXml(const PresetData& preset)
         p->setAttribute("id", paramDef(i).id);
         p->setAttribute("value", valueToPresetText(i, preset.values[(size_t) i]));
     }
+    if (preset.splitPart != nullptr)
+    {
+        auto* split = xml->createNewChildElement("SplitPart");
+        split->setAttribute("editPart", preset.editPart);
+        split->addChildElement(presetToXml(*preset.splitPart).release());
+    }
     return xml;
 }
 
@@ -71,6 +77,17 @@ PresetLoadResult presetFromXml(const juce::XmlElement& xml, PresetData& out)
         else
             result.warnings.add("Invalid value for '" + id + "'; default used");
     }
+
+    if (auto* split = xml.getChildByName("SplitPart"))
+        if (auto* other = split->getChildByName("ZSynthPreset"))
+        {
+            auto part = std::make_shared<PresetData>();
+            if (presetFromXml(*other, *part).ok)
+            {
+                p.splitPart = std::move(part);
+                p.editPart = juce::jlimit(0, 1, split->getIntAttribute("editPart", 0));
+            }
+        }
 
     out = p;
     result.ok = true;

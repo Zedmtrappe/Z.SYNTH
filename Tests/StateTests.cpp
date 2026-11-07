@@ -1084,6 +1084,56 @@ ZS_TEST(split_routes_keys_to_two_sounds)
     ZS_CHECK(quiet < 0.02f * layered);
 }
 
+ZS_TEST(preset_change_keeps_or_turns_off_split_and_harmony)
+{
+    SplitRig r("split4");
+    using KP = ZSynthProcessor::KeepPolicy;
+    auto& pm = r.p.getPresets();
+    const int other = pm.findFactory("Classic Saw Bass");
+    ZS_CHECK(other >= 0);
+    auto engaged = [&] { return std::make_pair(juce::roundToInt(r.p.getValue(P::SplitMode)), r.p.getValue(P::HarmOn) >= 0.5f); };
+
+    // ASK (the default): both stay on and the editor is asked about both.
+    r.p.setKeepPolicy(ZSynthProcessor::kKeepSplit, KP::Ask);
+    r.p.setKeepPolicy(ZSynthProcessor::kKeepHarmony, KP::Ask);
+    r.set("split.mode", (float) SplitMode::Split);
+    r.set("harm.on", 1.0f);
+    r.p.takeKeepQuestion();
+    pm.load(other);
+    ZS_CHECK(engaged() == std::make_pair((int) SplitMode::Split, true));
+    ZS_CHECK(r.p.takeKeepQuestion() == (ZSynthProcessor::kKeepSplit | ZSynthProcessor::kKeepHarmony));
+    r.p.turnOff(ZSynthProcessor::kKeepHarmony); // the answer "TURN OFF"
+    ZS_CHECK(r.p.getValue(P::HarmOn) < 0.5f);
+
+    // TURN OFF / KEEP without asking.
+    r.p.setKeepPolicy(ZSynthProcessor::kKeepSplit, KP::TurnOff);
+    r.p.setKeepPolicy(ZSynthProcessor::kKeepHarmony, KP::Keep);
+    r.set("harm.on", 1.0f);
+    pm.load(other);
+    ZS_CHECK(engaged() == std::make_pair((int) SplitMode::Single, true));
+    ZS_CHECK(r.p.takeKeepQuestion() == 0);
+
+    // A preset saved with SPLIT on brings back the split and both sounds, whatever the policy.
+    r.set("split.mode", (float) SplitMode::Split);
+    r.set("split.point", 53.0f);
+    const auto lowerName = r.p.getPartName(ZSynthProcessor::kLower);
+    ZS_CHECK(pm.saveUser("Split Test", "User", true).wasOk());
+    const int saved = pm.getCurrentIndex();
+    r.set("split.mode", (float) SplitMode::Single);
+    r.set("split.point", 70.0f);
+    pm.load(pm.findFactory("Classic Saw Bass"));
+    r.p.setEditPart(ZSynthProcessor::kLower);
+    pm.loadInit();
+    pm.load(saved);
+    ZS_CHECK(juce::roundToInt(r.p.getValue(P::SplitMode)) == (int) SplitMode::Split);
+    ZS_CHECK(juce::roundToInt(r.p.getValue(P::SplitPoint)) == 53);
+    ZS_CHECK(r.p.getEditPart() == ZSynthProcessor::kUpper);
+    ZS_CHECK(r.p.getPartName(ZSynthProcessor::kLower) == lowerName);
+
+    r.p.setKeepPolicy(ZSynthProcessor::kKeepSplit, KP::Ask);
+    r.p.setKeepPolicy(ZSynthProcessor::kKeepHarmony, KP::Ask);
+}
+
 ZS_TEST(split_edit_part_swaps_the_panel)
 {
     SplitRig r("split2");
@@ -1536,6 +1586,10 @@ static int snapshots(const juce::File& dir)
     set("split.lo.vol", -3.0f);
     shoot("split", "split");
     shoot("splitmain", {});
+    set("harm.on", 1.0f);
+    processor.getPresets().load(processor.getPresets().findFactory("Classic Saw Bass"));
+    shoot("keepask", {});
+    set("harm.on", 0.0f);
     set("split.mode", (float) SplitMode::Single);
     if (const char* only = std::getenv("ZS_SNAP_ONLY"); only != nullptr && juce::String(only) == "split")
         return 0;
