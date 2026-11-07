@@ -193,6 +193,7 @@ asks for permission to use the audio input; allow it.
 | GATE | Level that starts a note (notes end 6 dB below it); raise it if hum or string noise triggers notes |
 | TRACKING | How sure the detector must be: loose = fastest, strict = steadiest |
 | CLEAN UP | Removes tracking glitches: the stray, short, low notes a detector produces as a note decays (it briefly hears an octave or more down) or when a tail is re-read without a new pick. Readings like that must hold steady for longer before they play (up to about 20 ms on guitar, 30 ms on bass), and an unpicked jump to an exact octave / octave-and-a-fifth / two octaves down is ignored. Notes you pick with a clean pitch are never delayed. 0 = off, 0.5 = default, 1 = strongest |
+| SUSTAIN | How long tracked notes ring on as the string dies away. Off (the default): a note ends when the level falls below the GATE. Turned up: a note that the tracker still clearly hears (the same pitch, or its bend) keeps going below the gate, down to 36 dB under it at full, and ends shortly after the pitch is lost. No new note can start below the gate, so this does not add stray notes. Full = **HOLD**: every note holds until you play the next one, like a sustainer; a muted pick (no pitch) stops it. SUSTAIN only changes when notes end: no added latency |
 | VELOCITY | How much picking strength sets velocity (0 = always 100) |
 | DRY | Blends the instrument's own sound with the synth |
 

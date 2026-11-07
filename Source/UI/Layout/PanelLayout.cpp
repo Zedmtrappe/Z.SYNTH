@@ -661,6 +661,7 @@ PanelLayout::PanelLayout()
     add("trk.range", K::Selector, 484, 44, "RANGE", 130);
     add("trk.bend", K::Switch, 340, 96, "BEND FOLLOW", 92);
     add("trk.clean", K::Knob, 470, 88, "CLEAN UP");
+    add("trk.sus", K::Knob, 548, 88, "SUSTAIN");
     const std::pair<const char*, const char*> trackKnobs[5] = { { "trk.gain", "GAIN" }, { "trk.gate", "GATE" },
         { "trk.thresh", "TRACKING" }, { "trk.vel", "VELOCITY" }, { "trk.dry", "DRY" } };
     for (int k = 0; k < 5; ++k)
@@ -668,6 +669,7 @@ PanelLayout::PanelLayout()
     text("Play one note at a time.  GAIN: strong picking should reach well past the gate line on the meter.  "
          "GATE: raise it if hum or string noise starts notes.  TRACKING: loose = fastest, strict = steadiest.  "
          "CLEAN UP: removes stray short low notes (doubtful readings must be confirmed; picked notes stay instant).  "
+         "SUSTAIN: notes ring on as the string dies away; full = HOLD (until the next note; a muted pick stops it).  "
          "Choose the audio interface and input in Options > Audio/MIDI Settings.  While PITCH TRACK is on the "
          "keyboards, QWERTY and MIDI notes are off (MIDI controllers such as sustain still work).",
          340, 162, 280, 170, juce::Justification::topLeft);

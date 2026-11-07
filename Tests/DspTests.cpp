@@ -1883,6 +1883,68 @@ ZS_TEST(output_transformer_models)
     }
 }
 
+ZS_TEST(pitch_tracker_sustain_and_hold)
+{
+    using dsp::PitchTracker;
+    using dsp::TrackerSettings;
+    using dsp::MidiEvent;
+    const float fs = 48000.0f;
+    // One long A2 decaying ~18 dB/s from -12 dBFS, then (at 7 s) a muted pick: noise, no pitch.
+    std::vector<float> in((size_t) (fs * 8.0f), 0.0f);
+    {
+        double phase[11] = {};
+        for (int i = 0; i < (int) (6.5f * fs); ++i)
+        {
+            const float t = (float) i / fs;
+            float v = 0.0f;
+            for (int h = 1; h <= 10; ++h)
+            {
+                phase[h] += 2.0 * 3.14159265358979 * 110.0 * h * (1.0 + 0.0004 * h * h) / fs;
+                v += std::sin((float) phase[h]) * std::exp(-t * (1.2f + 0.9f * (float) h)) / (float) h;
+            }
+            in[(size_t) i + (size_t) (0.2f * fs)] += 0.25f * v;
+        }
+        uint32_t seed = 11;
+        for (int i = 0; i < (int) (0.02f * fs); ++i)
+        {
+            seed = seed * 1664525u + 1013904223u;
+            in[(size_t) (7.0f * fs) + (size_t) i] += 0.3f * ((float) (seed >> 8) / 8388608.0f - 1.0f) * (1.0f - (float) i / (0.02f * fs));
+        }
+    }
+    // When (seconds) the note ends, or -1.
+    auto noteEnd = [&](float sustain, int* notes) {
+        PitchTracker tr;
+        tr.prepare(fs);
+        TrackerSettings s;
+        s.bendFollow = false;
+        s.sustain = sustain;
+        MidiEvent out[64];
+        double end = -1.0;
+        *notes = 0;
+        for (size_t i = 0; i < in.size(); i += 256)
+        {
+            const int c = tr.process(in.data() + i, (int) std::min<size_t>(256, in.size() - i), s, out, 64);
+            for (int k = 0; k < c; ++k)
+            {
+                const bool on = (out[k].status & 0xF0) == 0x90 && out[k].data2 > 0;
+                const bool off = (out[k].status & 0xF0) == 0x80 || ((out[k].status & 0xF0) == 0x90 && out[k].data2 == 0);
+                if (on)
+                    ++*notes;
+                if (off && end < 0.0)
+                    end = (double) (i + (size_t) out[k].offset) / fs;
+            }
+        }
+        return end;
+    };
+    int n0 = 0, n1 = 0, nh = 0;
+    const double plain = noteEnd(0.0f, &n0), longer = noteEnd(0.7f, &n1), held = noteEnd(1.0f, &nh);
+    std::printf("    note ends: SUSTAIN off %.2f s, 70 %% %.2f s, HOLD %.2f s\n", plain, longer, held);
+    ZS_CHECK(n0 == 1 && n1 == 1 && nh == 1); // one note, no stray retriggers in the tail
+    ZS_CHECK(plain > 1.0 && plain < 3.5);
+    ZS_CHECK(longer > plain + 0.5);        // rings on below the gate
+    ZS_CHECK(held > 7.0 && held < 7.4);    // held through the silence; the muted pick stops it
+}
+
 ZS_TEST(pitch_tracker_guitar_and_bass)
 {
     using dsp::PitchTracker;

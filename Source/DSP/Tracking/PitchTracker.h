@@ -30,6 +30,13 @@
 // a fifth, two octaves down) is ignored outright. Notes that come with a pick
 // attack and a clean reading are never delayed: no added latency.
 //
+// SUSTAIN. Without it a note ends when the level falls below the gate. With
+// it, a note that is still clearly heard rings on below the gate: down to
+// 36 dB under it at full, while the detector keeps finding the note's pitch
+// (within a semitone, or its bend); it ends ~60 ms after the pitch is lost.
+// No new note can start below the gate. HOLD (full): a note holds until the
+// next one starts; a pick with no pitch (a muted strum) stops it.
+//
 // Real-time safe: all memory is allocated in prepare().
 
 #include "../Engine/SynthEngine.h"
@@ -53,6 +60,7 @@ struct TrackerSettings
     float bendRange = 2.0f;    // the synth's pitch-bend range in semitones
     int channel = 1;           // MIDI channel of the events (1..16)
     float cleanUp = 0.5f;      // CLEAN UP 0 = off .. 1 = strongest glitch suppression
+    float sustain = 0.0f;      // SUSTAIN 0 = off .. ~1 = notes ring on below the gate; >= 0.98 = HOLD
 };
 
 class PitchTracker
@@ -98,6 +106,7 @@ public:
         recentNote = -1;
         sinceNoteEnd = 1 << 20;
         lastAperiodicity = 1.0f;
+        lostHops = 0;
         uiLevelDb.store(-120.0f);
         uiFrequency.store(0.0f);
         uiNote.store(-1);
@@ -117,6 +126,10 @@ public:
         const float gain = std::pow(10.0f, s.inputGainDb / 20.0f);
         const float gateOn = std::pow(10.0f, s.gateDb / 20.0f);
         const float gateOff = gateOn * 0.5f; // 6 dB hysteresis
+        const float sus = std::clamp(s.sustain, 0.0f, 1.0f);
+        hold = sus >= 0.98f;
+        sustaining = sus > 0.001f;
+        tailFloor = gateOff * std::pow(10.0f, -36.0f * sus / 20.0f); // SUSTAIN: how far below the gate a note may ring
         const float thr = 0.25f - 0.17f * std::clamp(s.threshold, 0.0f, 1.0f);
         const int needStable = 1 + (int) std::lround(2.0f * std::clamp(s.threshold, 0.0f, 1.0f));
 
@@ -149,8 +162,18 @@ public:
             else if (env < gateOff && gateOpen && --gateHold <= 0)
             {
                 gateOpen = false;
-                if (noteOn)
+                if (noteOn && ! sustaining)
                     endNote(i);
+            }
+            // SUSTAIN: a note ringing below the gate ends when it fades under the
+            // floor (not with HOLD) or the pitch has been lost for a while.
+            if (noteOn && ! gateOpen && sustaining && ! hold && (env < tailFloor || lostHops > lostLimit))
+                endNote(i);
+            // HOLD: a pick that brings no pitch (a muted strum) stops the held note.
+            if (noteOn && hold && onset && sinceOnset > muteSamples)
+            {
+                onset = false;
+                endNote(i);
             }
 
             // Anti-alias filter and decimation for the pitch detector.
@@ -242,6 +265,8 @@ private:
         slowAttack = std::exp(-1.0f / (0.012f * fs));
         slowRelease = std::exp(-1.0f / (0.25f * fs));
         holdSamples = (int) (0.03f * fs);
+        muteSamples = (int) (0.15f * fs);
+        lostLimit = std::max(2, (int) std::lround(0.06f * cfg.fsd / (float) cfg.hop));
         // CLEAN UP timing, in analysis hops: up to ~20 ms (guitar) / ~32 ms (bass) of extra
         // confirmation for suspicious readings; "just played" = the last 0.4 s.
         cleanHops = 8;
@@ -340,16 +365,36 @@ private:
     {
         if (sinceNoteEnd < (1 << 20))
             ++sinceNoteEnd;
-        const float f = gateOpen ? detect(thr) : 0.0f;
+        // Below the gate the detector keeps listening only to a note ringing on (SUSTAIN).
+        const bool tail = ! gateOpen && noteOn && sustaining;
+        const float f = (gateOpen || tail) ? detect(thr) : 0.0f;
         const bool voiced = f > 0.0f;
         uiFrequency.store(f);
         if (! voiced)
         {
             stable = 0;
             lastMidi = -100.0f;
+            ++lostHops;
             return;
         }
         const float midi = 69.0f + 12.0f * std::log2(f / 440.0f);
+        if (noteOn)
+        {
+            // Still the note being played (or its bend)? Then it is not lost.
+            const float expected = (float) note + lastBend;
+            if (std::abs(midi - expected) < 1.0f)
+                lostHops = 0;
+            else
+                ++lostHops;
+        }
+        if (tail)
+        {
+            // Ringing on below the gate: follow the bend, but never start or change notes here.
+            if (s.bendFollow && std::abs(midi - (float) note) < std::max(0.5f, s.bendRange) - 0.25f
+                && std::abs((midi - (float) note) - lastBend) > 0.02f && std::abs(midi - ((float) note + lastBend)) < 1.0f)
+                sendBend(offset, midi - (float) note, std::max(0.5f, s.bendRange));
+            return;
+        }
         stable = std::abs(midi - lastMidi) < 0.5f ? stable + 1 : 1;
         lastMidi = midi;
 
@@ -422,6 +467,7 @@ private:
     void startNote(int offset, float midi, const TrackerSettings& s, float gateOn)
     {
         onset = false;
+        lostHops = 0;
         note = std::clamp((int) std::lround(midi), 0, 127);
         const float peakDb = 20.0f * std::log10(std::max(peakSinceOnset, env) + 1.0e-9f);
         const float gateDb = 20.0f * std::log10(gateOn);
@@ -478,6 +524,10 @@ private:
     float envAttack = 0, envRelease = 0, slowAttack = 0, slowRelease = 0;
     float env = 0.0f, slowEnv = 0.0f, peakSinceOnset = 0.0f;
     int holdSamples = 0, gateHold = 0, minOnsetGap = 0, sinceOnset = 0;
+    // SUSTAIN / HOLD
+    bool hold = false, sustaining = false;
+    float tailFloor = 0.0f;
+    int muteSamples = 0, lostLimit = 2, lostHops = 0;
     bool gateOpen = false, onset = false;
 
     std::vector<float> hist, diff;

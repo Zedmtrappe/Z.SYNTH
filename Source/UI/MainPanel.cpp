@@ -808,6 +808,8 @@ void MainPanel::placeGlow()
             pageGlow.follow(getLocalArea(p.get(), p->getLocalBounds()));
             pageGlow.setVisible(true);
             pageGlow.toBehind(p.get());
+            if (keepPrompt.isVisible())
+                keepPrompt.toFront(false); // an open question stays on top, undimmed
             return;
         }
     pageGlow.setVisible(false);

@@ -390,6 +390,7 @@ X(HarmLow,       "harm.lo",       "Harmony Lowest", "Global", Int, 12.f, 120.f, 
 X(HarmHigh,      "harm.hi",       "Harmony Highest", "Global", Int, 12.f, 120.f, 96.f, LIN, "note", nullptr, "RANGE: harmony notes above this fold down by octaves.") \
 X(HarmPart,      "harm.part",     "Harmony Applies To", "Global", Choice, 0, 0, 0.f, LIN, "", ZS_CH_HARM_PART, "With SPLIT / LAYER: harmonise both sounds, or only UPPER or LOWER.") \
 X(GlideType,     "voice.glidetype","Glide Type",    "Voice", Choice, 0, 0, 0.f, LIN, "", ZS_CH_GLIDE_TYPE, "ANALOG: the classic slide, quick at first then easing in (each slide takes about GLIDE). CONSTANT TIME: a straight slide that always takes GLIDE. CONSTANT RATE: a straight slide at GLIDE per octave, so bigger leaps take longer.") \
+X(TrkSustain,    "trk.sus",       "Track Sustain", "Global", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "SUSTAIN: lets tracked notes ring on as the string dies away: while the tracker still clearly hears the note it holds, below the GATE. Full = HOLD: every note holds until you play the next one (a muted pick, with no pitch, stops it). Changes only when notes end: no added latency.") \
 
 #define ZS_OSC_WT_PARAMS(X, n) \
 X(Osc##n##WtTable, "osc" #n ".wt.table", "Osc " #n " Table", "Wavetable", Choice, 0, 0, 0.f, LIN, "", ZS_CH_OSC_TABLE, "Wavetable for this oscillator (Wavetable wave): SECTION = the WAVETABLE section's TABLE.") \

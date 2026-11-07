@@ -288,6 +288,7 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
             s.bendFollow = rawValues[(size_t) P::TrkBend]->load() >= 0.5f;
             s.bendRange = rawValues[(size_t) P::BendRange]->load();
             s.cleanUp = rawValues[(size_t) P::TrkClean]->load();
+            s.sustain = rawValues[(size_t) P::TrkSustain]->load();
             s.channel = channel;
             count = tracker.process(trackInput.data(), n, s, tracked, 32);
         }

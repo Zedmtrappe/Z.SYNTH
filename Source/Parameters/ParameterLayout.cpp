@@ -83,6 +83,8 @@ juce::String formatValue(int index, float v)
             break;
     }
 
+    if (index == P::TrkSustain)
+        return v <= 0.001f ? juce::String("Off") : (v >= 0.98f ? juce::String("HOLD") : juce::String(juce::roundToInt(v * 100.0f)) + " %");
     if (unit == "Hz")
         return v >= 1000.0f ? juce::String(v / 1000.0f, v >= 10000.0f ? 1 : 2) + " kHz"
                             : juce::String(v, v < 10.0f ? 2 : (v < 100.0f ? 1 : 0)) + " Hz";
@@ -127,6 +129,14 @@ float parseValue(int index, const juce::String& text)
 
     if (index == P::MidiChannel && t.equalsIgnoreCase("omni"))
         return 0.0f;
+    if (index == P::TrkSustain)
+    {
+        if (t.equalsIgnoreCase("off"))
+            return 0.0f;
+        if (t.equalsIgnoreCase("hold"))
+            return 1.0f;
+        return juce::jlimit(0.0f, 1.0f, t.getFloatValue() / 100.0f);
+    }
     if (juce::String(d.unit) == "note" && t.isNotEmpty() && ! juce::CharacterFunctions::isDigit(t[0]))
     {
         // "C4", "F#3", "Bb2": middle C = C4 = 60.
