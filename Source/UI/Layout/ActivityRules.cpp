@@ -222,7 +222,7 @@ Activity activityFor(int i, const float* v, bool hostTempo)
         return inactive("Voice allocation applies to Poly mode.");
     if ((i == P::UnisonVoices || i == P::UnisonDetune) && ! on(v, P::Unison))
         return inactive("Unison is off.");
-    if (i == P::GlideMode && v[P::GlideTime] <= 0.0f)
+    if ((i == P::GlideMode || i == P::GlideType) && v[P::GlideTime] <= 0.0f)
         return inactive("Glide time is zero.");
 
     // ---- matrix

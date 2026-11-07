@@ -144,6 +144,11 @@ enum class VoiceAlloc : int { Rotate, Reuse, Lowest, Count };
 
 #define ZS_CH_GLIDE_MODE "Always|Legato"
 enum class GlideMode : int { Always, LegatoOnly, Count };
+#define ZS_CH_GLIDE_TYPE "Analog|Constant Time|Constant Rate"
+/** ANALOG: exponential (RC) slide, ~95 % there after GLIDE, fast at first.
+    CONSTANT TIME: straight slide that always takes GLIDE. CONSTANT RATE:
+    straight slide at GLIDE per octave (bigger leaps take longer). */
+enum class GlideType : int { Analog, ConstantTime, ConstantRate, Count };
 
 #define ZS_CH_VEL_CURVE "Soft|Linear|Hard|Fixed"
 enum class VelocityCurve : int { Soft, Linear, Hard, Fixed, Count };

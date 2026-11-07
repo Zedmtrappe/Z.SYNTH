@@ -440,6 +440,7 @@ TapeSettings SynthEngine::tapeSettings() const
 void SynthEngine::computeShared(int internalSamples)
 {
     VoiceShared& s = shared;
+    s.glideType = (GlideType) std::clamp((int) std::lround(p(P::GlideType)), 0, 2);
     s.sampleRate = internalRate;
     s.invSampleRate = 1.0f / internalRate;
 

@@ -389,6 +389,7 @@ X(HarmStrum,     "harm.strum",    "Harmony Strum", "Global", Float, 0.f, 50.f, 0
 X(HarmLow,       "harm.lo",       "Harmony Lowest", "Global", Int, 12.f, 120.f, 36.f, LIN, "note", nullptr, "RANGE: harmony notes below this fold up by octaves.") \
 X(HarmHigh,      "harm.hi",       "Harmony Highest", "Global", Int, 12.f, 120.f, 96.f, LIN, "note", nullptr, "RANGE: harmony notes above this fold down by octaves.") \
 X(HarmPart,      "harm.part",     "Harmony Applies To", "Global", Choice, 0, 0, 0.f, LIN, "", ZS_CH_HARM_PART, "With SPLIT / LAYER: harmonise both sounds, or only UPPER or LOWER.") \
+X(GlideType,     "voice.glidetype","Glide Type",    "Voice", Choice, 0, 0, 0.f, LIN, "", ZS_CH_GLIDE_TYPE, "ANALOG: the classic slide, quick at first then easing in (each slide takes about GLIDE). CONSTANT TIME: a straight slide that always takes GLIDE. CONSTANT RATE: a straight slide at GLIDE per octave, so bigger leaps take longer.") \
 
 #define ZS_OSC_WT_PARAMS(X, n) \
 X(Osc##n##WtTable, "osc" #n ".wt.table", "Osc " #n " Table", "Wavetable", Choice, 0, 0, 0.f, LIN, "", ZS_CH_OSC_TABLE, "Wavetable for this oscillator (Wavetable wave): SECTION = the WAVETABLE section's TABLE.") \

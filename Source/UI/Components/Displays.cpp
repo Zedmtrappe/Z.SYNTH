@@ -1794,17 +1794,24 @@ void VoiceLeds::paint(juce::Graphics& g)
     const auto r = getLocalBounds().toFloat();
     fillPanelInset(g, r);
     auto inner = r.reduced(8.0f, 6.0f);
-    g.setFont(lcdFont(9.0f));
-    g.setColour(Colours::lcdDim.brighter(0.6f));
-    g.drawText("VOICES", inner.removeFromLeft(44.0f).toNearestInt(), juce::Justification::centredLeft, false);
-    const float cell = inner.getWidth() / 16.0f;
+    // Wide: a VOICES legend and two rows of 16; narrow: four rows of 8.
+    const bool wide = r.getWidth() > 180.0f;
+    if (wide)
+    {
+        g.setFont(lcdFont(9.0f));
+        g.setColour(Colours::lcdDim.brighter(0.6f));
+        g.drawText("VOICES", inner.removeFromLeft(44.0f).toNearestInt(), juce::Justification::centredLeft, false);
+    }
+    const int cols = wide ? 16 : 8, rows = 32 / cols;
+    const float cell = inner.getWidth() / (float) cols;
+    const float ledSize = wide ? 7.0f : 5.5f;
     for (int i = 0; i < 32; ++i)
     {
-        const float x = inner.getX() + (float) (i % 16) * cell + cell * 0.5f;
-        const float y = inner.getY() + (i < 16 ? 0.25f : 0.75f) * inner.getHeight();
+        const float x = inner.getX() + (float) (i % cols) * cell + cell * 0.5f;
+        const float y = inner.getY() + ((float) (i / cols) + 0.5f) / (float) rows * inner.getHeight();
         const bool on = (mask >> i) & 1u;
         const bool available = i < limit;
-        const auto led = juce::Rectangle<float>(7.0f, 7.0f).withCentre({ x, y });
+        const auto led = juce::Rectangle<float>(ledSize, ledSize).withCentre({ x, y });
         if (on)
         {
             g.setColour(Colours::lcdText.withAlpha(0.3f));

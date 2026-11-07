@@ -240,9 +240,10 @@ PanelLayout::PanelLayout()
     add("voice.priority",  K::Selector, 620, 464, "PRIORITY", 70);
     add("voice.alloc",     K::Selector, 694, 464, "ALLOCATE", 82);
     add("voice.velcurve",  K::Selector, 780, 464, "VEL CURVE", 76);
-    add("voice.glidemode", K::Selector, 536, 512, "GLIDE MODE", 80);
-    add("voice.unison",    K::Switch,   620, 512, "UNISON");
-    utilityAt("voiceLeds", 676, 512, 216, 40);
+    add("voice.glidemode", K::Selector, 536, 512, "GLIDE MODE", 76);
+    add("voice.glidetype", K::Selector, 616, 512, "GLIDE TYPE", 104);
+    add("voice.unison",    K::Switch,   724, 512, "UNISON", 44);
+    utilityAt("voiceLeds", 772, 512, 120, 40);
     const std::pair<const char*, const char*> voiceFaders[] = {
         { "voice.poly", "POLY" }, { "voice.glide", "GLIDE" }, { "voice.bend", "BEND" }, { "amp.level", "AMP" },
         { "amp.pan", "PAN" }, { "voice.univoices", "STACK" }, { "voice.detune", "DTUNE" }, { "voice.spread", "WIDE" },

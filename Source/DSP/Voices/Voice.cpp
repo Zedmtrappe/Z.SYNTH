@@ -40,6 +40,7 @@ void Voice::begin(const NoteStart& ns)
     targetPitch = (float) ns.note;
     notePitch = ns.glideFrom >= 0.0f ? ns.glideFrom : targetPitch;
     glideTime = ns.glideTime;
+    glideSpan = std::abs(targetPitch - notePitch);
     randomValue = rng.bipolar();
     polyAftertouch = 0.0f;
 
@@ -108,6 +109,7 @@ void Voice::legatoTo(int newNote, float glideSeconds, uint32_t newAge)
     age = newAge;
     targetPitch = (float) newNote;
     glideTime = glideSeconds;
+    glideSpan = std::abs(targetPitch - notePitch);
     if (glideSeconds <= 0.0f)
         notePitch = targetPitch;
 }
@@ -126,6 +128,7 @@ void Voice::retrigger(int newNote, float vel, float glideSeconds, uint32_t newAg
     age = newAge;
     targetPitch = (float) newNote;
     glideTime = glideSeconds;
+    glideSpan = std::abs(targetPitch - notePitch);
     if (glideSeconds <= 0.0f)
         notePitch = targetPitch;
     ampEnv.noteOn();
@@ -195,11 +198,23 @@ void Voice::updateControl(int n, const VoiceShared& s)
         firstBlockLfoReset = false;
     }
 
-    // Glide: exponential (RC-like) approach, ~95 % complete after glideTime.
+    // Glide. ANALOG: exponential (RC-like) approach, ~95 % complete after glideTime.
+    // CONSTANT TIME: linear, the whole slide takes glideTime. CONSTANT RATE:
+    // linear at glideTime per octave.
     if (glideTime > 0.0f && notePitch != targetPitch)
     {
-        const float coeff = std::exp(-dt * 3.0f / glideTime);
-        notePitch = targetPitch + (notePitch - targetPitch) * coeff;
+        if (s.glideType == GlideType::Analog)
+        {
+            const float coeff = std::exp(-dt * 3.0f / glideTime);
+            notePitch = targetPitch + (notePitch - targetPitch) * coeff;
+        }
+        else
+        {
+            const float rate = s.glideType == GlideType::ConstantTime ? std::max(glideSpan, 0.01f) / glideTime : 12.0f / glideTime;
+            const float step = rate * dt;
+            const float d = targetPitch - notePitch;
+            notePitch = std::abs(d) <= step ? targetPitch : notePitch + (d > 0.0f ? step : -step);
+        }
         if (std::abs(notePitch - targetPitch) < 1.0e-3f)
             notePitch = targetPitch;
     }

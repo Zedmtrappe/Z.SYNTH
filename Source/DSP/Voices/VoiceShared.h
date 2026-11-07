@@ -22,6 +22,7 @@ struct VoiceShared
     float invSampleRate = 1.0f / 96000.0f;
 
     bool analogActive = true;
+    GlideType glideType = GlideType::Analog;
     bool fmActive = false;
 
     struct Osc

@@ -973,6 +973,48 @@ ZS_TEST(voice_allocation_and_stealing)
     ZS_CHECK(vm.activeVoiceCount() == 0);
 }
 
+ZS_TEST(glide_types_analog_constant_time_constant_rate)
+{
+    // Time (seconds) for a legato slide of `semis` to arrive, per glide type.
+    auto slide = [](GlideType type, int semis) {
+        VoiceManager vm;
+        vm.prepare(96000.0f);
+        VoiceSettings vs;
+        vs.mode = VoiceMode::Legato;
+        vs.glideTime = 0.5f;
+        vm.setSettings(vs);
+        VoiceShared shared;
+        shared.glideType = type;
+        float l[32], r[32];
+        vm.noteOn(48, 100);
+        for (int b = 0; b < 50; ++b)
+            vm.render(l, r, 32, shared);
+        vm.noteOn(48 + semis, 100);
+        const Voice* v = nullptr;
+        for (int i = 0; i < kMaxVoices; ++i)
+            if (vm.voice(i).isActive())
+                v = &vm.voice(i);
+        int blocks = 0;
+        while (v != nullptr && std::abs(v->getPitch() - (float) (48 + semis)) > 0.05f && blocks < 20000)
+        {
+            vm.render(l, r, 32, shared);
+            ++blocks;
+        }
+        return (float) blocks * 32.0f / 96000.0f;
+    };
+    // ANALOG (the default): about GLIDE whatever the interval (RC: within 0.05 st a little later).
+    const float a2 = slide(GlideType::Analog, 2), a24 = slide(GlideType::Analog, 24);
+    ZS_CHECK(a2 > 0.2f && a2 < 0.8f);
+    ZS_CHECK(a24 > a2 && a24 < 1.2f);
+    // CONSTANT TIME: exactly GLIDE for any interval.
+    ZS_CHECK_NEAR(slide(GlideType::ConstantTime, 2), 0.5f, 0.02f);
+    ZS_CHECK_NEAR(slide(GlideType::ConstantTime, 24), 0.5f, 0.02f);
+    // CONSTANT RATE: GLIDE per octave.
+    ZS_CHECK_NEAR(slide(GlideType::ConstantRate, 12), 0.5f, 0.02f);
+    ZS_CHECK_NEAR(slide(GlideType::ConstantRate, 24), 1.0f, 0.02f);
+    ZS_CHECK_NEAR(slide(GlideType::ConstantRate, 3), 0.125f, 0.02f);
+}
+
 ZS_TEST(voice_note_off_correctness_overlapping_and_repeated)
 {
     VoiceManager vm;

@@ -50,6 +50,8 @@ public:
     int getNote() const { return hasPending ? pending.note : note; }
     uint32_t getAge() const { return hasPending ? pending.age : age; }
     float getLevel() const { return ampEnv.getLevel(); }
+    /** Current (gliding) pitch, MIDI note units. */
+    float getPitch() const { return notePitch; }
 
     // Voice-manager bookkeeping.
     bool keyHeld = false;
@@ -81,6 +83,7 @@ private:
     float notePitch = 60.0f;   // current (gliding) pitch, MIDI note units
     float targetPitch = 60.0f;
     float glideTime = 0.0f;
+    float glideSpan = 0.0f; // semitones from where the current slide started
     float unisonDetune = 0.0f, unisonPan = 0.0f;
     float randomValue = 0.0f;
     float polyAftertouch = 0.0f;

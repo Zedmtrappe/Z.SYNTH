@@ -384,12 +384,17 @@ Tip: for vibrato on the mod wheel set DEST = Pitch, AMOUNT = 0, and route
 * **MODE** Poly / Mono (retriggers) / Legato (no retrigger while notes overlap).
 * **PRIORITY** (mono): last, lowest or highest note.
 * **ALLOCATE** (poly): Rotate (vintage round-robin), Reuse, Lowest.
-* **VEL CURVE**, **VOICES** (1–32 physical voices), **GLIDE** + **GLIDE MODE**,
-  **BEND** range, **AMP** level, **PAN**.
+* **VEL CURVE**, **VOICES** (1–32 physical voices), **BEND** range, **AMP**
+  level, **PAN**.
+* **GLIDE** (time), **GLIDE MODE** (every note, or only legato) and **GLIDE
+  TYPE**: **Analog** (the classic slide: quick at first, easing into the note,
+  each slide about GLIDE long; the default), **Constant Time** (a straight
+  slide that always takes GLIDE, whatever the interval) or **Constant Rate**
+  (a straight slide at GLIDE per octave, so bigger leaps take longer).
 * **UNISON** with **STACK** (2–8 voices per note), **DETUNE** and **SPREAD**
   (also spreads poly voices across the stereo field).
 * **VINTAGE** — per-voice differences in tuning, cutoff, level and position.
-* The LED row shows which of the 32 voices are sounding.
+* The LED panel shows which of the 32 voices are sounding.
 
 ## FM operators
 
