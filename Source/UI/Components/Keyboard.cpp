@@ -43,6 +43,33 @@ void ZKeyboard::setSplit(int point)
     }
 }
 
+void ZKeyboard::setScale(uint16_t mask, int tonic)
+{
+    if (mask != scaleMask || tonic != scaleTonic)
+    {
+        scaleMask = mask;
+        scaleTonic = tonic;
+        repaint();
+    }
+}
+
+void ZKeyboard::outlineKey(juce::Graphics& g, int note, juce::Rectangle<float> top, bool black) const
+{
+    // HARMONY: the notes of the chosen key outlined in orange, the key note itself in green.
+    if (scaleMask == 0 || ((scaleMask >> (note % 12)) & 1) == 0)
+        return;
+    const bool tonic = note % 12 == scaleTonic;
+    const auto r = top.reduced(black ? 1.5f : 2.0f, 1.5f);
+    const auto colour = tonic ? juce::Colour(0xff3ccf5a) : Colours::accent;
+    if (tonic)
+    {
+        g.setColour(colour.withAlpha(0.16f));
+        g.fillRoundedRectangle(r, 2.5f);
+    }
+    g.setColour(colour.withAlpha(tonic ? 1.0f : 0.85f));
+    g.drawRoundedRectangle(r, 2.5f, tonic ? 2.4f : 1.6f);
+}
+
 void ZKeyboard::paint(juce::Graphics& g)
 {
     juce::MidiKeyboardComponent::paint(g);
@@ -106,6 +133,7 @@ void ZKeyboard::drawWhiteNote(int note, juce::Graphics& g, juce::Rectangle<float
         g.setColour(Colours::accent.withAlpha(0.1f));
         g.fillRect(top);
     }
+    outlineKey(g, note, top, false);
     g.setColour(juce::Colours::black.withAlpha(0.45f));
     g.drawVerticalLine(juce::roundToInt(key.getRight()), key.getY(), key.getBottom());
     if (note % 12 == 0)
@@ -155,6 +183,7 @@ void ZKeyboard::drawBlackNote(int note, juce::Graphics& g, juce::Rectangle<float
         g.setColour(Colours::accent.withAlpha(0.15f));
         g.fillRoundedRectangle(top, 2.0f);
     }
+    outlineKey(g, note, top, true);
 }
 
 // ---------------------------------------------------------------------- wheels

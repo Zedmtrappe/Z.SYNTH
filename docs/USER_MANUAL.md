@@ -124,7 +124,9 @@ When it is on, the button glows orange; **▸** opens its window.
 | STRUM | Each harmony note follows the one before by up to 50 ms (played, not stacked) |
 | RANGE | Harmony notes outside LOWEST ... HIGHEST fold back by octaves |
 
-The window shows the key and an example (what the key note becomes).
+The window shows the key and an example (what the key note becomes). While
+HARMONY is on, the on-screen keyboard outlines the notes of the key in
+orange, and the key note itself in green.
 Harmony notes are synth voices: three voices on chords can use a lot of
 polyphony, so raise POLY if notes drop out (or use TOP NOTE). The harmony
 settings are part of your setup (saved with the project), not of the

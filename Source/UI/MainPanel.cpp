@@ -1,4 +1,5 @@
 #include "MainPanel.h"
+#include "../DSP/Performance/Harmonizer.h"
 
 #include "Components/AuditionBar.h"
 #include "Components/Materials.h"
@@ -653,7 +654,18 @@ void MainPanel::updateSplit()
     const auto mode = (SplitMode) juce::roundToInt(processor.getValue(P::SplitMode));
     const int edit = processor.getEditPart();
     if (keyboard != nullptr)
+    {
         keyboard->setSplit(mode == SplitMode::Split ? juce::roundToInt(processor.getValue(P::SplitPoint)) : -1);
+        // HARMONY on: outline the notes of its key and scale.
+        uint16_t mask = 0;
+        const int key = juce::roundToInt(processor.getValue(P::HarmKey));
+        const auto scale = (HarmScale) juce::roundToInt(processor.getValue(P::HarmScale));
+        if (processor.getValue(P::HarmOn) >= 0.5f && scale != HarmScale::Fixed)
+            for (int pc = 0; pc < 12; ++pc)
+                if (dsp::Harmonizer::inScale(pc, key, scale))
+                    mask |= (uint16_t) (1u << pc);
+        keyboard->setScale(mask, key);
+    }
     for (int k = 0; k < 4; ++k)
         if (partButtons[k] != nullptr)
         {

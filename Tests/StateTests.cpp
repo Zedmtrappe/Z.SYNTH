@@ -1588,6 +1588,11 @@ static int snapshots(const juce::File& dir)
         shoot("tape" + juce::String(m), "tape");
     }
     set("harm.on", 1.0f);
+    set("harm.key", 9.0f); // A minor: the white keys, A outlined boldest
+    set("harm.scale", (float) HarmScale::NaturalMinor);
+    shoot("harmkeys", {});
+    set("harm.key", 2.0f); // D major: F# and C# join
+    set("harm.scale", (float) HarmScale::Major);
     shoot("harm", "harm");
     set("harm.on", 0.0f);
     set("trk.on", 1.0f);

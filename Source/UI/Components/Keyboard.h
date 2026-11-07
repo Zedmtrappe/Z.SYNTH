@@ -21,6 +21,8 @@ public:
     void paint(juce::Graphics&) override;
     /** Shows the split: keys below `point` tinted (LOWER zone) and a marker. point < 0 = no split. */
     void setSplit(int point);
+    /** Outlines the keys of a scale (bit n = pitch class n, 0 = C); tonic gets a stronger outline. mask 0 = none. */
+    void setScale(uint16_t mask, int tonic);
 
 protected:
     void drawWhiteNote(int note, juce::Graphics&, juce::Rectangle<float> area, bool isDown, bool isOver, juce::Colour lineColour, juce::Colour textColour) override;
@@ -30,6 +32,9 @@ protected:
 private:
     int lowestKey = 36; // C2, 61 keys shown
     int splitPoint = -1;
+    uint16_t scaleMask = 0;
+    int scaleTonic = -1;
+    void outlineKey(juce::Graphics&, int note, juce::Rectangle<float> top, bool black) const;
 };
 
 /** Pitch (spring-loaded, bipolar) or modulation (stays put, unipolar) wheel. */
