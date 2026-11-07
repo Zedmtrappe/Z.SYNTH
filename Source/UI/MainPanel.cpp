@@ -106,10 +106,45 @@ namespace
             return;
         }
 
-        // A raised steel plate standing proud of the chassis.
-        m::castShadow(g, r, 6.0f, 12.0f, { 2, 7 }, 0.85f);
-        m::brushedMetal(g, r, 6.0f, kPlate, 1.0f);
-        m::raisedEdge(g, r, 6.0f, 1.0f);
+        if (s.id == "outputRow")
+            return; // drawn with "output" as one plate
+
+        if (s.id == "output")
+        {
+            // OUTPUT is one L-shaped plate: the column at the top right and the
+            // effects row below it from the EQ to the compressor.
+            const auto row = PanelLayout::get().section("outputRow").toFloat();
+            juce::Path outline;
+            outline.startNewSubPath(r.getX(), r.getY());
+            outline.lineTo(r.getRight(), r.getY());
+            outline.lineTo(r.getRight(), row.getBottom());
+            outline.lineTo(row.getX(), row.getBottom());
+            outline.lineTo(row.getX(), row.getY());
+            outline.lineTo(r.getX(), row.getY());
+            outline.closeSubPath();
+            const auto plate = outline.createPathWithRoundedCorners(6.0f);
+            m::castShadow(g, plate, 12.0f, { 2, 7 }, 0.85f);
+            g.saveState();
+            g.reduceClipRegion(plate);
+            m::brushedMetal(g, plate.getBounds(), 0.0f, kPlate, 1.0f);
+            g.restoreState();
+            // Bevel: lit top/left edges, shadowed bottom/right, following the L.
+            const auto box = plate.getBounds();
+            juce::ColourGradient bevel(juce::Colours::white.withAlpha(0.22f), box.getX(), box.getY(),
+                                       juce::Colours::black.withAlpha(0.7f), box.getRight(), box.getBottom(), false);
+            bevel.addColour(0.5, juce::Colours::white.withAlpha(0.05f));
+            g.setGradientFill(bevel);
+            g.strokePath(plate, juce::PathStrokeType(1.4f));
+            g.setColour(juce::Colours::black.withAlpha(0.8f));
+            g.strokePath(plate, juce::PathStrokeType(0.6f), juce::AffineTransform::translation(0.6f, 0.9f));
+        }
+        else
+        {
+            // A raised steel plate standing proud of the chassis.
+            m::castShadow(g, r, 6.0f, 12.0f, { 2, 7 }, 0.85f);
+            m::brushedMetal(g, r, 6.0f, kPlate, 1.0f);
+            m::raisedEdge(g, r, 6.0f, 1.0f);
+        }
 
         if (s.title.isNotEmpty())
         {
@@ -303,6 +338,7 @@ MainPanel::MainPanel(ZSynthProcessor& p) : processor(p), browser(p)
     valueBubble.setColour(juce::Label::outlineColourId, Colours::accentDim);
     valueBubble.setInterceptsMouseClicks(false, false);
     addChildComponent(valueBubble);
+    addChildComponent(pageGlow);
 
     addChildComponent(browser);
     browser.setBounds(460, 120, 1000, 760);
@@ -328,6 +364,7 @@ void MainPanel::buildPages()
             renderModels = shownModels();
             renderViews = activeViews;
         };
+        page->onMoved = [this] { placeGlow(); };
         addChildComponent(*page);
         pages.push_back(std::move(page));
     }
@@ -646,6 +683,28 @@ void MainPanel::buildUtilities()
 }
 
 // ------------------------------------------------------------------ pages
+void PageGlow::paint(juce::Graphics& g)
+{
+    const auto window = getLocalBounds().reduced(kMargin);
+    // Deep shadow below, then a warm halo all round, so the window floats above the panel.
+    juce::DropShadow(juce::Colours::black.withAlpha(0.85f), 44, { 0, 16 }).drawForRectangle(g, window);
+    juce::DropShadow(Colours::accent.withAlpha(0.32f), 34, {}).drawForRectangle(g, window);
+    juce::DropShadow(Colours::accent.withAlpha(0.22f), 10, {}).drawForRectangle(g, window);
+}
+
+void MainPanel::placeGlow()
+{
+    for (auto& p : pages)
+        if (p->isVisible())
+        {
+            pageGlow.follow(getLocalArea(p.get(), p->getLocalBounds()));
+            pageGlow.setVisible(true);
+            pageGlow.toBehind(p.get());
+            return;
+        }
+    pageGlow.setVisible(false);
+}
+
 void MainPanel::showPage(const juce::String& page)
 {
     for (auto& p : pages)
@@ -655,6 +714,7 @@ void MainPanel::showPage(const juce::String& page)
         if (show)
             p->toFront(false);
     }
+    placeGlow();
     if (page.isNotEmpty())
         browser.setVisible(false);
     valueBubble.toFront(false);
@@ -1082,7 +1142,18 @@ void MainPanel::renderBackgroundArea(juce::Rectangle<int> area)
     const auto& layout = PanelLayout::get();
     for (const auto& s : layout.sections())
         if (s.page == kMainPage && s.bounds.intersects(area))
-            paintSection(g, s);
+        {
+            if (s.id == "outputRow") // part of the OUTPUT plate: repaint that plate (clipped to the area)
+            {
+                for (const auto& o : layout.sections())
+                    if (o.id == "output")
+                        paintSection(g, o);
+            }
+            else
+            {
+                paintSection(g, s);
+            }
+        }
 }
 
 // ----------------------------------------------------------------- painting

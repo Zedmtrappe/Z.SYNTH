@@ -40,6 +40,9 @@ public:
     void mouseDrag(const juce::MouseEvent&) override;
     void mouseDoubleClick(const juce::MouseEvent&) override;
 
+    /** Called whenever the window moves (dragged, or put back). */
+    std::function<void()> onMoved;
+    void moved() override { if (onMoved) onMoved(); }
     /** How much larger than its layout the window is drawn (for readability). */
     float getZoom() const { return zoom; }
 
@@ -55,6 +58,18 @@ private:
     juce::Image cache;
     float cacheScale = 0.0f;
     juce::TextButton closeButton { juce::String::fromUTF8("\xc3\x97") };
+};
+
+/** The glow behind the open pop-up window, lifting it off the panel: a deep
+    soft shadow with a warm halo. Sits just behind the window, takes no clicks. */
+class PageGlow : public juce::Component
+{
+public:
+    static constexpr int kMargin = 56;
+    PageGlow() { setInterceptsMouseClicks(false, false); }
+    /** area: the window as it appears on the panel (zoom included). */
+    void follow(juce::Rectangle<int> area) { setBounds(area.expanded(kMargin)); }
+    void paint(juce::Graphics&) override;
 };
 
 /** The MODULATION block's EFFECT selector: picks which effect's controls are
@@ -146,6 +161,8 @@ private:
 
     ZSynthProcessor& processor;
     std::vector<std::unique_ptr<PopupPage>> pages;
+    PageGlow pageGlow;
+    void placeGlow();
     std::vector<std::unique_ptr<ParamControl>> controls;
     juce::StringArray controlViews; // parallel to controls: the view each belongs to ("" = always shown)
     std::vector<std::unique_ptr<juce::Component>> ownedUtilities;

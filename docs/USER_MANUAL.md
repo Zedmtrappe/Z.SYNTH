@@ -432,13 +432,22 @@ marks the current step.
 
 ## Effects
 
-Left to right the effects row holds DRIVE, MODULATION, EQ, SMOOTH, DELAY,
-REVERB, TAPE and OUTPUT COMP. Each module has an **ON** switch and fades
-in/out smoothly.
+The bottom row holds two plates. **EFFECTS** (DRIVE, MODULATION) and
+**OUTPUT**, an L-shaped plate that runs from the EQ along the row (EQ,
+SMOOTH, DELAY, REVERB, TAPE, OUTPUT COMP) and up the right-hand column
+(LIMITER, VALVE, TRANSFORMER, MACRO / WIDTH / CHAR and the meter). Each
+module has an **ON** switch and fades in/out smoothly.
+
+Signal order (defaults): DRIVE → MODULATION (phaser, flanger, chorus,
+ensemble) → EQ → SMOOTH → DELAY → REVERB → TAPE → VALVE → TRANSFORMER →
+OUTPUT COMP → WIDTH / CHAR → MASTER → LIMITER. SMOOTH always follows the EQ:
+with the EQ's **POST FX** on, the pair moves to just before the compressor.
+The compressor's **PRE FX** moves it to just before the delay.
 
 The ADVANCED windows (and the other pop-up windows) open larger than the
 panel's own controls, up to 1.35×, for readability. Drag one by any empty
-part to move it; double-click its title bar to put it back.
+part to move it; double-click its title bar to put it back. A soft glow
+behind the open window lifts it off the panel.
 
 | Module | Controls |
 |---|---|
@@ -599,8 +608,8 @@ move several things). **LIMITER** keeps peaks below 0 dBFS. The small display
 shows CPU load, voices, peak level and limiter gain reduction (or, in red, the
 output guard's count of automatic recoveries from invalid audio).
 
-**SMOOTH** — its own block in the effects row, between the EQ and
-the compressor: a fixed 2.2 kHz dynamic compressor (4:1), with an **ON** switch. It turns the presence
+**SMOOTH** — its own block in the effects row, straight after the EQ (and
+moving with it when the EQ is POST FX): a fixed 2.2 kHz dynamic compressor (4:1), with an **ON** switch. It turns the presence
 band down only when it gets loud, so harsh notes and
 resonances are tamed while the rest of the sound is untouched. **AMOUNT**
 lowers its threshold (0 = off, exactly bypassed); the LED ladder beside it

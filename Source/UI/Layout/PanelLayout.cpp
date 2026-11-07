@@ -279,7 +279,9 @@ PanelLayout::PanelLayout()
     fader("seq.gate",  1448, 570, "GATE");
 
     // ------------------------------------------------------------- output
-    sectionAt("output", "OUTPUT", 1538, 432, 372, 320);
+    // OUTPUT is one L-shaped plate: this column (valve, transformer, output) and, below
+    // it, the effects row from the EQ to the compressor ("outputRow", drawn with it).
+    sectionAt("output", "OUTPUT", 1538, 432, 372, 328);
     compact("out.limiter", 1546, 462, "LIMITER", 106);
     utilityAt("outputInfo", 1546, 482, 106, 74);
     fader("out.macro",     1546, 562, "MACRO");
@@ -302,7 +304,9 @@ PanelLayout::PanelLayout()
     add("out.xfmr.amt", K::Knob, 1780, 676, "AMOUNT", 52);
 
     // ------------------------------------------------------------ effects
-    sectionAt("fx", "EFFECTS", 10, 760, 1900, 204);
+    // EFFECTS: drive and modulation; the rest of the row belongs to OUTPUT.
+    sectionAt("fx", "EFFECTS", 10, 760, 490, 204);
+    sectionAt("outputRow", "", 508, 760, 1402, 204);
     // Left to right: drive, modulation, graphic EQ, SMOOTH, delay, reverb, tape,
     // compressor. (The EQ runs before delay and reverb unless POST FX is on; the
     // compressor's PRE FX moves it before them.)
@@ -314,10 +318,13 @@ PanelLayout::PanelLayout()
     int fixedWidth = 0;
     for (const auto& m : modules)
         fixedWidth += m.width;
-    const int peqWidth = 1884 - 7 * 6 - fixedWidth; // the EQ takes what is left
+    constexpr int plateGap = 18; // between the EFFECTS and OUTPUT plates
+    const int peqWidth = 1884 - 7 * 6 - plateGap - fixedWidth; // the EQ takes what is left
     int mx[8], mw[8];
     for (int i = 0, x = 18; i < 8; ++i)
     {
+        if (i == mEq)
+            x += plateGap;
         mx[i] = x;
         mw[i] = modules[i].width > 0 ? modules[i].width : peqWidth;
         sectionAt(modules[i].id, modules[i].title, mx[i], 788, mw[i], 170, true);

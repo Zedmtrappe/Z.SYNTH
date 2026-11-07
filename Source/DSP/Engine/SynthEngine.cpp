@@ -814,9 +814,17 @@ void SynthEngine::runEffects(float* left, float* right, int n)
                 vintageEq.process(l, r, n, vintageEqSettingsFrom(smoothed));
         }, [&] { outputEq.reset(); vintageEq.reset(); });
     };
+    // SMOOTH: tames the 2.2 kHz presence band; it follows the EQ wherever that is (bypassed at 0).
+    auto runSmooth = [&] {
+        smooth.process(left, right, n, pb(P::SmoothOn) ? p(P::Smooth) : 0.0f);
+        smoothGrOut.store(smooth.takeGainReduction(), std::memory_order_relaxed);
+    };
     const bool eqPre = pb(P::PeqPre);
     if (eqPre)
+    {
         runEq();
+        runSmooth();
+    }
 
     const bool compPre = pb(P::CompPre);
     compGrOut.store(0.0f, std::memory_order_relaxed);
@@ -875,14 +883,12 @@ void SynthEngine::runEffects(float* left, float* right, int n)
         transformer.process(l, r, n, (XfmrType) pi(P::XfmrType), p(P::XfmrAmount), pb(P::XfmrHot));
     }, [&] { transformer.reset(); });
 
-    // Parametric output EQ (before SMOOTH and the compressor).
+    // POST FX: the EQ (then SMOOTH) on the whole output, before the compressor.
     if (! eqPre)
+    {
         runEq();
-
-
-    // SMOOTH: tames the 2.2 kHz presence band before the compressor (bypassed at 0).
-    smooth.process(left, right, n, pb(P::SmoothOn) ? p(P::Smooth) : 0.0f);
-    smoothGrOut.store(smooth.takeGainReduction(), std::memory_order_relaxed);
+        runSmooth();
+    }
 
     if (! compPre)
         runCompressor();

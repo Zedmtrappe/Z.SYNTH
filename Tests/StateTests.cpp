@@ -1250,7 +1250,8 @@ ZS_TEST(editor_layout_is_fixed_across_presets_and_modes)
         for (auto& c : panel.getControls())
             b[c.get()] = c->getBounds();
         for (int i = 0; i < panel.getNumChildComponents(); ++i)
-            b[panel.getChildComponent(i)] = panel.getChildComponent(i)->getBounds();
+            if (dynamic_cast<ui::PageGlow*>(panel.getChildComponent(i)) == nullptr) // follows the open window
+                b[panel.getChildComponent(i)] = panel.getChildComponent(i)->getBounds();
         return b;
     };
     const auto reference = snapshot();
