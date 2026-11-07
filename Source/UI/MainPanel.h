@@ -40,9 +40,16 @@ public:
     void mouseDrag(const juce::MouseEvent&) override;
     void mouseDoubleClick(const juce::MouseEvent&) override;
 
+    /** How much larger than its layout the window is drawn (for readability). */
+    float getZoom() const { return zoom; }
+
 private:
-    juce::ComponentDragger dragger;
-    juce::ComponentBoundsConstrainer constrainer;
+    // The window is drawn zoomed (a scale transform), so its on-screen rectangle is
+    // its bounds times the zoom; dragging moves and clamps that rectangle.
+    float zoom = 1.0f;
+    juce::Point<float> dragStartMouse, dragStartTopLeft;
+    juce::Rectangle<float> shown() const { return getBounds().toFloat() * zoom; }
+    void placeAt(juce::Point<float> visualTopLeft);
     juce::Rectangle<int> home;
     juce::String id;
     juce::Image cache;

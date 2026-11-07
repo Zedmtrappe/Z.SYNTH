@@ -19,8 +19,9 @@ public:
     int getLowestKey() const { return lowestKey; }
     void resized() override;
     void paint(juce::Graphics&) override;
-    /** Shows the split: keys below `point` tinted (LOWER zone) and a marker. point < 0 = no split. */
-    void setSplit(int point);
+    /** Shows the split: keys below `point` tinted (LOWER zone) and a marker. point < 0 = no split.
+        The keys of the part not being edited are greyed out. */
+    void setSplit(int point, bool editingLower);
     /** Outlines the keys of a scale (bit n = pitch class n, 0 = C); tonic gets a stronger outline. mask 0 = none. */
     void setScale(uint16_t mask, int tonic);
 
@@ -32,6 +33,8 @@ protected:
 private:
     int lowestKey = 36; // C2, 61 keys shown
     int splitPoint = -1;
+    bool editLower = false;
+    bool greyed(int note) const { return splitPoint >= 0 && (editLower ? note >= splitPoint : note < splitPoint); }
     uint16_t scaleMask = 0;
     int scaleTonic = -1;
     void outlineKey(juce::Graphics&, int note, juce::Rectangle<float> top, bool black) const;

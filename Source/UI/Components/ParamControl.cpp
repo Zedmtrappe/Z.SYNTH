@@ -744,7 +744,7 @@ void ParamControl::paintSelector(juce::Graphics& g)
 
 void ParamControl::paintSwitch(juce::Graphics& g)
 {
-    const bool on = value >= 0.5f;
+    const bool on = (value >= 0.5f) != inverted;
     auto r = getLocalBounds().toFloat();
     const bool compact = getHeight() < 24;
 

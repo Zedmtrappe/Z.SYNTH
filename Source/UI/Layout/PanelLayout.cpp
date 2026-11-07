@@ -303,11 +303,13 @@ PanelLayout::PanelLayout()
 
     // ------------------------------------------------------------ effects
     sectionAt("fx", "EFFECTS", 10, 760, 1900, 204);
-    // Order follows the signal: drive, modulation, delay, reverb, graphic EQ,
-    // SMOOTH, compressor (PRE FX moves the compressor before delay/reverb).
+    // Left to right: drive, modulation, graphic EQ, SMOOTH, delay, reverb, tape,
+    // compressor. (The EQ runs before delay and reverb unless POST FX is on; the
+    // compressor's PRE FX moves it before them.)
     struct Module { const char* id; const char* title; int width; };
-    const Module modules[8] = { { "fxDrive", "DRIVE", 216 }, { "fxMod", "MODULATION", 252 }, { "fxDelay", "DELAY", 256 },
-                                { "fxReverb", "REVERB", 264 }, { "peqModule", "EQ", 0 }, { "smoothModule", "SMOOTH", 104 },
+    enum { mDrive, mMod, mEq, mSmooth, mDelay, mReverb, mTape, mComp };
+    const Module modules[8] = { { "fxDrive", "DRIVE", 216 }, { "fxMod", "MODULATION", 252 }, { "peqModule", "EQ", 0 },
+                                { "smoothModule", "SMOOTH", 104 }, { "fxDelay", "DELAY", 256 }, { "fxReverb", "REVERB", 264 },
                                 { "tapeModule", "TAPE", 140 }, { "compModule", "OUTPUT COMP", 390 } };
     int fixedWidth = 0;
     for (const auto& m : modules)
@@ -353,40 +355,40 @@ PanelLayout::PanelLayout()
     view({});
 
     inSection("fxDelay");
-    fxOn(2, "fx.dly.on");
-    compact("fx.dly.pp", mx[2] + mw[2] - 88, 789, "P.PONG", 42);
-    compact("fx.dly.sync", mx[2] + mw[2] - 130, 789, "SYNC", 38);
-    fxFader(2, 0, "fx.dly.time", "TIME");
-    fxFader(2, 1, "fx.dly.div", "DIV");
-    fxFader(2, 2, "fx.dly.fb", "FDBK");
-    fxFader(2, 3, "fx.dly.tone", "TONE");
-    fxFader(2, 4, "fx.dly.mix", "MIX");
-    add("fx.dly.type", K::Selector, mx[2] + 188, 812, "TYPE", 62);
-    utilityAt("openDelay", mx[2] + 188, 862, 62, 24);
+    fxOn(mDelay, "fx.dly.on");
+    compact("fx.dly.pp", mx[mDelay] + mw[mDelay] - 88, 789, "P.PONG", 42);
+    compact("fx.dly.sync", mx[mDelay] + mw[mDelay] - 130, 789, "SYNC", 38);
+    fxFader(mDelay, 0, "fx.dly.time", "TIME");
+    fxFader(mDelay, 1, "fx.dly.div", "DIV");
+    fxFader(mDelay, 2, "fx.dly.fb", "FDBK");
+    fxFader(mDelay, 3, "fx.dly.tone", "TONE");
+    fxFader(mDelay, 4, "fx.dly.mix", "MIX");
+    add("fx.dly.type", K::Selector, mx[mDelay] + 188, 812, "TYPE", 62);
+    utilityAt("openDelay", mx[mDelay] + 188, 862, 62, 24);
 
     inSection("fxReverb");
-    fxOn(3, "fx.rev.on");
-    fxFader(3, 0, "fx.rev.size", "SIZE");
-    fxFader(3, 1, "fx.rev.damp", "DAMP");
-    fxFader(3, 2, "fx.rev.pre", "PRE");
-    fxFader(3, 3, "fx.rev.mix", "MIX");
-    add("fx.rev.type", K::Selector, mx[3] + 158, 812, "TYPE", 100);
-    utilityAt("openReverb", mx[3] + 158, 862, 100, 24);
-    utilityAt("reverbEqCurve", mx[3] + 158, 892, 100, 58);
+    fxOn(mReverb, "fx.rev.on");
+    fxFader(mReverb, 0, "fx.rev.size", "SIZE");
+    fxFader(mReverb, 1, "fx.rev.damp", "DAMP");
+    fxFader(mReverb, 2, "fx.rev.pre", "PRE");
+    fxFader(mReverb, 3, "fx.rev.mix", "MIX");
+    add("fx.rev.type", K::Selector, mx[mReverb] + 158, 812, "TYPE", 100);
+    utilityAt("openReverb", mx[mReverb] + 158, 862, 100, 24);
+    utilityAt("reverbEqCurve", mx[mReverb] + 158, 892, 100, 58);
 
     // Output EQ: the model, the curve at a glance; ADVANCED opens the model's front panel.
     inSection("peqModule");
-    compact("peq.on", mx[4] + mw[4] - 42, 789, "ON");
-    compact("peq.pre", mx[4] + mw[4] - 96, 789, "PRE FX", 50);
-    add("eq.model", K::Selector, mx[4] + 8, 808, "", mw[4] - 16, 24);
-    utilityAt("peqCurve", mx[4] + 8, 838, mw[4] - 16, 84);
-    utilityAt("openPeq", mx[4] + 8, 926, mw[4] - 16, 24);
+    compact("peq.on", mx[mEq] + mw[mEq] - 42, 789, "ON");
+    compact("peq.pre", mx[mEq] + mw[mEq] - 100, 789, "POST FX", 54);
+    add("eq.model", K::Selector, mx[mEq] + 8, 808, "", mw[mEq] - 16, 24);
+    utilityAt("peqCurve", mx[mEq] + 8, 838, mw[mEq] - 16, 84);
+    utilityAt("openPeq", mx[mEq] + 8, 926, mw[mEq] - 16, 24);
 
     // SMOOTH: fixed 2.2 kHz dynamic compressor; AMOUNT and its GR ladder.
     inSection("smoothModule");
-    fxOn(5, "out.smooth.on");
-    add("out.smooth", K::Knob, mx[5] + 6, 840, "AMOUNT");
-    utilityAt("smoothMeter", mx[5] + 64, 808, 36, 144);
+    fxOn(mSmooth, "out.smooth.on");
+    add("out.smooth", K::Knob, mx[mSmooth] + 6, 840, "AMOUNT");
+    utilityAt("smoothMeter", mx[mSmooth] + 64, 808, 36, 144);
 
     // Tape: the machine, how hard it is hit and how worn the transport is.
     inSection("tapeModule");

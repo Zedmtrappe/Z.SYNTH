@@ -48,6 +48,8 @@ public:
     /** A switch that lights up orange (legend, LED and a slowly pulsing glow) when on;
         the owner repaints it while on so the glow moves. */
     void setGlowWhenOn(bool g) { glowWhenOn = g; repaint(); }
+    /** Switch lit while the parameter is OFF (a switch for the opposite setting, e.g. POST FX for peq.pre). */
+    void setInverted(bool i) { inverted = i; repaint(); }
     bool glowsWhenOn() const { return glowWhenOn; }
     void setSkinSource(std::function<const Skin*()> source) { skinSource = std::move(source); }
     bool hasSkinSource() const { return skinSource != nullptr; }
@@ -109,6 +111,7 @@ private:
     bool inactive = false;
     juce::String inactiveReason;
     bool glowWhenOn = false;
+    bool inverted = false;
     bool hovered = false, dragging = false, highlighted = false;
     float dragStartNorm = 0.0f, dragNorm = 0.0f;
     juce::Colour ledColour = Colours::accent;

@@ -147,12 +147,14 @@ effects. The controls are under the panel, at the right of the audition bar.
   load a pad.
 * **SPLIT ▸** opens the KEYBOARD SPLIT window:
   * A map of the two zones (the part being edited is lit).
-  * The **split point** (the first key of the UPPER zone). Press **LEARN**,
-    then play the key; that key does not sound. LEARN also switches SINGLE to
-    SPLIT.
+  * The **split point** (the first key of the UPPER zone). Drag the marker
+    on the map left or right, turn the KEY knob, or press **LEARN** and play
+    the key (that key does not sound). LEARN also switches SINGLE to SPLIT.
   * **OCTAVE** (±3) and **LEVEL** for each part, and the EDIT buttons.
 
-The on-screen keyboard tints the LOWER zone and marks the split. A note
+The on-screen keyboard tints the LOWER zone and marks the split; in SPLIT,
+the keys of the part you are not editing are greyed out (they still play
+that part). A note
 always releases in the part it started in, even if you move the split point
 while holding it. Controllers (sustain, mod wheel, pitch bend, aftertouch)
 reach both parts. The split setup and both sounds are saved with your
@@ -430,7 +432,13 @@ marks the current step.
 
 ## Effects
 
-Each module has an **ON** switch and fades in/out smoothly.
+Left to right the effects row holds DRIVE, MODULATION, EQ, SMOOTH, DELAY,
+REVERB, TAPE and OUTPUT COMP. Each module has an **ON** switch and fades
+in/out smoothly.
+
+The ADVANCED windows (and the other pop-up windows) open larger than the
+panel's own controls, up to 1.35×, for readability. Drag one by any empty
+part to move it; double-click its title bar to put it back.
 
 | Module | Controls |
 |---|---|
@@ -444,9 +452,9 @@ Each module has an **ON** switch and fades in/out smoothly.
 
 The **EQ** block (effects row) holds one EQ per sound: **MODEL** chooses
 **Pristine** (a clean parametric) or one of five classic hardware EQs. **ON**
-switches it out for A/B; **PRE FX** (on by default) puts it in front of the
-delay and reverb, so it shapes the synth itself (and feeds a PRE FX
-compressor); switch it off to EQ the whole output instead. Click the curve or
+switches it out for A/B. By default the EQ sits in front of the delay and
+reverb, so it shapes the synth itself (and feeds a PRE FX compressor);
+switch **POST FX** on to EQ the whole output instead. Click the curve or
 **ADVANCED ▸** for the model's front panel. **OUTPUT** (level) is shared by
 every model; **DRIVE** (classic models) pushes the unit's amplifier and
 transformers for more colour, with the level compensated. Each model keeps its

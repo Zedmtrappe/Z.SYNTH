@@ -34,11 +34,12 @@ void ZKeyboard::resized()
     juce::MidiKeyboardComponent::resized();
 }
 
-void ZKeyboard::setSplit(int point)
+void ZKeyboard::setSplit(int point, bool editingLower)
 {
-    if (point != splitPoint)
+    if (point != splitPoint || editingLower != editLower)
     {
         splitPoint = point;
+        editLower = editingLower;
         repaint();
     }
 }
@@ -123,6 +124,12 @@ void ZKeyboard::drawWhiteNote(int note, juce::Graphics& g, juce::Rectangle<float
         g.setColour(juce::Colour(0xff5ac8fa).withAlpha(0.16f));
         g.fillRect(top);
     }
+    if (greyed(note))
+    {
+        // Not the part being edited: greyed out (the keys still play the other part).
+        g.setColour(juce::Colour(0xff6d6a66).withAlpha(0.62f));
+        g.fillRect(key);
+    }
     if (isDown)
     {
         g.setColour(Colours::accent.withAlpha(0.22f));
@@ -173,6 +180,11 @@ void ZKeyboard::drawBlackNote(int note, juce::Graphics& g, juce::Rectangle<float
     juce::ColourGradient fg(juce::Colour(0xff3d3e43), 0.0f, face.getY(), juce::Colour(0xff0b0b0c), 0.0f, face.getBottom(), false);
     g.setGradientFill(fg);
     g.fillRoundedRectangle(face, 2.0f);
+    if (greyed(note))
+    {
+        g.setColour(juce::Colour(0xff8a8782).withAlpha(0.4f));
+        g.fillRoundedRectangle(key, 2.5f);
+    }
     if (isDown)
     {
         g.setColour(Colours::accent.withAlpha(0.35f));

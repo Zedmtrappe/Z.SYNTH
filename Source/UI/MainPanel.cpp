@@ -165,18 +165,41 @@ PopupPage::PopupPage(const PageSpec& spec) : id(spec.id)
     closeButton.setTooltip("Close (Esc)");
     closeButton.onClick = [this] { if (onClose) onClose(); };
     setTitle(spec.title);
-    home = spec.boundsOnCanvas;
-    constrainer.setMinimumOnscreenAmounts(0xffffff, 0xffffff, 0xffffff, 0xffffff); // fully inside the panel
     setMouseCursor(juce::MouseCursor::DraggingHandCursor);
+
+    // Drawn larger for readability: up to 1.35x, as far as the window still fits
+    // on the panel; centred on its layout position, kept inside the panel.
+    const auto b = spec.boundsOnCanvas.toFloat();
+    constexpr float margin = 20.0f;
+    zoom = juce::jmin(1.35f, ((float) PanelLayout::kWidth - 2.0f * margin) / b.getWidth(),
+                      ((float) PanelLayout::kHeight - 2.0f * margin) / b.getHeight());
+    zoom = juce::jmax(1.0f, zoom);
+    setTransform(juce::AffineTransform::scale(zoom));
+    const auto visual = (b * zoom).withCentre(b.getCentre());
+    placeAt(visual.getTopLeft());
+    home = getBounds();
+}
+
+void PopupPage::placeAt(juce::Point<float> visualTopLeft)
+{
+    const float w = (float) getWidth() * zoom, h = (float) getHeight() * zoom;
+    const float x = juce::jlimit(0.0f, juce::jmax(0.0f, (float) PanelLayout::kWidth - w), visualTopLeft.x);
+    const float y = juce::jlimit(0.0f, juce::jmax(0.0f, (float) PanelLayout::kHeight - h), visualTopLeft.y);
+    setTopLeftPosition(juce::roundToInt(x / zoom), juce::roundToInt(y / zoom));
 }
 
 void PopupPage::mouseDown(const juce::MouseEvent& e)
 {
     toFront(false);
-    dragger.startDraggingComponent(this, e);
+    dragStartMouse = e.getEventRelativeTo(getParentComponent() != nullptr ? getParentComponent() : this).position;
+    dragStartTopLeft = shown().getTopLeft();
 }
 
-void PopupPage::mouseDrag(const juce::MouseEvent& e) { dragger.dragComponent(this, e, &constrainer); }
+void PopupPage::mouseDrag(const juce::MouseEvent& e)
+{
+    const auto now = e.getEventRelativeTo(getParentComponent() != nullptr ? getParentComponent() : this).position;
+    placeAt(dragStartTopLeft + (now - dragStartMouse));
+}
 
 void PopupPage::mouseDoubleClick(const juce::MouseEvent& e)
 {
@@ -333,6 +356,11 @@ void MainPanel::buildControls()
         {
             c->setGlowWhenOn(true);
             trackSwitch = c.get();
+        }
+        if (juce::String(spec.paramId) == "peq.pre")
+        {
+            // Shown as POST FX: lit when the EQ runs on the whole output (after delay and reverb).
+            c->setInverted(true);
         }
         if (juce::String(spec.paramId) == "harm.on")
         {
@@ -655,7 +683,8 @@ void MainPanel::updateSplit()
     const int edit = processor.getEditPart();
     if (keyboard != nullptr)
     {
-        keyboard->setSplit(mode == SplitMode::Split ? juce::roundToInt(processor.getValue(P::SplitPoint)) : -1);
+        keyboard->setSplit(mode == SplitMode::Split ? juce::roundToInt(processor.getValue(P::SplitPoint)) : -1,
+                           edit == ZSynthProcessor::kLower);
         // HARMONY on: outline the notes of its key and scale.
         uint16_t mask = 0;
         const int key = juce::roundToInt(processor.getValue(P::HarmKey));
@@ -748,17 +777,12 @@ void MainPanel::showFxPresetMenu(const std::vector<FxPreset>& list, const juce::
 
     juce::Component::SafePointer<MainPanel> safe(this);
     const auto* listPtr = &list;
-    // The anchor button sits on a popup page: offset it by the page's position on the canvas.
+    // The anchor button sits on a popup page (which may be moved and is drawn zoomed).
     juce::Rectangle<int> target;
     for (const auto& u : PanelLayout::get().utilities())
         if (u.id == anchor)
-        {
-            target = u.bounds;
-            for (const auto& pg : PanelLayout::get().popupPages())
-                if (pg.id == u.page)
-                    target += pg.boundsOnCanvas.getPosition();
-        }
-    menu.showMenuAsync(juce::PopupMenu::Options().withTargetScreenArea(localAreaToGlobal(target)).withMinimumWidth(target.getWidth()),
+            target = parentForPage(u.page).localAreaToGlobal(u.bounds);
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetScreenArea(target).withMinimumWidth(target.getWidth()),
                        [safe, listPtr, onParam](int result) {
                            if (safe == nullptr || result <= 0)
                                return;

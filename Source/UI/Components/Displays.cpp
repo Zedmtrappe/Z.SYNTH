@@ -2057,6 +2057,67 @@ void HarmonyInfo::paint(juce::Graphics& g)
 }
 
 // ============================================================= split map ====
+SplitMap::SplitMap(ZSynthProcessor& p) : CachedDisplay(p)
+{
+    setInterceptsMouseClicks(true, false);
+    setTooltip("SPLIT: drag the split marker left or right to move the split point.");
+}
+
+float SplitMap::xOf(int key) const
+{
+    const auto area = keyArea();
+    return area.getX() + area.getWidth() * (float) (key - kLo) / (float) (kHi - kLo);
+}
+
+int SplitMap::keyAt(float x) const
+{
+    const auto area = keyArea();
+    return juce::jlimit(kLo, kHi, kLo + juce::roundToInt((x - area.getX()) / area.getWidth() * (float) (kHi - kLo)));
+}
+
+bool SplitMap::nearMarker(juce::Point<float> pt) const
+{
+    if ((SplitMode) iv(P::SplitMode) != SplitMode::Split)
+        return false;
+    const float barY = keyArea().getY() + 30.0f;
+    return std::abs(pt.x - xOf(juce::jlimit(kLo, kHi, iv(P::SplitPoint)))) < 9.0f && pt.y > barY - 20.0f && pt.y < barY + 26.0f;
+}
+
+void SplitMap::setPoint(float x)
+{
+    if (auto* param = processor.getState().getParameter(paramDef(P::SplitPoint).id))
+        param->setValueNotifyingHost(param->convertTo0to1((float) keyAt(x)));
+}
+
+void SplitMap::mouseMove(const juce::MouseEvent& e)
+{
+    setMouseCursor(nearMarker(e.position) ? juce::MouseCursor::LeftRightResizeCursor : juce::MouseCursor::NormalCursor);
+}
+
+void SplitMap::mouseDown(const juce::MouseEvent& e)
+{
+    dragging = nearMarker(e.position);
+    if (! dragging)
+        return;
+    if (auto* param = processor.getState().getParameter(paramDef(P::SplitPoint).id))
+        param->beginChangeGesture();
+}
+
+void SplitMap::mouseDrag(const juce::MouseEvent& e)
+{
+    if (dragging)
+        setPoint(e.position.x);
+}
+
+void SplitMap::mouseUp(const juce::MouseEvent&)
+{
+    if (! dragging)
+        return;
+    dragging = false;
+    if (auto* param = processor.getState().getParameter(paramDef(P::SplitPoint).id))
+        param->endChangeGesture();
+}
+
 uint64_t SplitMap::stateHash() const
 {
     uint64_t h = 1469598103934665603ull;
@@ -2077,11 +2138,10 @@ void SplitMap::paint(juce::Graphics& g)
     const int point = iv(P::SplitPoint);
     const int edit = processor.getEditPart();
     const auto lowerColour = juce::Colour(0xff5ac8fa), upperColour = Colours::lcdText;
-    const auto area = r.reduced(12.0f, 10.0f);
+    const auto area = keyArea();
 
     // Key range C0 .. C8 with octave ticks.
-    constexpr int lo = 12, hi = 108;
-    auto xOf = [&](int key) { return area.getX() + area.getWidth() * (float) (key - lo) / (float) (hi - lo); };
+    constexpr int lo = kLo, hi = kHi;
     const float barY = area.getY() + 30.0f, barH = 16.0f;
     g.setColour(Colours::lcdDim.withAlpha(0.5f));
     for (int k = lo; k <= hi; k += 12)
@@ -2123,8 +2183,13 @@ void SplitMap::paint(juce::Graphics& g)
         const float sx = xOf(juce::jlimit(lo, hi, point));
         zone(ZSynthProcessor::kLower, area.getX(), sx - 1.0f, barY, barH);
         zone(ZSynthProcessor::kUpper, sx + 1.0f, area.getRight(), barY, barH);
+        // The marker, with a grip to drag it by.
         g.setColour(Colours::accent);
         g.fillRect(sx - 1.0f, barY - 4.0f, 2.0f, barH + 8.0f);
+        const auto grip = juce::Rectangle<float>(sx - 4.0f, barY + barH + 4.0f, 8.0f, 7.0f);
+        juce::Path tri;
+        tri.addTriangle(grip.getX(), grip.getBottom(), grip.getRight(), grip.getBottom(), grip.getCentreX(), grip.getY());
+        g.fillPath(tri);
         drawLcdText(g, formatValue(P::SplitPoint, (float) point), juce::Rectangle<float>(sx - 20.0f, barY - 16.0f, 40.0f, 12.0f).toNearestInt(),
                     9.5f, Colours::accent, juce::Justification::centred);
         label(ZSynthProcessor::kLower, labels.withWidth(labels.getWidth() / 2), juce::Justification::centredLeft);

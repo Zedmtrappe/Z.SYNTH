@@ -382,13 +382,25 @@ private:
 
 /** KEYBOARD SPLIT window: the two zones across the key range, with each
     part's sound, octave and level; the part on the panel is lit. */
-class SplitMap : public CachedDisplay
+class SplitMap : public CachedDisplay, public juce::SettableTooltipClient
 {
 public:
-    using CachedDisplay::CachedDisplay;
+    explicit SplitMap(ZSynthProcessor&);
     void paint(juce::Graphics&) override;
+    void mouseMove(const juce::MouseEvent&) override;
+    void mouseDown(const juce::MouseEvent&) override;
+    void mouseDrag(const juce::MouseEvent&) override;
+    void mouseUp(const juce::MouseEvent&) override;
 protected:
     uint64_t stateHash() const override;
+private:
+    static constexpr int kLo = 12, kHi = 108; // the key range shown, C0 .. C8
+    juce::Rectangle<float> keyArea() const { return getLocalBounds().toFloat().reduced(12.0f, 10.0f); }
+    float xOf(int key) const;
+    int keyAt(float x) const;
+    bool nearMarker(juce::Point<float>) const;
+    void setPoint(float x);
+    bool dragging = false;
 };
 
 class Logo : public juce::Component
