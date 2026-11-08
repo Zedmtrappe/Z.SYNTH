@@ -86,6 +86,17 @@ SequencerBar::SequencerBar(ZSynthProcessor& p) : processor(p)
         }
         updateButtons();
     };
+    songButton.setTooltip("SONG mode: the sequencer plays its song slots (lit while on; shows the slot playing). Click to switch it on or off.");
+    songButton.onClick = [this] {
+        if (auto* prm = processor.getState().getParameter("pseq.song"))
+        {
+            prm->beginChangeGesture();
+            prm->setValueNotifyingHost(prm->getValue() >= 0.5f ? 0.0f : 1.0f);
+            prm->endChangeGesture();
+        }
+        updateButtons();
+    };
+    addAndMakeVisible(songButton);
     editButton.setButtonText(juce::String::fromUTF8("SEQUENCER \xe2\x96\xb8"));
     editButton.setTooltip("Open the pattern sequencer: steps, rows, patterns");
     editButton.onClick = [this] { if (onEdit) onEdit(); };
@@ -113,8 +124,8 @@ SequencerBar::~SequencerBar()
 
 juce::Rectangle<int> SequencerBar::lightsArea() const
 {
-    const int x = patternButtons[ZSynthProcessor::kPatterns - 1].getRight() + 14;
-    return { x, 3, editButton.getX() - 12 - x, getHeight() - 6 };
+    const int x = editButton.getRight() + 12;
+    return { x, 3, getWidth() - 4 - x, getHeight() - 6 };
 }
 
 void SequencerBar::resized()
@@ -127,7 +138,9 @@ void SequencerBar::resized()
         b.setBounds(x, 2, 28, getHeight() - 4);
         x += 30;
     }
-    editButton.setBounds(getWidth() - 132, 2, 130, getHeight() - 4);
+    // All the sequencer's keys together on the left, the step lights after them.
+    songButton.setBounds(x + 6, 2, 84, getHeight() - 4);
+    editButton.setBounds(songButton.getRight() + 6, 2, 124, getHeight() - 4);
 }
 
 void SequencerBar::updateButtons()
@@ -137,12 +150,18 @@ void SequencerBar::updateButtons()
     playButton.setToggleState(running, juce::dontSendNotification);
     for (int i = 0; i < ZSynthProcessor::kPatterns; ++i)
         patternButtons[i].setToggleState(i == processor.getPattern(), juce::dontSendNotification);
+    const bool song = processor.getValue(P::PseqSongOn) >= 0.5f;
+    const int slot = song && running ? processor.getSongSlot() : -1;
+    songButton.setButtonText(slot >= 0 ? "SONG  " + juce::String(slot + 1) : juce::String("SONG"));
+    songButton.setToggleState(song, juce::dontSendNotification);
 }
 
 void SequencerBar::timerCallback()
 {
     const bool running = processor.isSeqRunning() || processor.getValue(P::PseqRun) >= 0.5f;
-    bool dirty = running != shownRunning || processor.getPattern() != shownPattern;
+    const int songState = processor.getValue(P::PseqSongOn) >= 0.5f ? processor.getSongSlot() + (running ? 100 : 0) : -2;
+    bool dirty = running != shownRunning || processor.getPattern() != shownPattern || songState != shownSong;
+    shownSong = songState;
     if (dirty)
     {
         shownRunning = running;

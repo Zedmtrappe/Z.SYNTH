@@ -436,6 +436,12 @@ void MainPanel::buildControls()
             c->setGlowWhenOn(true);
             trackSwitch = c.get();
         }
+        if (spec.kind == ControlKind::NoteStrip)
+        {
+            // Choosing a step's note plays it on the row's sound.
+            const int row = juce::String(spec.paramId).startsWith("pseq.b.") ? 1 : 0;
+            c->onNoteChosen = [this, row](int note) { processor.previewStepNote(row, note); };
+        }
         if (juce::String(spec.section) == "output")
             c->setLegendInk(kOutputInk); // printed on the aluminium OUTPUT plate
         if (juce::String(spec.paramId) == "peq.pre")
@@ -736,6 +742,19 @@ void MainPanel::buildUtilities()
     addUtility<SequencerBar>("seqBar", processor).onEdit = [this] {
         showPage(getVisiblePage() == "pseq" ? juce::String() : juce::String("pseq"));
     };
+    // The sequencer page's transport keys.
+    auto setRun = [this](bool on) {
+        if (auto* prm = processor.getState().getParameter("pseq.run"))
+        {
+            prm->beginChangeGesture();
+            prm->setValueNotifyingHost(on ? 1.0f : 0.0f);
+            prm->endChangeGesture();
+        }
+    };
+    button("pseqRewind", juce::String::fromUTF8("\xe2\x8f\xae"), "Back to the top: step 1 (and song slot 1); keeps playing if it was",
+           [this] { processor.restartSequencer(); });
+    button("pseqStop", juce::String::fromUTF8("\xe2\x96\xa0  STOP"), "Stop the sequencer", [setRun] { setRun(false); });
+    seqPlayButton = &button("pseqPlay", juce::String::fromUTF8("\xe2\x96\xb6  PLAY"), "Play the sequencer (both rows)", [setRun] { setRun(true); });
     for (int i = 0; i < ZSynthProcessor::kPatterns; ++i)
     {
         auto& b = button("pseqPat" + juce::String(i), juce::String::charToString((juce::juce_wchar) ('A' + i)),
@@ -1201,6 +1220,8 @@ void MainPanel::timerCallback()
     if (getVisiblePage() == "pseq")
         for (auto& c : controls)
             c->refreshLinked(); // note strips follow their row's ROOT and the step's GATE
+    if (seqPlayButton != nullptr)
+        seqPlayButton->setToggleState(processor.isSeqRunning() || processor.getValue(P::PseqRun) >= 0.5f, juce::dontSendNotification);
     for (size_t i = 0; i < patternButtons.size(); ++i)
         patternButtons[i]->setToggleState((int) i == processor.getPattern(), juce::dontSendNotification);
     // The FM block is off in ANALOG engine mode: dim its algorithm display and OPERATORS too.

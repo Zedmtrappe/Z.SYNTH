@@ -80,14 +80,17 @@ once. It also replaces the old audition player: press PLAY to hear a sound
 with a phrase while you tweak the panel.
 
 **Transport (above the keyboard).** **PLAY / STOP**, the eight pattern
-memories **A**–**H**, both rows' step lights, and **SEQUENCER ▸** to open the
-sequencer window.
+memories **A**–**H**, **SONG** (lit while song mode is on; it shows the slot
+playing, and switches song mode on or off), **SEQUENCER ▸** to open the
+sequencer window, and both rows' step lights. While a song plays, the pattern
+buttons (here and in the window) follow the pattern being played, and the
+window shows it.
 
 **The window.**
 
 | Control | |
 |---|---|
-| RUN | Starts and stops the sequencer (the same as PLAY) |
+| ⏮ / ■ STOP / ▶ PLAY | Transport: back to the top (step 1, song slot 1; it keeps playing if it was), stop, play |
 | KEY TRANSP | While it runs, a key you play transposes both rows (C4 = as set) instead of sounding |
 | HOST SYNC | In a host: starts and stops with the host's transport and locks the steps to its bars |
 | SWING | 50 % = straight; up to 75 % pushes every second step late |
@@ -102,7 +105,7 @@ sequencer window.
 | GATE TIME | How much of each step a note lasts |
 | ROOT | The row's home note: steps reach from an octave below it to two octaves above |
 | VELOCITY | The row's velocity; accented steps play at 127 |
-| NOTE (per step) | A column of twelve note buttons, C at the bottom to B at the top, with ▲ / ▼ to move the step up or down an octave; the red readout below shows the note. Click a note to play it; click the lit note again to make the step a rest (the column goes blank, the readout shows REST); click any note on a blank step to bring it back. A small amber mark shows the row's ROOT. Steps reach from an octave below ROOT to two above |
+| NOTE (per step) | A column of twelve note buttons, C at the bottom to B at the top, with ▲ / ▼ to move the step up or down an octave; the red readout below shows the note. Click a note to choose it (you hear it, on the row's sound); click the lit note again to make the step a rest (the column goes blank, the readout shows REST); click any note on a blank step to bring it back. A small amber mark shows the row's ROOT. Steps reach from an octave below ROOT to two above |
 | GATE / ACCENT / SLIDE (per step) | Play or rest (the same as clicking the lit note); full velocity; hold into the next step (legato, so mono and legato voices glide) |
 | COPY / PASTE / CLEAR | Copy a row, paste it into a row (it keeps its PLAYS routing), or reset every step to a plain gate |
 | LOAD ▾ | Fill a row from a built-in phrase or a MIDI file. The opening bars are quantised to the row's steps: row A takes the top line, row B the bass line; notes still sounding at a step become slides |

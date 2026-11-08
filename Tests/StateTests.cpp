@@ -599,7 +599,8 @@ ZS_TEST(layout_every_parameter_exactly_once)
     for (int i = 0; i < kNumParams; ++i)
     {
         // MASTER is both the header knob and the OUTPUT fader (two views of one value).
-        const int expected = i == P::MasterVolume ? 2 : 1;
+        // (The sequencer's RUN is driven by the PLAY / STOP transport keys, not a control of its own.)
+        const int expected = i == P::MasterVolume ? 2 : (i == P::PseqRun ? 0 : 1);
         if (count[(size_t) i] != expected)
             std::printf("    %s appears %d times\n", paramDef(i).id, count[(size_t) i]);
         ZS_CHECK(count[(size_t) i] == expected);
@@ -1146,6 +1147,13 @@ ZS_TEST(sequencer_patterns_state_routing_and_key_transpose)
 
     // Stopping releases everything.
     r.set("pseq.run", 0.0f);
+    r.run({}, 400);
+    ZS_CHECK(r.voices(ZSynthProcessor::kUpper) == 0 && r.voices(ZSynthProcessor::kLower) == 0);
+
+    // Choosing a step's note plays it briefly (0.3 s) on the row's sound.
+    p.previewStepNote(0, 64);
+    r.run({}, 2);
+    ZS_CHECK(r.voices(p.getEditPart()) > 0);
     r.run({}, 400);
     ZS_CHECK(r.voices(ZSynthProcessor::kUpper) == 0 && r.voices(ZSynthProcessor::kLower) == 0);
     ZS_CHECK(p.getSeqStep(0) == -1);

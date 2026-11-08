@@ -200,8 +200,10 @@ void ZSynthProcessor::selectPattern(int index)
     if (index == currentPattern)
         return;
     capturePattern(currentPattern);
+    applyingPattern.store(true);
     currentPattern = index;
     applyPattern(index);
+    applyingPattern.store(false);
 }
 
 void ZSynthProcessor::copyRow(int row)
@@ -581,7 +583,7 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
             }
             void rowsOf(int pattern, dsp::PseqRow rows[2]) const override
             {
-                if (pattern == owner.currentPattern)
+                if (pattern == owner.currentPattern.load() && ! owner.applyingPattern.load())
                 {
                     owner.fillRows(g + P::PseqAOn, owner.getEditPart(), single, rows);
                     return;
@@ -596,6 +598,36 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
         if (gp[P::PseqSongOn] >= 0.5f)
             ps.song = &song;
         pseq.process(n, ps, transport, sink);
+
+        // Note preview: a step's note chosen on the page sounds for 0.3 s on its row's sound.
+        const int req = previewRequest.exchange(-1);
+        auto send = [&](int mask, int offset, int kind, int note, int vel) {
+            dsp::MidiEvent e;
+            e.offset = offset;
+            e.status = (uint8_t) (kind | ps.channel);
+            e.data1 = (uint8_t) note;
+            e.data2 = (uint8_t) vel;
+            for (int part = 0; part < 2; ++part)
+                if ((mask >> part) & 1)
+                    sink.add(part, e);
+        };
+        if (previewNote >= 0 && (req >= 0 || previewLeft <= n))
+        {
+            send(previewMask, req >= 0 ? 0 : juce::jmax(0, previewLeft - 1), 0x80, previewNote, 0);
+            previewNote = -1;
+        }
+        else if (previewNote >= 0)
+        {
+            previewLeft -= n;
+        }
+        if (req >= 0)
+        {
+            const auto& row = ps.rows[req / 128];
+            previewNote = req % 128;
+            previewMask = row.partMask;
+            previewLeft = (int) (0.3 * currentSampleRate);
+            send(previewMask, 0, 0x90, previewNote, row.velocity);
+        }
     }
 
     float* left = buffer.getWritePointer(0);
@@ -995,6 +1027,10 @@ void ZSynthProcessor::timerCallback()
 {
     applyLearnedSplit();
     applyDetectedKey();
+    // SONG playing: the panel shows the pattern being played.
+    if (getValue(P::PseqSongOn) >= 0.5f && isSeqRunning())
+        if (const int playing = pseq.getSongPattern(); playing >= 0 && playing != currentPattern.load())
+            selectPattern(playing);
     // SONG reached its END: release RUN (the sequencer has stopped already).
     if (pseq.isSongFinished() && getValue(P::PseqRun) >= 0.5f)
         setParamValue(P::PseqRun, 0.0f);
@@ -1046,7 +1082,7 @@ void ZSynthProcessor::getStateInformation(juce::MemoryBlock& destData)
     // Pattern sequencer: the eight pattern memories (the one on the panel is in the parameters).
     {
         auto* seq = root.createNewChildElement("PatternSeq");
-        seq->setAttribute("current", currentPattern);
+        seq->setAttribute("current", currentPattern.load());
         for (int pi = 0; pi < kPatterns; ++pi)
         {
             if (pi == currentPattern)

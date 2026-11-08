@@ -94,6 +94,10 @@ public:
     bool isSeqRunning() const { return seqRunning.load(std::memory_order_relaxed); }
     /** SONG mode: the slot playing (0..15), or -1 (any thread). */
     int getSongSlot() const { return pseq.getSongSlot(); }
+    /** Sequencer back to the top (step 1 / song slot 1); keeps playing if it was. */
+    void restartSequencer() { pseq.requestRestart(); }
+    /** Plays a note briefly on a row's sound (choosing a step's note on the sequencer page). */
+    void previewStepNote(int row, int note) { previewRequest.store(juce::jlimit(0, 1, row) * 128 + juce::jlimit(0, 127, note)); }
 
     // ---- pitch track (audio in -> notes)
     bool hasAudioInput() const { return getTotalNumInputChannels() > 0; }
@@ -188,7 +192,11 @@ private:
     dsp::PatternSequencer pseq;
     std::array<std::array<std::atomic<float>, 2 * kPseqRowParams>, kPatterns> patterns {}; // read by SONG mode
     void fillRows(const float* block, int editPart, bool single, dsp::PseqRow rows[2]) const;
-    int currentPattern = 0;
+    std::atomic<int> currentPattern { 0 };
+    std::atomic<bool> applyingPattern { false }; // the panel's pattern is being swapped: SONG reads memory
+    // Note preview (a step's note, played when it is chosen on the sequencer page).
+    std::atomic<int> previewRequest { -1 }; // row * 128 + note
+    int previewNote = -1, previewMask = 0, previewLeft = 0;
     std::array<float, kPseqRowParams> rowClipboard {};
     bool rowClipboardValid = false;
     int pseqTranspose = 0;

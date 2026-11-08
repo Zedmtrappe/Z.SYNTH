@@ -26,13 +26,14 @@ private:
     juce::Rectangle<int> lightsArea() const;
 
     ZSynthProcessor& processor;
-    juce::TextButton playButton, editButton;
+    juce::TextButton playButton, editButton, songButton;
     juce::TextButton patternButtons[ZSynthProcessor::kPatterns];
     material::LegendCache legend;
     int shownStep[2] { -2, -2 };
     int shownLength[2] {};
     bool shownRunning = false;
     int shownPattern = -1;
+    int shownSong = -2;
 };
 
 /** One row's step lights with numbers, on the sequencer page (above the knobs). */

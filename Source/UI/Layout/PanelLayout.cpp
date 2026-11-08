@@ -867,13 +867,17 @@ PanelLayout::PanelLayout()
     page("pseq");
     sectionAt("pseqPage", "ANALOG PATTERN SEQUENCER", 0, 0, 1780, 744);
     utilityAt("pseqClose", 1740, 3, 34, 20);
-    add("pseq.run", K::Switch, 20, 36, "RUN");
-    add("pseq.keytr", K::Switch, 80, 36, "KEY TRANSP", 84);
-    add("pseq.sync", K::Switch, 172, 36, "HOST SYNC", 76);
-    add("pseq.swing", K::Knob, 262, 30, "SWING");
-    heading("PATTERN", 372, 32, 200);
+    // Transport keys (RUN is pseq.run, driven by PLAY / STOP here and on the strip).
+    heading("TRANSPORT", 20, 32, 200);
+    utilityAt("pseqRewind", 20, 52, 46, 30);
+    utilityAt("pseqStop", 70, 52, 70, 30);
+    utilityAt("pseqPlay", 144, 52, 80, 30);
+    add("pseq.keytr", K::Switch, 234, 40, "KEY TRANSP", 80);
+    add("pseq.sync", K::Switch, 318, 40, "HOST SYNC", 72);
+    add("pseq.swing", K::Knob, 396, 30, "SWING");
+    heading("PATTERN", 458, 32, 200);
     for (int i = 0; i < 8; ++i)
-        utilityAt("pseqPat" + juce::String(i), 372 + i * 44, 52, 40, 26);
+        utilityAt("pseqPat" + juce::String(i), 458 + i * 40, 52, 36, 30);
     // SONG: sixteen slots, each a pattern, LOOP or END, played in order when SONG is on.
     add("pseq.song", K::Switch, 790, 36, "SONG", 52);
     for (int i = 0; i < 16; ++i)

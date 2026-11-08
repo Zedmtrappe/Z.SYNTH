@@ -1088,10 +1088,16 @@ void ParamControl::noteStripClick(juce::Point<float> p)
         if (noteSegment(pc).expanded(0.0f, 0.75f).contains(p) && pc == ((note % 12) + 12) % 12)
         {
             setGate(! gate);
+            if (! gate && onNoteChosen)
+                onNoteChosen(note); // back from a rest: hear it
             return;
         }
     if (! gate && ! noteArrow(true).contains(p) && ! noteArrow(false).contains(p))
         setGate(true);
+    auto chosen = [this](int n) {
+        if (onNoteChosen)
+            onNoteChosen(n);
+    };
     int target = note;
     if (noteArrow(true).contains(p))
         target = note + 12;
@@ -1109,8 +1115,13 @@ void ParamControl::noteStripClick(juce::Point<float> p)
                     target += 12;
             }
     if (target - root < lo || target - root > hi || target == note)
+    {
+        if (target == note && ! gate)
+            chosen(note);
         return;
+    }
     attachment.setValueAsCompleteGesture((float) (target - root));
+    chosen(target);
 }
 
 void ParamControl::paintNoteStrip(juce::Graphics& g)

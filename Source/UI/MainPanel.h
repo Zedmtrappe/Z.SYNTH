@@ -169,6 +169,7 @@ private:
     juce::TextButton* learnButton = nullptr;
     juce::TextButton* fmOperatorsButton = nullptr;
     std::vector<juce::TextButton*> patternButtons;
+    juce::TextButton* seqPlayButton = nullptr;
     std::unique_ptr<juce::FileChooser> midiChooser;
     void showPhraseMenu(int row);
     juce::Component* fmDisplay = nullptr;

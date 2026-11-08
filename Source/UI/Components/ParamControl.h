@@ -52,6 +52,8 @@ public:
     void setInverted(bool i) { inverted = i; repaint(); }
     /** NoteStrip: repaints when the row's ROOT or the step's GATE changed (call from a timer). */
     void refreshLinked();
+    /** NoteStrip: called with the step's note whenever one is chosen (to hear it). */
+    std::function<void(int note)> onNoteChosen;
     /** Legends printed in this ink (for controls on a light plate). */
     void setLegendInk(juce::Colour ink) { inkOverride = ink; hasInk = true; legend.clear(); repaint(); }
     bool glowsWhenOn() const { return glowWhenOn; }

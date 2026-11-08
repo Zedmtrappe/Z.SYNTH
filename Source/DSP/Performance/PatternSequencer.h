@@ -106,9 +106,17 @@ public:
             s.store(-1);
     }
 
+    /** Back to the top (step 1, song slot 1) on the next block, if running on its own clock (any thread). */
+    void requestRestart() { restartRequested.store(true); }
+
     /** One block of n samples. transport: the host's (ppq valid and playing for HOST SYNC). */
     void process(int n, const PseqSettings& s, const TransportInfo& transport, Sink& sink)
     {
+        if (restartRequested.exchange(false) && running && ! (s.hostSync && transport.ppqValid))
+        {
+            stopAll(0, sink);
+            running = false; // starts again from the top below
+        }
         const bool hostDriven = s.hostSync && transport.ppqValid;
         const bool shouldRun = (hostDriven ? transport.playing : s.run) && ! songDone;
         const double bpm = std::max(20.0, hostDriven && transport.hostTempo ? transport.bpm : s.bpm);
@@ -210,6 +218,8 @@ public:
 
     /** SONG mode: the slot playing (0..15), or -1 (any thread). */
     int getSongSlot() const { return shownSlot.load(std::memory_order_relaxed); }
+    /** SONG mode: the pattern playing (0..7), or -1 (any thread). */
+    int getSongPattern() const { return shownSlot.load(std::memory_order_relaxed) >= 0 ? shownPattern.load(std::memory_order_relaxed) : -1; }
     /** SONG mode: the song reached END (or ran off its last slot); cleared when RUN goes off. */
     bool isSongFinished() const { return songDone.load(std::memory_order_relaxed); }
 
@@ -333,6 +343,7 @@ private:
                 continue; // empty: skip
             slotIndex = i;
             slotPattern = v;
+            shownPattern.store(v, std::memory_order_relaxed);
             s.song->rowsOf(v, cur);
             passStart = at;
             passBeats = passLength(cur);
@@ -446,7 +457,8 @@ private:
     PseqRow cur[kRows];
     double passStart = 0.0, passBeats = 4.0;
     int slotIndex = -1, slotPattern = 0;
-    std::atomic<int> shownSlot { -1 };
+    std::atomic<int> shownSlot { -1 }, shownPattern { 0 };
+    std::atomic<bool> restartRequested { false };
     double clock = 0.0; // beats
     RowState rows[kRows];
     int channelOf[kRows] {};
