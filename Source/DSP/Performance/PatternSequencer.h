@@ -52,6 +52,16 @@ struct PseqRow
 
 enum class PseqDirection : int { Forward, Backward, Pendulum, Random, Count };
 
+/** SONG mode: the 16 song slots, and the rows of any pattern (audio thread). */
+struct PseqSong
+{
+    static constexpr int kSlots = 16;
+    static constexpr int kEmpty = -1, kLoop = 8, kEnd = 9; // 0..7 = patterns A..H
+    virtual ~PseqSong() = default;
+    virtual int slot(int index) const = 0;
+    virtual void rowsOf(int pattern, PseqRow rows[2]) const = 0;
+};
+
 struct PseqSettings
 {
     bool run = false;
@@ -61,6 +71,7 @@ struct PseqSettings
     int transpose = 0;       // semitones (KEY TRANSPOSE)
     int channel = 0;         // MIDI channel nibble of the events
     PseqRow rows[2];
+    const PseqSong* song = nullptr; // SONG mode: the slots choose the patterns (rows above are ignored)
 };
 
 class PatternSequencer
@@ -84,7 +95,11 @@ public:
     void reset()
     {
         running = false;
+        songDone = false;
         clock = 0.0;
+        passStart = 0.0;
+        slotIndex = -1;
+        shownSlot.store(-1);
         for (auto& r : rows)
             r = {};
         for (auto& s : shownStep)
@@ -95,9 +110,11 @@ public:
     void process(int n, const PseqSettings& s, const TransportInfo& transport, Sink& sink)
     {
         const bool hostDriven = s.hostSync && transport.ppqValid;
-        const bool shouldRun = hostDriven ? transport.playing : s.run;
+        const bool shouldRun = (hostDriven ? transport.playing : s.run) && ! songDone;
         const double bpm = std::max(20.0, hostDriven && transport.hostTempo ? transport.bpm : s.bpm);
         const double beatsPerSample = bpm / (60.0 * fs);
+        if (! (hostDriven ? transport.playing : s.run))
+            songDone = false; // stopped: a finished song can start again
 
         if (! shouldRun)
         {
@@ -107,6 +124,15 @@ public:
             return;
         }
 
+        const bool song = s.song != nullptr;
+        if (song != wasSong && running)
+        {
+            // SONG switched on or off while playing: start again from the top.
+            stopAll(0, sink);
+            running = false;
+        }
+        wasSong = song;
+
         double beat0 = clock;
         if (hostDriven)
         {
@@ -115,44 +141,91 @@ public:
             if (! running || std::abs(ppq - clock) > 0.01)
             {
                 stopAll(0, sink);
-                for (int r = 0; r < kRows; ++r)
-                    rows[r].nextK = firstStepAtOrAfter(ppq, s.rows[r], s.swing);
+                startAt(ppq, s);
             }
             beat0 = ppq;
         }
         else if (! running)
         {
             beat0 = 0.0;
-            for (auto& r : rows)
-            {
-                r.nextK = 0;
-                r.offBeat = kNever;
-            }
+            startAt(0.0, s);
+        }
+        if (songDone)
+        {
+            running = false;
+            return;
         }
         running = true;
+        refreshRows(s);
         const double beat1 = beat0 + (double) n * beatsPerSample;
         auto offsetOf = [&](double b) { return std::clamp((int) std::floor((b - beat0) / beatsPerSample), 0, n - 1); };
 
-        for (int r = 0; r < kRows; ++r)
+        // Events in time order across both rows (and, in SONG mode, the end of each pass).
+        for (;;)
         {
-            auto& st = rows[r];
-            const auto& row = s.rows[r];
-            for (;;)
+            const double passEnd = song ? passStart + passBeats : kNever;
+            double best = beat1;
+            int which = -1;
+            bool isOff = false;
+            for (int r = 0; r < kRows; ++r)
             {
-                const double stepBeat = stepStart(st.nextK, row, s.swing);
-                const double next = std::min(stepBeat, st.offBeat);
-                if (next >= beat1)
-                    break;
-                if (st.offBeat <= stepBeat)
+                if (rows[r].offBeat < best)
                 {
-                    noteOff(r, offsetOf(st.offBeat), sink);
-                    continue;
+                    best = rows[r].offBeat;
+                    which = r;
+                    isOff = true;
                 }
-                fireStep(r, st.nextK, offsetOf(stepBeat), stepBeat, row, s, sink);
-                ++st.nextK;
+                const double st = passStart + stepStart(rows[r].nextK, cur[r], s.swing);
+                if (st < best && st < passEnd - 1.0e-9)
+                {
+                    best = st;
+                    which = r;
+                    isOff = false;
+                }
             }
+            if (passEnd < beat1 && passEnd <= best)
+            {
+                // The pass is over: on to the next slot (the rows start again from step 1).
+                if (! nextSlot(s, passEnd))
+                {
+                    stopAll(offsetOf(passEnd), sink);
+                    songDone = true;
+                    running = false;
+                    return;
+                }
+                continue;
+            }
+            if (which < 0)
+                break;
+            if (isOff)
+            {
+                noteOff(which, offsetOf(best), sink);
+                continue;
+            }
+            fireStep(which, rows[which].nextK, offsetOf(best), best, cur[which], s, sink);
+            ++rows[which].nextK;
         }
         clock = beat1;
+    }
+
+    /** SONG mode: the slot playing (0..15), or -1 (any thread). */
+    int getSongSlot() const { return shownSlot.load(std::memory_order_relaxed); }
+    /** SONG mode: the song reached END (or ran off its last slot); cleared when RUN goes off. */
+    bool isSongFinished() const { return songDone.load(std::memory_order_relaxed); }
+
+    /** Beats one pass of a pattern lasts: its longest row's full cycle (1 bar if no row is on). */
+    static double passLength(const PseqRow rows[2])
+    {
+        double beats = 0.0;
+        for (int r = 0; r < 2; ++r)
+        {
+            if (! rows[r].on)
+                continue;
+            const int len = std::clamp(rows[r].length, 1, PseqRow::kSteps);
+            const int cycle = (PseqDirection) rows[r].direction == PseqDirection::Pendulum && len > 1 ? 2 * len - 2 : len;
+            beats = std::max(beats, cycle * std::max(1.0e-3, rows[r].stepBeats));
+        }
+        return beats > 0.0 ? beats : 4.0;
     }
 
     /** Ends every sounding note now (e.g. PANIC or a pattern change). */
@@ -199,6 +272,91 @@ private:
         bool held = false;     // the sounding step slides into the next
     };
 
+    /** Starts (or re-aligns) the rows at `beat`; in SONG mode, finds the slot that beat falls in. */
+    void startAt(double beat, const PseqSettings& s)
+    {
+        songDone = false;
+        for (auto& r : rows)
+        {
+            r.offBeat = kNever;
+            r.note = -1;
+            r.held = false;
+        }
+        if (s.song == nullptr)
+        {
+            passStart = 0.0;
+            shownSlot.store(-1, std::memory_order_relaxed);
+            for (int r = 0; r < kRows; ++r)
+            {
+                cur[r] = s.rows[r];
+                rows[r].nextK = firstStepAtOrAfter(beat, cur[r], s.swing);
+            }
+            return;
+        }
+        // Walk the song from the top until the pass holding `beat`.
+        slotIndex = -1;
+        passStart = 0.0;
+        passBeats = 0.0;
+        if (! nextSlot(s, 0.0))
+        {
+            songDone = true;
+            return;
+        }
+        for (int guard = 0; guard < 100000 && passStart + passBeats <= beat; ++guard)
+            if (! nextSlot(s, passStart + passBeats))
+            {
+                songDone = true;
+                return;
+            }
+        for (int r = 0; r < kRows; ++r)
+            rows[r].nextK = firstStepAtOrAfter(beat - passStart, cur[r], s.swing);
+    }
+
+    /** SONG mode: moves to the next slot with a pattern, starting at `at`. False when the song ends. */
+    bool nextSlot(const PseqSettings& s, double at)
+    {
+        int i = slotIndex;
+        for (int tries = 0; tries < 2 * PseqSong::kSlots + 2; ++tries)
+        {
+            ++i;
+            if (i >= PseqSong::kSlots)
+                return false; // ran off the last slot: the end
+            const int v = s.song->slot(i);
+            if (v == PseqSong::kEnd)
+                return false;
+            if (v == PseqSong::kLoop)
+            {
+                i = -1;
+                continue;
+            }
+            if (v < 0 || v > 7)
+                continue; // empty: skip
+            slotIndex = i;
+            slotPattern = v;
+            s.song->rowsOf(v, cur);
+            passStart = at;
+            passBeats = passLength(cur);
+            for (auto& r : rows)
+                r.nextK = 0;
+            shownSlot.store(i, std::memory_order_relaxed);
+            return true;
+        }
+        return false; // only LOOPs and empty slots
+    }
+
+    /** Takes this block's settings (edits apply live; in SONG mode, to the slot's pattern). */
+    void refreshRows(const PseqSettings& s)
+    {
+        if (s.song == nullptr)
+        {
+            for (int r = 0; r < kRows; ++r)
+                cur[r] = s.rows[r];
+            return;
+        }
+        s.song->rowsOf(slotPattern, cur);
+        passBeats = passLength(cur);
+    }
+
     static double stepStart(long long k, const PseqRow& row, float swing)
     {
         // Every second step is pushed late by the swing.
@@ -229,7 +387,7 @@ private:
         }
         const int note = std::clamp(row.root + step.pitch + s.transpose, 0, 127);
         const int vel = step.accent ? 127 : std::clamp(row.velocity, 1, 127);
-        const double stepLen = stepStart(k + 1, row, s.swing) - beat;
+        const double stepLen = passStart + stepStart(k + 1, row, s.swing) - beat;
         if (st.note >= 0 && st.held && st.mask == row.partMask)
         {
             // Slide from the held note: the new note starts first, then the old one ends (legato).
@@ -283,7 +441,12 @@ private:
     }
 
     double fs = 48000.0;
-    bool running = false;
+    bool running = false, wasSong = false;
+    std::atomic<bool> songDone { false }; // read by the message thread
+    PseqRow cur[kRows];
+    double passStart = 0.0, passBeats = 4.0;
+    int slotIndex = -1, slotPattern = 0;
+    std::atomic<int> shownSlot { -1 };
     double clock = 0.0; // beats
     RowState rows[kRows];
     int channelOf[kRows] {};

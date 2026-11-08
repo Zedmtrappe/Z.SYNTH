@@ -92,6 +92,8 @@ public:
     int getSeqStep(int row) const { return pseq.getShownStep(row); }
     /** Is the sequencer playing (RUN, or the host with HOST SYNC)? (any thread) */
     bool isSeqRunning() const { return seqRunning.load(std::memory_order_relaxed); }
+    /** SONG mode: the slot playing (0..15), or -1 (any thread). */
+    int getSongSlot() const { return pseq.getSongSlot(); }
 
     // ---- pitch track (audio in -> notes)
     bool hasAudioInput() const { return getTotalNumInputChannels() > 0; }
@@ -184,7 +186,8 @@ private:
     std::unique_ptr<PresetManager> presets;
     // Pattern sequencer.
     dsp::PatternSequencer pseq;
-    std::array<std::array<float, 2 * kPseqRowParams>, kPatterns> patterns {};
+    std::array<std::array<std::atomic<float>, 2 * kPseqRowParams>, kPatterns> patterns {}; // read by SONG mode
+    void fillRows(const float* block, int editPart, bool single, dsp::PseqRow rows[2]) const;
     int currentPattern = 0;
     std::array<float, kPseqRowParams> rowClipboard {};
     bool rowClipboardValid = false;

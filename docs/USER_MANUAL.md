@@ -92,6 +92,8 @@ sequencer window.
 | HOST SYNC | In a host: starts and stops with the host's transport and locks the steps to its bars |
 | SWING | 50 % = straight; up to 75 % pushes every second step late |
 | PATTERN A–H | Eight memories (both rows); the one you leave keeps your changes. Saved with your project |
+| SONG | Plays the sixteen song slots in order instead of the pattern on the panel |
+| Song slots 1–16 | Each is a pattern (A–H), **Loop** (back to slot 1) or **End** (stop; RUN switches off); "-" is skipped, and running off slot 16 also ends the song. A slot plays its pattern once through: its longest row's full cycle (a pendulum row goes there and back). The light under the slot playing is lit. Edits to the pattern on the panel are heard as it plays |
 | ON (per row) | Row on; off, it keeps time silently |
 | PLAYS | UPPER, LOWER or BOTH: which sound the row plays with SPLIT or LAYER. With SINGLE both rows play the sound on the panel |
 | STEP | Step length against the tempo: 1/32 to 1 bar, triplets included |

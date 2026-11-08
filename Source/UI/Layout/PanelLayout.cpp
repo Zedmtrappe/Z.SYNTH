@@ -874,9 +874,11 @@ PanelLayout::PanelLayout()
     heading("PATTERN", 372, 32, 200);
     for (int i = 0; i < 8; ++i)
         utilityAt("pseqPat" + juce::String(i), 372 + i * 44, 52, 40, 26);
-    text("SINGLE: both rows play the sound on the panel.  SPLIT / LAYER: each row plays its PLAYS sound.  "
-         "KEY TRANSP: a key you play transposes the running rows.  SLIDE holds a step into the next.  "
-         "LOAD fills a row from a phrase or a MIDI file.", 790, 34, 940, 60, juce::Justification::topLeft);
+    // SONG: sixteen slots, each a pattern, LOOP or END, played in order when SONG is on.
+    add("pseq.song", K::Switch, 790, 36, "SONG", 52);
+    for (int i = 0; i < 16; ++i)
+        add("pseq.song." + juce::String(i + 1), K::Selector, 852 + i * 57, 34, juce::String(i + 1), 54);
+    utilityAt("pseqSongLights", 852, 80, 16 * 57, 14);
     for (int r = 0; r < 2; ++r)
     {
         const juce::String rowId = r == 0 ? "a" : "b", rowName = r == 0 ? "A" : "B";

@@ -748,6 +748,8 @@ void MainPanel::buildUtilities()
     {
         const juce::String rowName = r == 0 ? "A" : "B";
         addUtility<SequencerLights>("pseqLights" + rowName, processor, r);
+        if (r == 0)
+            addUtility<SongLights>("pseqSongLights", processor);
         button("pseqCopy" + rowName, "COPY", "Copy row " + rowName + " (steps and settings)", [this, r] { processor.copyRow(r); });
         button("pseqPaste" + rowName, "PASTE", "Paste the copied row into row " + rowName + " (it keeps its PLAYS routing)",
                [this, r] { processor.pasteRow(r); });

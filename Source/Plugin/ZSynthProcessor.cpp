@@ -157,14 +157,41 @@ void ZSynthProcessor::capturePattern(int index)
 {
     auto& p = patterns[(size_t) juce::jlimit(0, kPatterns - 1, index)];
     for (int k = 0; k < 2 * kPseqRowParams; ++k)
-        p[(size_t) k] = getValue(P::PseqAOn + k);
+        p[(size_t) k].store(getValue(P::PseqAOn + k), std::memory_order_relaxed);
 }
 
 void ZSynthProcessor::applyPattern(int index)
 {
     const auto& p = patterns[(size_t) juce::jlimit(0, kPatterns - 1, index)];
     for (int k = 0; k < 2 * kPseqRowParams; ++k)
-        setParamValue(P::PseqAOn + k, p[(size_t) k]);
+        setParamValue(P::PseqAOn + k, p[(size_t) k].load(std::memory_order_relaxed));
+}
+
+void ZSynthProcessor::fillRows(const float* v, int edit, bool single, dsp::PseqRow rows[2]) const
+{
+    // v: a pattern's values, starting at PseqAOn (the panel's or a stored pattern).
+    for (int r = 0; r < 2; ++r)
+    {
+        auto at = [&](int field) { return v[r * kPseqRowStride + field - P::PseqAOn]; };
+        auto& row = rows[r];
+        row.on = at(P::PseqAOn) >= 0.5f;
+        const int target = juce::roundToInt(at(P::PseqATarget));
+        row.partMask = single ? (1 << edit) : (target == 0 ? 1 : (target == 1 ? 2 : 3));
+        row.length = juce::roundToInt(at(P::PseqALen));
+        row.direction = juce::roundToInt(at(P::PseqADir));
+        row.stepBeats = pseqStepBeats(juce::roundToInt(at(P::PseqADiv)));
+        row.gate = at(P::PseqAGateLen) * 0.01f;
+        row.root = juce::roundToInt(at(P::PseqARoot));
+        row.velocity = juce::roundToInt(at(P::PseqAVel));
+        for (int st = 0; st < kPseqSteps; ++st)
+        {
+            const int f = P::PseqAPitch1 + st * kPseqStepStride;
+            row.steps[st].pitch = juce::roundToInt(at(f));
+            row.steps[st].gate = at(f + 1) >= 0.5f;
+            row.steps[st].accent = at(f + 2) >= 0.5f;
+            row.steps[st].slide = at(f + 3) >= 0.5f;
+        }
+    }
 }
 
 void ZSynthProcessor::selectPattern(int index)
@@ -538,30 +565,36 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
         ps.swing = gp[P::PseqSwing] * 0.01f;
         ps.transpose = gp[P::PseqKeyTr] >= 0.5f ? pseqTranspose : 0;
         ps.channel = receive <= 0 ? 0 : receive - 1;
-        const auto splitMode = (SplitMode) juce::roundToInt(gp[P::SplitMode]);
-        for (int r = 0; r < 2; ++r)
+        const bool single = (SplitMode) juce::roundToInt(gp[P::SplitMode]) == SplitMode::Single;
+        fillRows(gp + P::PseqAOn, getEditPart(), single, ps.rows);
+        // SONG: the slots choose the patterns; the one on the panel plays as edited, the others from memory.
+        struct Song : dsp::PseqSong
         {
-            const float* v = gp + (P::PseqAOn + r * kPseqRowStride); // row r's block
-            auto at = [&](int field) { return v[field - P::PseqAOn]; };
-            auto& row = ps.rows[r];
-            row.on = at(P::PseqAOn) >= 0.5f;
-            const int target = juce::roundToInt(at(P::PseqATarget));
-            row.partMask = splitMode == SplitMode::Single ? (1 << getEditPart()) : (target == 0 ? 1 : (target == 1 ? 2 : 3));
-            row.length = juce::roundToInt(at(P::PseqALen));
-            row.direction = juce::roundToInt(at(P::PseqADir));
-            row.stepBeats = pseqStepBeats(juce::roundToInt(at(P::PseqADiv)));
-            row.gate = at(P::PseqAGateLen) * 0.01f;
-            row.root = juce::roundToInt(at(P::PseqARoot));
-            row.velocity = juce::roundToInt(at(P::PseqAVel));
-            for (int st = 0; st < kPseqSteps; ++st)
+            const ZSynthProcessor& owner;
+            const float* g;
+            bool single;
+            Song(const ZSynthProcessor& o, const float* globals, bool s) : owner(o), g(globals), single(s) {}
+            int slot(int index) const override
             {
-                const int f = P::PseqAPitch1 + st * kPseqStepStride;
-                row.steps[st].pitch = juce::roundToInt(at(f));
-                row.steps[st].gate = at(f + 1) >= 0.5f;
-                row.steps[st].accent = at(f + 2) >= 0.5f;
-                row.steps[st].slide = at(f + 3) >= 0.5f;
+                const int v = juce::roundToInt(g[P::PseqSlot1 + index]);
+                return v == 0 ? kEmpty : (v <= 8 ? v - 1 : (v == 9 ? kLoop : kEnd));
             }
-        }
+            void rowsOf(int pattern, dsp::PseqRow rows[2]) const override
+            {
+                if (pattern == owner.currentPattern)
+                {
+                    owner.fillRows(g + P::PseqAOn, owner.getEditPart(), single, rows);
+                    return;
+                }
+                float block[2 * kPseqRowParams];
+                const auto& stored = owner.patterns[(size_t) juce::jlimit(0, kPatterns - 1, pattern)];
+                for (int k = 0; k < 2 * kPseqRowParams; ++k)
+                    block[k] = stored[(size_t) k].load(std::memory_order_relaxed);
+                owner.fillRows(block, owner.getEditPart(), single, rows);
+            }
+        } song(*this, gp, single);
+        if (gp[P::PseqSongOn] >= 0.5f)
+            ps.song = &song;
         pseq.process(n, ps, transport, sink);
     }
 
@@ -962,6 +995,9 @@ void ZSynthProcessor::timerCallback()
 {
     applyLearnedSplit();
     applyDetectedKey();
+    // SONG reached its END: release RUN (the sequencer has stopped already).
+    if (pseq.isSongFinished() && getValue(P::PseqRun) >= 0.5f)
+        setParamValue(P::PseqRun, 0.0f);
     midiLearn.dispatchPending(apvts);
 }
 
@@ -1016,8 +1052,8 @@ void ZSynthProcessor::getStateInformation(juce::MemoryBlock& destData)
             if (pi == currentPattern)
                 capturePattern(pi);
             juce::String values;
-            for (float v : patterns[(size_t) pi])
-                values << juce::String(v, 4) << " ";
+            for (const auto& v : patterns[(size_t) pi])
+                values << juce::String(v.load(), 4) << " ";
             seq->createNewChildElement("Pattern")->setAttribute("values", values.trimEnd());
         }
     }
@@ -1068,7 +1104,7 @@ void ZSynthProcessor::setStateInformation(const void* data, int sizeInBytes)
             const auto tokens = juce::StringArray::fromTokens(pat->getStringAttribute("values"), " ", "");
             auto& dst = patterns[(size_t) pi++];
             for (int k = 0; k < (int) dst.size() && k < tokens.size(); ++k)
-                dst[(size_t) k] = tokens[k].getFloatValue();
+                dst[(size_t) k].store(tokens[k].getFloatValue());
         }
         currentPattern = juce::jlimit(0, kPatterns - 1, seq->getIntAttribute("current", 0));
     }

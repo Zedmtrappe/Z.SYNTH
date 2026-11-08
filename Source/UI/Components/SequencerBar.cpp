@@ -50,6 +50,25 @@ void drawSequencerLights(juce::Graphics& g, juce::Rectangle<float> area, ZSynthP
     }
 }
 
+void SongLights::paint(juce::Graphics& g)
+{
+    const float cell = (float) getWidth() / 16.0f;
+    for (int i = 0; i < 16; ++i)
+    {
+        const bool lit = i == shown;
+        const auto led = juce::Rectangle<float>(8.0f, 8.0f).withCentre({ cell * ((float) i + 0.5f) - 1.5f, (float) getHeight() * 0.5f });
+        if (lit)
+        {
+            g.setColour(kLedRed.withAlpha(0.35f));
+            g.fillEllipse(led.expanded(3.0f));
+        }
+        g.setColour(juce::Colours::black.withAlpha(0.8f));
+        g.fillEllipse(led.expanded(1.0f));
+        g.setColour(lit ? kLedRed.brighter(0.4f) : kLedRed.withMultipliedBrightness(0.22f));
+        g.fillEllipse(led);
+    }
+}
+
 void SequencerLights::paint(juce::Graphics& g)
 {
     drawSequencerLights(g, getLocalBounds().toFloat(), processor, row, true);

@@ -2023,6 +2023,84 @@ ZS_TEST(pattern_sequencer_timing_gates_slides_swing_sync)
     }
 }
 
+ZS_TEST(pattern_sequencer_song_slots_loop_and_end)
+{
+    using namespace dsp;
+    const double fs = 48000.0;
+    // Patterns A (root 60) and B (root 72), each one row of 4 x 1/16 = one beat per pass.
+    struct TestSong : PseqSong
+    {
+        int slots[kSlots];
+        TestSong() { for (auto& v : slots) v = kEmpty; }
+        int slot(int i) const override { return slots[i]; }
+        void rowsOf(int pattern, PseqRow rows[2]) const override
+        {
+            rows[0] = {};
+            rows[0].length = 4;
+            rows[0].root = pattern == 0 ? 60 : 72;
+            rows[1] = {};
+            rows[1].on = false;
+        }
+    };
+    struct Collect : PatternSequencer::Sink
+    {
+        std::vector<std::pair<long long, int>> ons;
+        long long base = 0;
+        void add(int, const MidiEvent& e) override
+        {
+            if ((e.status & 0xF0) == 0x90)
+                ons.push_back({ base + e.offset, e.data1 });
+        }
+    };
+    auto play = [&](TestSong& song, double seconds, bool* finished = nullptr) {
+        PatternSequencer seq;
+        seq.prepare(fs);
+        PseqSettings s;
+        s.run = true;
+        s.bpm = 120.0; // a beat = 0.5 s = 24000 samples, a step = 6000
+        s.song = &song;
+        Collect c;
+        TransportInfo none;
+        for (long long t = 0; t < (long long) (seconds * fs); t += 256)
+        {
+            c.base = t;
+            seq.process(256, s, none, c);
+        }
+        if (finished != nullptr)
+            *finished = seq.isSongFinished();
+        return c.ons;
+    };
+    // A, (empty), B, END: four steps at 60, four at 72, then silence and "finished".
+    TestSong song;
+    song.slots[0] = 0;
+    song.slots[2] = 1;
+    song.slots[3] = PseqSong::kEnd;
+    bool finished = false;
+    auto ons = play(song, 2.0, &finished);
+    ZS_CHECK(ons.size() == 8);
+    for (size_t k = 0; k < ons.size(); ++k)
+    {
+        ZS_CHECK(ons[k].second == (k < 4 ? 60 : 72));
+        ZS_CHECK(std::abs((double) ons[k].first - 6000.0 * (double) k) <= 1.0);
+    }
+    ZS_CHECK(finished);
+    // A, B, LOOP: keeps alternating.
+    song.slots[2] = PseqSong::kLoop;
+    song.slots[1] = 1;
+    song.slots[3] = PseqSong::kEmpty;
+    ons = play(song, 2.9, &finished);
+    ZS_CHECK(ons.size() >= 20);
+    if (ons.size() >= 20)
+        ZS_CHECK(ons[0].second == 60 && ons[4].second == 72 && ons[8].second == 60 && ons[12].second == 72 && ons[16].second == 60);
+    ZS_CHECK(! finished);
+    // Pendulum doubles a pass (back and forth): 4 steps -> a 6-step pass.
+    PseqRow rows[2];
+    rows[0].length = 4;
+    rows[0].direction = (int) PseqDirection::Pendulum;
+    rows[1].on = false;
+    ZS_CHECK_NEAR(PatternSequencer::passLength(rows), 6 * 0.25, 1e-9);
+}
+
 ZS_TEST(pitch_tracker_sustain_and_hold)
 {
     using dsp::PitchTracker;

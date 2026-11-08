@@ -148,6 +148,7 @@ enum class GlideMode : int { Always, LegatoOnly, Count };
 // PATTERN SEQUENCER
 #define ZS_CH_PSEQ_TARGET "Upper|Lower|Both"
 #define ZS_CH_PSEQ_DIR "Forward|Backward|Pendulum|Random"
+#define ZS_CH_PSEQ_SLOT "-|A|B|C|D|E|F|G|H|Loop|End"
 #define ZS_CH_PSEQ_DIV "1/32|1/16T|1/16|1/8T|1/8|1/4T|1/4|1/2|1 Bar"
 /** Beats per step for each ZS_CH_PSEQ_DIV entry. */
 inline double pseqStepBeats(int div)

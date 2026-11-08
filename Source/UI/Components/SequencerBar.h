@@ -66,6 +66,32 @@ private:
     int shown = -1;
 };
 
+/** SONG mode: a light under each song slot, the one playing lit. */
+class SongLights : public juce::Component, private juce::Timer
+{
+public:
+    explicit SongLights(ZSynthProcessor& p) : processor(p)
+    {
+        setInterceptsMouseClicks(false, false);
+        startTimerHz(30);
+    }
+    ~SongLights() override { stopTimer(); }
+    void paint(juce::Graphics& g) override;
+
+private:
+    void timerCallback() override
+    {
+        const int s = processor.getValue(P::PseqSongOn) >= 0.5f && processor.isSeqRunning() ? processor.getSongSlot() : -1;
+        if (s != shown)
+        {
+            shown = s;
+            repaint();
+        }
+    }
+    ZSynthProcessor& processor;
+    int shown = -2;
+};
+
 /** Draws the 16 step lights of the sequencer's rows (current step lit, steps past
     LENGTH dark, rests hollow). Used on the transport strip and on the sequencer page. */
 void drawSequencerLights(juce::Graphics&, juce::Rectangle<float> area, ZSynthProcessor&, int row, bool numbers);
