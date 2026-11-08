@@ -7,6 +7,7 @@
 #include "../DSP/Engine/SynthEngine.h"
 #include "../DSP/Tracking/PitchTracker.h"
 #include "../DSP/Performance/Harmonizer.h"
+#include "../DSP/Performance/PatternSequencer.h"
 #include "../MIDI/MidiLearn.h"
 #include "../Parameters/ParameterLayout.h"
 #include "../Presets/PresetManager.h"
@@ -71,14 +72,26 @@ public:
     /** Parameter value in real units (thread-safe). */
     float getValue(int index) const { return rawValues[(size_t) index]->load(); }
 
-    // ---- audition player
-    AuditionPlayer& getAudition() { return audition; }
-    /** Names of the built-in audition clips (in menu order). */
-    static juce::StringArray getBuiltInClipNames();
-    /** Loads built-in clip `index` (keeps play/stop state). */
-    bool loadBuiltInClip(int index);
-    /** Loads a standard MIDI file from disk. */
-    juce::Result loadAuditionFile(const juce::File& file);
+    // ---- pattern sequencer (two rows: A and B; eight pattern memories)
+    static constexpr int kPatterns = 8;
+    int getPattern() const { return currentPattern; }
+    /** Message thread: stores the rows on the panel into the current pattern and recalls `index`. */
+    void selectPattern(int index);
+    /** Message thread: row 0 = A, 1 = B. */
+    void copyRow(int row);
+    void pasteRow(int row);
+    bool hasCopiedRow() const { return rowClipboardValid; }
+    void clearRow(int row);
+    /** The built-in phrases (in menu order) a row can load. */
+    static juce::StringArray getPhraseNames();
+    /** Loads a built-in phrase into a row (row A takes the top line, row B the bass line). */
+    bool loadPhraseIntoRow(int phrase, int row);
+    /** Loads the first bars of a standard MIDI file into a row, quantised to its steps. */
+    juce::Result loadMidiFileIntoRow(const juce::File& file, int row);
+    /** The step a row is on (0..15), or -1 when stopped (any thread). */
+    int getSeqStep(int row) const { return pseq.getShownStep(row); }
+    /** Is the sequencer playing (RUN, or the host with HOST SYNC)? (any thread) */
+    bool isSeqRunning() const { return seqRunning.load(std::memory_order_relaxed); }
 
     // ---- pitch track (audio in -> notes)
     bool hasAudioInput() const { return getTotalNumInputChannels() > 0; }
@@ -169,7 +182,18 @@ private:
     juce::MidiKeyboardState keyboardState;
     MidiLearn midiLearn;
     std::unique_ptr<PresetManager> presets;
-    AuditionPlayer audition;
+    // Pattern sequencer.
+    dsp::PatternSequencer pseq;
+    std::array<std::array<float, 2 * kPseqRowParams>, kPatterns> patterns {};
+    int currentPattern = 0;
+    std::array<float, kPseqRowParams> rowClipboard {};
+    bool rowClipboardValid = false;
+    int pseqTranspose = 0;
+    std::atomic<bool> seqRunning { false };
+    void capturePattern(int index);
+    void applyPattern(int index);
+    void setParamValue(int index, float value);
+    void importIntoRow(const AuditionPlayer::Clip& clip, int row);
 
     std::vector<dsp::MidiEvent> events;
     std::vector<float> monoScratch;

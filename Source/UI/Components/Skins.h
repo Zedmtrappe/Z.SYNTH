@@ -62,6 +62,12 @@ const Skin* eqSkin(EqModel model);
 /** The faceplate of a tape machine. */
 const Skin& tapeSkin(TapeModel model);
 
+/** The pattern sequencer's faceplate: black anodised, white legends, black
+    skirted knobs and red LED readouts, after the 1970s analog sequencers. */
+const Skin& sequencerSkin();
+/** The same faceplate for the sequencer's rows (no nameplate of their own). */
+const Skin& sequencerRowSkin();
+
 /** Paints a faceplate: finish, screws, title and nameplate. `inset` = a plate
     fitted into a recessed module bay (main panel); otherwise a full page. */
 void paintFaceplate(juce::Graphics&, juce::Rectangle<float>, const Skin&, const juce::String& title, bool inset);

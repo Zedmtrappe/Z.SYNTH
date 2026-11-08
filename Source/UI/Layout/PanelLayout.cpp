@@ -429,7 +429,7 @@ PanelLayout::PanelLayout()
     utilityAt("kbdOctDown", 22, 1154, 56, 28);
     utilityAt("kbdOctUp", 84, 1154, 56, 28);
     sectionAt("keys", "", 168, 972, 1742, 218);
-    utilityAt("auditionBar", 176, 976, 1240, 30);
+    utilityAt("seqBar", 176, 976, 1240, 30); // PATTERN SEQUENCER transport
     // KEYBOARD: SINGLE / SPLIT / LAYER, which part is on the panel, and the SPLIT window.
     add("split.mode", K::Segmented, 1426, 980, "KEYBOARD", 186, 22);
     utilityAt("partLower", 1620, 978, 92, 26); // LOWER left, UPPER right, as on the keyboard
@@ -857,6 +857,53 @@ PanelLayout::PanelLayout()
         add("seq.s" + n + ".gate", K::StepToggle, x, 232, "");
         add("seq.s" + n + ".acc", K::StepToggle, x, 254, "");
         add("seq.s" + n + ".slide", K::StepToggle, x, 276, "");
+    }
+
+    // ---------------------------------------------------- pattern sequencer
+    // Two rows of sixteen steps, laid out like a 1970s analog sequencer: per step a
+    // PITCH knob and GATE / ACCENT / SLIDE switches; per row its routing and timing.
+    pageList.push_back({ "pseq", "PATTERN SEQUENCER", { 70, 120, 1780, 470 } });
+    page("pseq");
+    sectionAt("pseqPage", "ANALOG PATTERN SEQUENCER", 0, 0, 1780, 470);
+    utilityAt("pseqClose", 1740, 3, 34, 20);
+    add("pseq.run", K::Switch, 20, 36, "RUN");
+    add("pseq.keytr", K::Switch, 80, 36, "KEY TRANSP", 84);
+    add("pseq.sync", K::Switch, 172, 36, "HOST SYNC", 76);
+    add("pseq.swing", K::Knob, 262, 30, "SWING");
+    heading("PATTERN", 372, 32, 200);
+    for (int i = 0; i < 8; ++i)
+        utilityAt("pseqPat" + juce::String(i), 372 + i * 44, 52, 40, 26);
+    text("SINGLE: both rows play the sound on the panel.  SPLIT / LAYER: each row plays its PLAYS sound.  "
+         "KEY TRANSP: a key you play transposes the running rows.  SLIDE holds a step into the next.  "
+         "LOAD fills a row from a phrase or a MIDI file.", 790, 34, 940, 60, juce::Justification::topLeft);
+    for (int r = 0; r < 2; ++r)
+    {
+        const juce::String rowId = r == 0 ? "a" : "b", rowName = r == 0 ? "A" : "B";
+        const int y0 = r == 0 ? 100 : 284;
+        sectionAt("pseqRow" + rowName, "ROW " + rowName, 8, y0, 1764, 176, true);
+        const juce::String p = "pseq." + rowId + ".";
+        add(p + "on", K::Switch, 16, y0 + 22, "ON");
+        add(p + "target", K::Selector, 70, y0 + 22, "PLAYS", 90);
+        add(p + "div", K::Selector, 166, y0 + 22, "STEP", 80);
+        add(p + "dir", K::Selector, 252, y0 + 22, "DIRECTION", 100);
+        add(p + "len", K::Knob, 16, y0 + 72, "LENGTH");
+        add(p + "glen", K::Knob, 72, y0 + 72, "GATE TIME");
+        add(p + "root", K::Knob, 128, y0 + 72, "ROOT");
+        add(p + "vel", K::Knob, 184, y0 + 72, "VELOCITY");
+        utilityAt("pseqCopy" + rowName, 248, y0 + 72, 104, 20);
+        utilityAt("pseqPaste" + rowName, 248, y0 + 96, 104, 20);
+        utilityAt("pseqClear" + rowName, 248, y0 + 120, 104, 20);
+        utilityAt("pseqLoad" + rowName, 248, y0 + 144, 104, 24);
+        utilityAt("pseqLights" + rowName, 372, y0 + 20, 16 * 87, 26);
+        for (int s = 0; s < 16; ++s)
+        {
+            const juce::String n(s + 1);
+            const int x = 372 + s * 87;
+            add(p + "s" + n + ".pitch", K::Knob, x + 17, y0 + 48, n);
+            add(p + "s" + n + ".gate", K::StepToggle, x + 21, y0 + 116, "GATE");
+            add(p + "s" + n + ".acc", K::StepToggle, x + 21, y0 + 136, "ACCENT");
+            add(p + "s" + n + ".slide", K::StepToggle, x + 21, y0 + 156, "SLIDE");
+        }
     }
 }
 

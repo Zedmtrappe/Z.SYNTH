@@ -145,6 +145,16 @@ enum class VoiceAlloc : int { Rotate, Reuse, Lowest, Count };
 #define ZS_CH_GLIDE_MODE "Always|Legato"
 enum class GlideMode : int { Always, LegatoOnly, Count };
 #define ZS_CH_GLIDE_TYPE "Analog|Constant Time|Constant Rate"
+// PATTERN SEQUENCER
+#define ZS_CH_PSEQ_TARGET "Upper|Lower|Both"
+#define ZS_CH_PSEQ_DIR "Forward|Backward|Pendulum|Random"
+#define ZS_CH_PSEQ_DIV "1/32|1/16T|1/16|1/8T|1/8|1/4T|1/4|1/2|1 Bar"
+/** Beats per step for each ZS_CH_PSEQ_DIV entry. */
+inline double pseqStepBeats(int div)
+{
+    static const double beats[] = { 0.125, 1.0 / 6.0, 0.25, 1.0 / 3.0, 0.5, 2.0 / 3.0, 1.0, 2.0, 4.0 };
+    return beats[div < 0 ? 0 : (div > 8 ? 8 : div)];
+}
 /** ANALOG: exponential (RC) slide, ~95 % there after GLIDE, fast at first.
     CONSTANT TIME: straight slide that always takes GLIDE. CONSTANT RATE:
     straight slide at GLIDE per octave (bigger leaps take longer). */

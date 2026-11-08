@@ -13,7 +13,7 @@ advanced sections.
 |---|---|
 | Formats | Standalone app, VST3 and Audio Unit (macOS universal builds from CI, AU checked with auval) |
 | Engine | JUCE-free C++17 library, usable without any GUI |
-| Parameters | 516, all host-automatable, one authoritative table |
+| Parameters | 666, all host-automatable, one authoritative table |
 | Factory library | 272 presets: *ZYNTH Originals* (160, 15 categories) and *Classic Machines* (112 sounds in 26 instrument folders), level-matched by measurement |
 | Tests | 51 DSP tests, 23 state/preset/layout/editor tests, a VST3 host test |
 | Tested on | Ubuntu 24.04, x86-64, GCC 13.3, CMake 3.28, JUCE 8.0.9 |
@@ -115,12 +115,11 @@ advanced sections.
 * **Pitch track** — play the synth from a guitar or bass on the audio input
   (standalone app): monophonic YIN tracking with gate, tracking threshold,
   pick-velocity, bend follow and a dry blend.
-* **Audition player** — a strip above the keyboard plays a MIDI clip into the
-  current sound while you work the panel: 35 built-in loops (basslines, acid,
-  leads, chords, pads, drones, choir, strings, arpeggios, plucks, brass, bells,
-  trance, rave, hoover, wobble, reese, synthwave, techno, house, funk, disco,
-  jazz, chiptune, film swells, Jump...) or any standard
-  MIDI file, merged to one part that plays poly or mono as the patch decides.
+* **Pattern sequencer** — a two-row, 16-step analog-style step sequencer
+  (pitch knob, gate, accent and slide per step; length, direction, step size,
+  gate time, root and velocity per row; swing, key transpose, host sync),
+  playing the UPPER and LOWER sounds together, with eight pattern memories and
+  rows loadable from 35 built-in phrases or any MIDI file.
 * **Effects** — drive (2x oversampled overdrive/distortion/wavefolder), a
   modulation block (chorus with Classic BBD / Roland digital / Korg stereo /
   Virus voicings, string ensemble, phaser, flanger; stackable), ping-pong delay, FDN reverb,
@@ -250,7 +249,7 @@ These are honest gaps in the current version, not hidden features:
   circuits or copies of their factory patches. Instrument names are trademarks
   of their owners, used descriptively; ZYNTH is not affiliated with them.
 * The VST3 exposes JUCE's 2048 hidden MIDI-CC proxy parameters in addition to
-  the 516 synth parameters (needed for controller input in VST3 hosts).
+  the 666 synth parameters (needed for controller input in VST3 hosts).
 
 ## Licence
 

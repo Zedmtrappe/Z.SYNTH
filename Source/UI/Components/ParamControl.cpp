@@ -974,6 +974,12 @@ void ParamControl::paintStepToggle(juce::Graphics& g)
     g.fillRoundedRectangle(r, 2.0f);
     g.setColour(on ? ledColour.brighter(0.4f) : Colours::sectionEdge);
     g.drawRoundedRectangle(r, 2.0f, 1.0f);
+    if (label.isNotEmpty())
+    {
+        g.setFont(labelFont(8.5f));
+        g.setColour(on ? juce::Colours::black.withAlpha(0.8f) : ledColour.withAlpha(0.55f));
+        g.drawFittedText(label, r.toNearestInt(), juce::Justification::centred, 1, 0.7f);
+    }
 }
 
 void ParamControl::paintHSlider(juce::Graphics& g)

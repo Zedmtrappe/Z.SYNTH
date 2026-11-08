@@ -175,7 +175,9 @@ ZS_TEST(param_table_matches_apvts)
         ZS_CHECK(juce::String(d.help).isNotEmpty());
         // Default round-trips through the normalised range.
         ZS_CHECK_NEAR(p->convertFrom0to1(p->convertTo0to1(d.def)), d.def, std::abs(d.max - d.min) * 1.0e-4 + 1.0e-4);
-        ZS_CHECK_NEAR(state.getRawParameterValue(d.id)->load(), d.def, 1.0e-4 * (1.0 + std::abs(d.def)));
+        // (The pattern sequencer starts on its demo pattern A, not on the plain defaults.)
+        if (! juce::String(d.id).startsWith("pseq.") || juce::String(d.id) == "pseq.run")
+            ZS_CHECK_NEAR(state.getRawParameterValue(d.id)->load(), d.def, 1.0e-4 * (1.0 + std::abs(d.def)));
     }
     ZS_CHECK((int) f.processor.getParameters().size() == kNumParams);
 }
@@ -676,7 +678,7 @@ ZS_TEST(layout_controls_inside_sections_and_not_overlapping)
                             || id == "wt.drift" || id == "wt.drate"
                             || (id.startsWith("split.") && id != "split.mode")
                             || (id.startsWith("harm.") && id != "harm.on")
-                            || id == "out.character";
+                            || id == "out.character" || id.startsWith("pseq.");
         ZS_CHECK(advanced == (c.page != ui::kMainPage));
     }
 }
@@ -716,22 +718,31 @@ ZS_TEST(new_instance_starts_on_the_startup_preset)
     ZS_CHECK(f.processor.getValue(P::Osc2Fine) > 0.0f); // the detuned second saw
 }
 
-ZS_TEST(audition_builtin_clips_load)
+ZS_TEST(sequencer_phrases_load_into_rows)
 {
-    const auto names = ZSynthProcessor::getBuiltInClipNames();
+    const auto names = ZSynthProcessor::getPhraseNames();
     ZS_CHECK(names.size() == 35);
     ZS_CHECK(names.contains("Jump"));
     ZS_CHECK(names[0] == "Mono Bassline");
-    ProcessorFixture f("audition");
+    ProcessorFixture f("phrases");
     for (int i = 0; i < names.size(); ++i)
     {
-        ZS_CHECK(f.processor.loadBuiltInClip(i));
-        f.processor.getAudition().collectGarbage();
+        ZS_CHECK(f.processor.loadPhraseIntoRow(i, i % 2));
+        // Every phrase leaves at least one step playing, within the knobs' range.
+        const int base = P::PseqAOn + (i % 2) * kPseqRowStride - P::PseqAOn;
+        int gates = 0;
+        for (int st = 0; st < kPseqSteps; ++st)
+        {
+            gates += f.processor.getValue(P::PseqAGate1 + base + st * kPseqStepStride) >= 0.5f ? 1 : 0;
+            const float pitch = f.processor.getValue(P::PseqAPitch1 + base + st * kPseqStepStride);
+            ZS_CHECK(pitch >= -12.0f && pitch <= 24.0f);
+        }
+        ZS_CHECK(gates > 0);
     }
-    ZS_CHECK(! f.processor.loadBuiltInClip(names.size()));
+    ZS_CHECK(! f.processor.loadPhraseIntoRow(names.size(), 0));
 }
 
-ZS_TEST(audition_external_midi_file_makes_sound)
+ZS_TEST(sequencer_imports_a_midi_file_and_plays)
 {
     // A typical DAW export: type 1, a tempo track, then a note track on
     // channel 2 with a program change, volume and a few chords.
@@ -762,10 +773,15 @@ ZS_TEST(audition_external_midi_file_makes_sound)
         juce::FileOutputStream out(midiFile);
         ZS_CHECK(out.openedOk() && file.writeTo(out, 1));
     }
-    ZS_CHECK(f.processor.loadAuditionFile(midiFile).wasOk());
+    ZS_CHECK(f.processor.loadMidiFileIntoRow(midiFile, 0).wasOk());
+    // Row A takes the top line: G (67) on the two bar downbeats, held (slides) between them.
+    ZS_CHECK(juce::roundToInt(f.processor.getValue(P::PseqARoot)) == 67);
+    ZS_CHECK(f.processor.getValue(P::PseqAGate1) >= 0.5f);
+    ZS_CHECK(juce::roundToInt(f.processor.getValue(P::PseqAPitch1)) == 0);
 
     f.processor.prepareToPlay(48000.0, 512);
-    f.processor.getAudition().play();
+    auto* run = f.processor.getState().getParameter("pseq.run");
+    run->setValueNotifyingHost(1.0f);
     juce::AudioBuffer<float> buffer(2, 512);
     double energy = 0.0;
     int noteOnsSeen = 0;
@@ -778,8 +794,16 @@ ZS_TEST(audition_external_midi_file_makes_sound)
             noteOnsSeen += m.getMessage().isNoteOn() ? 1 : 0;
         energy += buffer.getRMSLevel(0, 0, 512);
     }
-    std::printf("    external file: %d note-ons in the buffer, mean RMS %.4f\n", noteOnsSeen, energy / 200.0);
+    std::printf("    imported file playing: mean RMS %.4f (steps A %d)\n", energy / 200.0, f.processor.getSeqStep(0));
     ZS_CHECK_GT(energy / 200.0, 0.005);
+    ZS_CHECK(f.processor.isSeqRunning());
+    ZS_CHECK(f.processor.getSeqStep(0) >= 0);
+    run->setValueNotifyingHost(0.0f);
+    buffer.clear();
+    juce::MidiBuffer none;
+    f.processor.processBlock(buffer, none);
+    ZS_CHECK(f.processor.getSeqStep(0) == -1);
+    juce::ignoreUnused(noteOnsSeen);
 }
 
 ZS_TEST(audition_trims_silent_intro_and_tail)
@@ -1062,6 +1086,69 @@ ZS_TEST(layer_mix_is_limited)
     std::printf("    layered mix peak %.3f\n", peak);
     ZS_CHECK(peak > 0.5f);
     ZS_CHECK(peak <= 0.97f);
+}
+
+ZS_TEST(sequencer_patterns_state_routing_and_key_transpose)
+{
+    SplitRig r("pseq1");
+    auto& p = r.p;
+    // Pattern memories: an edit stays with its pattern; switching recalls the other.
+    const float demoRoot = p.getValue(P::PseqARoot);
+    r.set("pseq.a.root", 48.0f);
+    p.selectPattern(3);
+    ZS_CHECK(p.getPattern() == 3);
+    ZS_CHECK(std::abs(p.getValue(P::PseqARoot) - 48.0f) > 0.5f);
+    p.selectPattern(0);
+    ZS_CHECK_NEAR(p.getValue(P::PseqARoot), 48.0f, 1e-3);
+    juce::ignoreUnused(demoRoot);
+
+    // ...and they are saved with the project.
+    juce::MemoryBlock state;
+    p.selectPattern(5);
+    r.set("pseq.b.len", 7.0f);
+    p.getStateInformation(state);
+    SplitRig r2("pseq2");
+    r2.p.setStateInformation(state.getData(), (int) state.getSize());
+    ZS_CHECK(r2.p.getPattern() == 5);
+    ZS_CHECK(juce::roundToInt(r2.p.getValue(P::PseqBLen)) == 7);
+    r2.p.selectPattern(0);
+    ZS_CHECK_NEAR(r2.p.getValue(P::PseqARoot), 48.0f, 1e-3);
+
+    // Routing: with SPLIT, row A plays UPPER and row B plays LOWER; with SINGLE both play the panel's sound.
+    p.selectPattern(0);
+    r.set("split.mode", (float) SplitMode::Split);
+    r.set("pseq.run", 1.0f);
+    r.run({}, 60);
+    ZS_CHECK(p.isSeqRunning());
+    ZS_CHECK(r.voices(ZSynthProcessor::kUpper) + r.voices(ZSynthProcessor::kLower) > 0);
+    bool sawLower = false, sawUpper = false;
+    for (int b = 0; b < 200; ++b)
+    {
+        r.run({}, 1);
+        sawUpper = sawUpper || r.voices(ZSynthProcessor::kUpper) > 0;
+        sawLower = sawLower || r.voices(ZSynthProcessor::kLower) > 0;
+    }
+    ZS_CHECK(sawUpper && sawLower);
+    r.set("split.mode", (float) SplitMode::Single);
+    r.run({}, 80);
+    for (int b = 0; b < 100; ++b)
+    {
+        r.run({}, 1);
+        ZS_CHECK(r.voices(ZSynthProcessor::kLower) == 0);
+    }
+
+    // KEY TRANSPOSE: a played key moves the rows instead of sounding (no extra voice of its own).
+    r.set("pseq.keytr", 1.0f);
+    r.run({ juce::MidiMessage::noteOn(1, 67, (uint8_t) 100) }, 1);
+    r.run({ juce::MidiMessage::noteOff(1, 67) }, 1);
+    r.run({}, 40);
+    ZS_CHECK(p.isSeqRunning());
+
+    // Stopping releases everything.
+    r.set("pseq.run", 0.0f);
+    r.run({}, 400);
+    ZS_CHECK(r.voices(ZSynthProcessor::kUpper) == 0 && r.voices(ZSynthProcessor::kLower) == 0);
+    ZS_CHECK(p.getSeqStep(0) == -1);
 }
 
 ZS_TEST(split_routes_keys_to_two_sounds)
@@ -1442,50 +1529,6 @@ static int presetReport(const juce::File& wavDir)
     return errors.isEmpty() ? 0 : 1;
 }
 
-/** Diagnostic:  ZSynthStateTests --audition-file song.mid
-    Loads a MIDI file into the audition player, plays 8 s through the synth and
-    reports what happened (notes parsed, notes played, output level). */
-static int auditionFileReport(const juce::File& file)
-{
-    {
-        juce::FileInputStream in(file);
-        juce::MidiFile mf;
-        const bool ok = mf.readFrom(in, true);
-        std::printf("raw: read %s, %d tracks, time format %d\n", ok ? "ok" : "FAILED", mf.getNumTracks(), (int) mf.getTimeFormat());
-        mf.convertTimestampTicksToSeconds();
-        for (int t = 0; t < mf.getNumTracks(); ++t)
-        {
-            int shown = 0;
-            for (const auto* h : *mf.getTrack(t))
-                if (shown++ < 14)
-                    std::printf("  t%d %8.3f s  %s\n", t, h->message.getTimeStamp(), h->message.getDescription().toRawUTF8());
-        }
-    }
-    ZSynthProcessor processor(juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("zynth-audition-diag"));
-    const auto result = processor.loadAuditionFile(file);
-    std::printf("load: %s\n", result.wasOk() ? "ok" : result.getErrorMessage().toRawUTF8());
-    if (result.failed())
-        return 1;
-    processor.prepareToPlay(48000.0, 512);
-    processor.getAudition().play();
-    juce::AudioBuffer<float> buffer(2, 512);
-    float peak = 0.0f;
-    double sum = 0.0;
-    const int blocks = 48000 * 8 / 512;
-    for (int b = 0; b < blocks; ++b)
-    {
-        buffer.clear();
-        juce::MidiBuffer midi;
-        processor.processBlock(buffer, midi);
-        peak = std::max(peak, buffer.getMagnitude(0, 512));
-        sum += buffer.getRMSLevel(0, 0, 512);
-    }
-    std::printf("clip: '%s'  %.1f s at %.1f BPM\n", processor.getAudition().getClipName().toRawUTF8(),
-                processor.getAudition().getClipLength(), processor.getAudition().getClipBpm());
-    std::printf("engine: %u MIDI events received, peak %.4f, mean RMS %.4f\n", processor.getEngine().getMidiActivity(), peak, sum / blocks);
-    return 0;
-}
-
 // Diagnostic: how much the output transformer changes a real preset, measured
 // through the whole engine (difference vs. transformer off, in dB re signal).
 static int xfmrReport(const juce::String& presetName)
@@ -1600,6 +1643,12 @@ static int snapshots(const juce::File& dir)
         out.truncate();
         juce::PNGImageFormat().writeImageToStream(img, out);
     };
+    if (const char* only = std::getenv("ZS_SNAP_ONLY"); only != nullptr && juce::String(only) == "pseq")
+    {
+        shoot("pseq", "pseq");
+        shoot("pseqmain", {});
+        return 0;
+    }
     // Keyboard split.
     set("split.mode", (float) SplitMode::Split);
     set("split.point", 55.0f);
@@ -1684,8 +1733,6 @@ int main(int argc, char** argv)
         return snapshots(juce::File(juce::String(argv[2])));
     if (argc > 2 && juce::String(argv[1]) == "--xfmr-report")
         return xfmrReport(juce::String(argv[2]));
-    if (argc > 2 && juce::String(argv[1]) == "--audition-file")
-        return auditionFileReport(juce::File(juce::String(argv[2])));
     if (argc > 1 && juce::String(argv[1]) == "--preset-report")
         return presetReport(argc > 2 ? juce::File(juce::String(argv[2])) : juce::File());
     return zstest::runAll(argc, argv);

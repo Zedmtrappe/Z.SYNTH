@@ -11,6 +11,7 @@
 #include "DSP/Effects/TimeEffects.h"
 #include "DSP/Effects/OutputEq.h"
 #include "DSP/Effects/TapeMachine.h"
+#include "DSP/Performance/PatternSequencer.h"
 #include "DSP/Effects/VintageEq.h"
 #include "DSP/FM/FmAlgorithms.h"
 #include "DSP/Tracking/PitchTracker.h"
@@ -1882,6 +1883,143 @@ ZS_TEST(output_transformer_models)
         ZS_CHECK_GT(h, 1.0);
         ZS_CHECK_GT(f, 8.0);
         ZS_CHECK_GT(f, h * 1.5);
+    }
+}
+
+ZS_TEST(pattern_sequencer_timing_gates_slides_swing_sync)
+{
+    using namespace dsp;
+    const double fs = 48000.0;
+    struct Collect : PatternSequencer::Sink
+    {
+        struct E { long long t; int part, kind, note, vel; };
+        std::vector<E> ev;
+        long long base = 0;
+        void add(int part, const MidiEvent& e) override
+        {
+            ev.push_back({ base + e.offset, part, e.status & 0xF0, e.data1, e.data2 });
+        }
+    };
+    auto run = [&](PseqSettings s, double seconds, TransportInfo tr = {}, int block = 256) {
+        PatternSequencer seq;
+        seq.prepare(fs);
+        Collect c;
+        const long long total = (long long) (seconds * fs);
+        for (long long t = 0; t < total; t += block)
+        {
+            c.base = t;
+            if (tr.ppqValid)
+                tr.ppqPosition = 1.0 + (double) t / fs * s.bpm / 60.0; // the host starts at beat 1
+            seq.process(block, s, tr, c);
+        }
+        return c.ev;
+    };
+    PseqSettings s;
+    s.run = true;
+    s.bpm = 120.0;
+    for (auto& row : s.rows)
+        for (int k = 0; k < PseqRow::kSteps; ++k)
+            row.steps[k].pitch = k;
+    s.rows[0].partMask = 1;
+    s.rows[1].on = false;
+
+    // 1/16 at 120 BPM = 125 ms per step; 50 % gate = 62.5 ms notes; pitches follow the steps.
+    auto ev = run(s, 0.6);
+    std::vector<Collect::E> ons, offs;
+    for (const auto& e : ev)
+        (e.kind == 0x90 ? ons : offs).push_back(e);
+    ZS_CHECK(ons.size() == 5);
+    for (size_t k = 0; k < ons.size(); ++k)
+    {
+        ZS_CHECK(std::abs((double) ons[k].t - (double) k * 6000.0) <= 1.0);
+        ZS_CHECK(ons[k].note == 60 + (int) k && ons[k].part == 0 && ons[k].vel == 96);
+    }
+    ZS_CHECK(std::abs((double) offs[0].t - 3000.0) <= 5.0); // a hair before half the step
+
+    // Accent = 127; a slide overlaps (next on before the old off, at the same sample); a rest ends a held note.
+    s.rows[0].steps[1].accent = true;
+    s.rows[0].steps[1].slide = true;
+    s.rows[0].steps[3].gate = false;
+    ev = run(s, 0.6);
+    int onAt1 = -1;
+    for (size_t k = 0; k < ev.size(); ++k)
+    {
+        if (ev[k].kind == 0x90 && ev[k].note == 61)
+            ZS_CHECK(ev[k].vel == 127);
+        if (ev[k].kind == 0x90 && ev[k].note == 62)
+            onAt1 = (int) k;
+    }
+    ZS_CHECK(onAt1 >= 0 && onAt1 + 1 < (int) ev.size());
+    if (onAt1 >= 0 && onAt1 + 1 < (int) ev.size())
+    {
+        ZS_CHECK(ev[(size_t) onAt1 + 1].kind == 0x80 && ev[(size_t) onAt1 + 1].note == 61); // legato: new on, then old off
+        ZS_CHECK(ev[(size_t) onAt1 + 1].t == ev[(size_t) onAt1].t);
+    }
+    for (const auto& e : ev)
+        ZS_CHECK(! (e.kind == 0x90 && e.note == 63)); // the rest
+    s.rows[0].steps[1] = {};
+    s.rows[0].steps[1].pitch = 1;
+    s.rows[0].steps[3].gate = true;
+
+    // SWING 66 %: every second step starts 2 x 16 % of a step late.
+    s.swing = 0.66f;
+    ev = run(s, 0.3);
+    std::vector<long long> starts;
+    for (const auto& e : ev)
+        if (e.kind == 0x90)
+            starts.push_back(e.t);
+    ZS_CHECK(starts.size() >= 2);
+    if (starts.size() >= 2)
+        ZS_CHECK(std::abs((double) starts[1] - 6000.0 * 1.32) <= 2.0);
+    s.swing = 0.5f;
+
+    // Directions.
+    PseqRow row;
+    row.length = 4;
+    row.direction = (int) PseqDirection::Pendulum;
+    const int pend[] = { 0, 1, 2, 3, 2, 1, 0, 1 };
+    for (int k = 0; k < 8; ++k)
+        ZS_CHECK(PatternSequencer::stepIndex(k, row) == pend[k]);
+    row.direction = (int) PseqDirection::Backward;
+    ZS_CHECK(PatternSequencer::stepIndex(0, row) == 3 && PatternSequencer::stepIndex(5, row) == 2);
+    row.direction = (int) PseqDirection::Random;
+    for (int k = 0; k < 64; ++k)
+        ZS_CHECK(PatternSequencer::stepIndex(k, row) >= 0 && PatternSequencer::stepIndex(k, row) < 4);
+
+    // HOST SYNC: steps land on the host's 16ths (the host starts at beat 1 = step 4), and only while it plays.
+    s.run = false;
+    s.hostSync = true;
+    TransportInfo tr;
+    tr.ppqValid = true;
+    tr.playing = true;
+    tr.hostTempo = true;
+    tr.bpm = 120.0;
+    ev = run(s, 0.3, tr);
+    ZS_CHECK(! ev.empty());
+    if (! ev.empty())
+    {
+        ZS_CHECK(ev[0].kind == 0x90 && ev[0].note == 64 && ev[0].t == 0);
+    }
+    tr.playing = false;
+    ZS_CHECK(run(s, 0.3, tr).empty());
+
+    // Stopping ends the sounding note.
+    {
+        PatternSequencer seq;
+        seq.prepare(fs);
+        Collect c;
+        PseqSettings on = s;
+        on.hostSync = false;
+        on.run = true;
+        TransportInfo none;
+        seq.process(256, on, none, c);
+        on.run = false;
+        seq.process(256, on, none, c);
+        int balance = 0;
+        for (const auto& e : c.ev)
+            balance += e.kind == 0x90 ? 1 : -1;
+        ZS_CHECK(balance == 0);
+        ZS_CHECK(seq.getShownStep(0) == -1);
     }
 }
 

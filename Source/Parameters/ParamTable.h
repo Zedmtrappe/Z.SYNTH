@@ -391,6 +391,33 @@ X(HarmHigh,      "harm.hi",       "Harmony Highest", "Global", Int, 12.f, 120.f,
 X(HarmPart,      "harm.part",     "Harmony Applies To", "Global", Choice, 0, 0, 0.f, LIN, "", ZS_CH_HARM_PART, "With SPLIT / LAYER: harmonise both sounds, or only UPPER or LOWER.") \
 X(GlideType,     "voice.glidetype","Glide Type",    "Voice", Choice, 0, 0, 0.f, LIN, "", ZS_CH_GLIDE_TYPE, "ANALOG: the classic slide, quick at first then easing in (each slide takes about GLIDE). CONSTANT TIME: a straight slide that always takes GLIDE. CONSTANT RATE: a straight slide at GLIDE per octave, so bigger leaps take longer.") \
 X(TrkSustain,    "trk.sus",       "Track Sustain", "Global", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "SUSTAIN: lets tracked notes ring on as the string dies away: while the tracker still clearly hears the note it holds, below the GATE. Full = HOLD: every note holds until you play the next one (a muted pick, with no pitch, stops it). Changes only when notes end: no added latency.") \
+/* ------------------------------------------- Pattern sequencer (global: not in presets) */ \
+X(PseqRun,       "pseq.run",      "Sequencer Run", "Global", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "RUN: starts and stops the pattern sequencer.") \
+X(PseqKeyTr,     "pseq.keytr",    "Sequencer Key Transpose", "Global", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "KEY TRANSPOSE: while the sequencer runs, a key you play transposes both rows (C4 = no change) instead of sounding.") \
+X(PseqSync,      "pseq.sync",     "Sequencer Host Sync", "Global", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "HOST SYNC: in a host, the sequencer starts and stops with the host's transport and locks to its bars.") \
+X(PseqSwing,     "pseq.swing",    "Sequencer Swing", "Global", Float, 50.f, 75.f, 50.f, LIN, "%", nullptr, "SWING: 50 % = straight; higher pushes every second step late (shuffle).") \
+ZS_PSEQ_ROW(X, A, "a", "A", 0.f, 60.f) ZS_PSEQ_ROW(X, B, "b", "B", 1.f, 36.f)
+
+
+#define ZS_PSEQ_STEP(X, R, r, n) \
+X(Pseq##R##Pitch##n, "pseq." r ".s" #n ".pitch", "Seq " r " Step " #n " Pitch", "Global", Int, -12.f, 24.f, 0.f, LIN, "st", nullptr, "Step pitch in semitones above (or below) the row's ROOT.") \
+X(Pseq##R##Gate##n,  "pseq." r ".s" #n ".gate",  "Seq " r " Step " #n " Gate",  "Global", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "GATE: the step plays (on) or rests (off).") \
+X(Pseq##R##Acc##n,   "pseq." r ".s" #n ".acc",   "Seq " r " Step " #n " Accent","Global", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "ACCENT: the step plays at full velocity.") \
+X(Pseq##R##Slide##n, "pseq." r ".s" #n ".slide", "Seq " r " Step " #n " Slide", "Global", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "SLIDE: the step is held into the next one (legato: mono and legato voices glide).")
+
+#define ZS_PSEQ_ROW(X, R, r, label, target, root) \
+X(Pseq##R##On,     "pseq." r ".on",     "Seq " label " On",       "Global", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "Row on (off = it keeps time silently).") \
+X(Pseq##R##Target, "pseq." r ".target", "Seq " label " Plays",    "Global", Choice, 0, 0, target, LIN, "", ZS_CH_PSEQ_TARGET, "Which sound the row plays with SPLIT / LAYER (with SINGLE, both rows play the sound on the panel).") \
+X(Pseq##R##Len,    "pseq." r ".len",    "Seq " label " Length",   "Global", Int, 1.f, 16.f, 16.f, LIN, "", nullptr, "LENGTH: steps before the row repeats (rows of different lengths drift against each other).") \
+X(Pseq##R##Dir,    "pseq." r ".dir",    "Seq " label " Direction","Global", Choice, 0, 0, 0.f, LIN, "", ZS_CH_PSEQ_DIR, "DIRECTION: forward, backward, pendulum (back and forth) or random.") \
+X(Pseq##R##Div,    "pseq." r ".div",    "Seq " label " Step Size","Global", Choice, 0, 0, 2.f, LIN, "", ZS_CH_PSEQ_DIV, "STEP: the length of one step, against the tempo.") \
+X(Pseq##R##GateLen,"pseq." r ".glen",   "Seq " label " Gate Time","Global", Float, 5.f, 100.f, 50.f, LIN, "%", nullptr, "GATE TIME: how much of each step a note lasts.") \
+X(Pseq##R##Root,   "pseq." r ".root",   "Seq " label " Root",     "Global", Int, 12.f, 108.f, root, LIN, "note", nullptr, "ROOT: the note a step plays with its PITCH knob at 0.") \
+X(Pseq##R##Vel,    "pseq." r ".vel",    "Seq " label " Velocity", "Global", Int, 1.f, 127.f, 96.f, LIN, "", nullptr, "VELOCITY of the row's notes (accented steps play at 127).") \
+ZS_PSEQ_STEP(X, R, r, 1)  ZS_PSEQ_STEP(X, R, r, 2)  ZS_PSEQ_STEP(X, R, r, 3)  ZS_PSEQ_STEP(X, R, r, 4) \
+ZS_PSEQ_STEP(X, R, r, 5)  ZS_PSEQ_STEP(X, R, r, 6)  ZS_PSEQ_STEP(X, R, r, 7)  ZS_PSEQ_STEP(X, R, r, 8) \
+ZS_PSEQ_STEP(X, R, r, 9)  ZS_PSEQ_STEP(X, R, r, 10) ZS_PSEQ_STEP(X, R, r, 11) ZS_PSEQ_STEP(X, R, r, 12) \
+ZS_PSEQ_STEP(X, R, r, 13) ZS_PSEQ_STEP(X, R, r, 14) ZS_PSEQ_STEP(X, R, r, 15) ZS_PSEQ_STEP(X, R, r, 16)
 
 #define ZS_OSC_WT_PARAMS(X, n) \
 X(Osc##n##WtTable, "osc" #n ".wt.table", "Osc " #n " Table", "Wavetable", Choice, 0, 0, 0.f, LIN, "", ZS_CH_OSC_TABLE, "Wavetable for this oscillator (Wavetable wave): SECTION = the WAVETABLE section's TABLE.") \
@@ -492,5 +519,10 @@ constexpr int kLfoParamStride = P::Lfo2Wave - P::Lfo1Wave;
 constexpr int kNumOperators   = 6;
 constexpr int kNumModSlots    = 8;
 constexpr int kNumSeqSteps    = 16;
+// Pattern sequencer: per-step blocks (pitch, gate, accent, slide) and the two rows.
+constexpr int kPseqStepStride = P::PseqAPitch2 - P::PseqAPitch1;
+constexpr int kPseqRowStride  = P::PseqBOn - P::PseqAOn;
+constexpr int kPseqRowParams  = kPseqRowStride; // every parameter of one row (a pattern row)
+constexpr int kPseqSteps      = 16;
 
 } // namespace zsynth

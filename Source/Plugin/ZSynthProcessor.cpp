@@ -77,13 +77,28 @@ ZSynthProcessor::ZSynthProcessor(juce::File userPresetDir, AudioInput input)
             lower = capturePreset(apvts);
         storeSound(lower);
     }
+    // The eight pattern memories start with demos (a line over a bass line, from
+    // the built-in phrases), ready to audition sounds with: press PLAY.
+    {
+        const auto names = getPhraseNames();
+        const char* demos[kPatterns][2] = { { "Arpeggio", "Mono Bassline" }, { "Trance Lead", "Acid Line" },
+                                            { "Synthwave Lead", "Synthwave Bass" }, { "Pentatonic Melody", "Funk Bass" },
+                                            { "Chiptune", "Disco Octaves" }, { "Slow Arpeggio", "Reese Bass" },
+                                            { "Jump", "Techno Rumble" }, { "Harp Arpeggio", "Wobble Bass" } };
+        for (int pi = kPatterns - 1; pi >= 0; --pi)
+        {
+            loadPhraseIntoRow(names.indexOf(demos[pi][0]), 0);
+            loadPhraseIntoRow(names.indexOf(demos[pi][1]), 1);
+            capturePattern(pi);
+        }
+        currentPattern = 0;
+    }
     for (auto& part : noteMap)
         for (auto& ch : part)
             std::fill(std::begin(ch), std::end(ch), (int8_t) -1);
     partEvents[0].reserve(kMaxEventsPerBlock);
     partEvents[1].reserve(kMaxEventsPerBlock);
     harmScratch.resize(kMaxEventsPerBlock);
-    loadBuiltInClip(0);
 
     startTimerHz(30);
 }
@@ -120,7 +135,7 @@ namespace
     }
 }
 
-juce::StringArray ZSynthProcessor::getBuiltInClipNames()
+juce::StringArray ZSynthProcessor::getPhraseNames()
 {
     juce::StringArray names;
     for (const auto& c : builtInClips())
@@ -128,21 +143,166 @@ juce::StringArray ZSynthProcessor::getBuiltInClipNames()
     return names;
 }
 
-bool ZSynthProcessor::loadBuiltInClip(int index)
+void ZSynthProcessor::setParamValue(int index, float value)
+{
+    if (auto* prm = apvts.getParameter(paramDef(index).id))
+    {
+        prm->beginChangeGesture();
+        prm->setValueNotifyingHost(prm->convertTo0to1(value));
+        prm->endChangeGesture();
+    }
+}
+
+void ZSynthProcessor::capturePattern(int index)
+{
+    auto& p = patterns[(size_t) juce::jlimit(0, kPatterns - 1, index)];
+    for (int k = 0; k < 2 * kPseqRowParams; ++k)
+        p[(size_t) k] = getValue(P::PseqAOn + k);
+}
+
+void ZSynthProcessor::applyPattern(int index)
+{
+    const auto& p = patterns[(size_t) juce::jlimit(0, kPatterns - 1, index)];
+    for (int k = 0; k < 2 * kPseqRowParams; ++k)
+        setParamValue(P::PseqAOn + k, p[(size_t) k]);
+}
+
+void ZSynthProcessor::selectPattern(int index)
+{
+    index = juce::jlimit(0, kPatterns - 1, index);
+    if (index == currentPattern)
+        return;
+    capturePattern(currentPattern);
+    currentPattern = index;
+    applyPattern(index);
+}
+
+void ZSynthProcessor::copyRow(int row)
+{
+    const int base = P::PseqAOn + juce::jlimit(0, 1, row) * kPseqRowStride;
+    for (int k = 0; k < kPseqRowParams; ++k)
+        rowClipboard[(size_t) k] = getValue(base + k);
+    rowClipboardValid = true;
+}
+
+void ZSynthProcessor::pasteRow(int row)
+{
+    if (! rowClipboardValid)
+        return;
+    const int base = P::PseqAOn + juce::jlimit(0, 1, row) * kPseqRowStride;
+    for (int k = 0; k < kPseqRowParams; ++k)
+        if (k != P::PseqATarget - P::PseqAOn) // the row keeps its own routing
+            setParamValue(base + k, rowClipboard[(size_t) k]);
+}
+
+void ZSynthProcessor::clearRow(int row)
+{
+    // Every step back to a plain gate at the root (the row's setup stays).
+    const int base = P::PseqAOn + juce::jlimit(0, 1, row) * kPseqRowStride;
+    for (int st = 0; st < kPseqSteps; ++st)
+    {
+        const int s0 = base + (P::PseqAPitch1 - P::PseqAOn) + st * kPseqStepStride;
+        setParamValue(s0, 0.0f);
+        setParamValue(s0 + 1, 1.0f);
+        setParamValue(s0 + 2, 0.0f);
+        setParamValue(s0 + 3, 0.0f);
+    }
+}
+
+void ZSynthProcessor::importIntoRow(const AuditionPlayer::Clip& clip, int row)
+{
+    // Quantise the clip's opening bars to the row's steps: row A takes the top
+    // line (highest note starting in each step), row B the bass line (lowest).
+    row = juce::jlimit(0, 1, row);
+    const int base = P::PseqAOn + row * kPseqRowStride;
+    const int off = base - P::PseqAOn;
+    const double stepBeats = pseqStepBeats(juce::roundToInt(getValue(P::PseqADiv + off)));
+    const double beatsPerSecond = (clip.bpm > 0.0 ? clip.bpm : 120.0) / 60.0;
+    struct Note { double start, end; int note, vel; };
+    std::vector<Note> notes;
+    for (size_t i = 0; i < clip.events.size(); ++i)
+    {
+        const auto& e = clip.events[i];
+        if ((e.status & 0xF0) != 0x90 || e.data2 == 0)
+            continue;
+        double end = clip.lengthSeconds;
+        for (size_t j = i + 1; j < clip.events.size(); ++j)
+        {
+            const auto& f = clip.events[j];
+            if (f.data1 == e.data1 && ((f.status & 0xF0) == 0x80 || ((f.status & 0xF0) == 0x90 && f.data2 == 0)))
+            {
+                end = f.seconds;
+                break;
+            }
+        }
+        notes.push_back({ e.seconds * beatsPerSecond, end * beatsPerSecond, e.data1, e.data2 });
+    }
+    if (notes.empty())
+        return;
+    const int length = juce::jlimit(1, kPseqSteps, (int) std::ceil(clip.lengthSeconds * beatsPerSecond / stepBeats - 1.0e-6));
+    int chosen[kPseqSteps];
+    int velocity[kPseqSteps] {};
+    bool tie[kPseqSteps] {};
+    int lowest = 127;
+    for (int st = 0; st < kPseqSteps; ++st)
+    {
+        chosen[st] = -1;
+        const double a = st * stepBeats, b = a + stepBeats;
+        for (const auto& nt : notes)
+            if (nt.start >= a - 1.0e-6 && nt.start < b - 1.0e-6)
+                if (chosen[st] < 0 || (row == 0 ? nt.note > chosen[st] : nt.note < chosen[st]))
+                {
+                    chosen[st] = nt.note;
+                    velocity[st] = nt.vel;
+                }
+        if (chosen[st] < 0 && st > 0 && chosen[st - 1] >= 0)
+        {
+            // Nothing starts here, but the previous note is still sounding: hold it.
+            for (const auto& nt : notes)
+                if (nt.note == chosen[st - 1] && nt.start < a && nt.end > a + stepBeats * 0.5)
+                {
+                    chosen[st] = chosen[st - 1];
+                    velocity[st] = velocity[st - 1];
+                    tie[st] = true;
+                    break;
+                }
+        }
+        if (chosen[st] >= 0 && st < length)
+            lowest = std::min(lowest, chosen[st]);
+    }
+    if (lowest == 127)
+        return;
+    const int root = juce::jlimit(12, 108, lowest);
+    setParamValue(base + (P::PseqARoot - P::PseqAOn), (float) root);
+    setParamValue(base + (P::PseqALen - P::PseqAOn), (float) length);
+    for (int st = 0; st < kPseqSteps; ++st)
+    {
+        const int s0 = base + (P::PseqAPitch1 - P::PseqAOn) + st * kPseqStepStride;
+        int pitch = chosen[st] >= 0 ? chosen[st] - root : 0;
+        while (pitch > 24)
+            pitch -= 12;
+        const bool held = st + 1 < kPseqSteps && tie[st + 1];
+        setParamValue(s0, (float) pitch);
+        setParamValue(s0 + 1, chosen[st] >= 0 ? 1.0f : 0.0f);
+        setParamValue(s0 + 2, chosen[st] >= 0 && velocity[st] >= 110 ? 1.0f : 0.0f);
+        setParamValue(s0 + 3, held ? 1.0f : 0.0f);
+    }
+}
+
+bool ZSynthProcessor::loadPhraseIntoRow(int phrase, int row)
 {
     const auto clips = builtInClips();
-    if (index < 0 || index >= (int) clips.size())
+    if (phrase < 0 || phrase >= (int) clips.size())
         return false;
     juce::String error;
-    auto clip = AuditionPlayer::parse(clips[(size_t) index].data, (size_t) clips[(size_t) index].size, clips[(size_t) index].name, error);
+    auto clip = AuditionPlayer::parse(clips[(size_t) phrase].data, (size_t) clips[(size_t) phrase].size, clips[(size_t) phrase].name, error);
     if (clip == nullptr)
         return false;
-    audition.collectGarbage();
-    audition.setClip(std::move(clip));
+    importIntoRow(*clip, row);
     return true;
 }
 
-juce::Result ZSynthProcessor::loadAuditionFile(const juce::File& file)
+juce::Result ZSynthProcessor::loadMidiFileIntoRow(const juce::File& file, int row)
 {
     juce::MemoryBlock data;
     if (! file.loadFileAsData(data))
@@ -151,8 +311,7 @@ juce::Result ZSynthProcessor::loadAuditionFile(const juce::File& file)
     auto clip = AuditionPlayer::parse(data.getData(), data.getSize(), file.getFileNameWithoutExtension(), error);
     if (clip == nullptr)
         return juce::Result::fail(file.getFileName() + ": " + error);
-    audition.collectGarbage();
-    audition.setClip(std::move(clip));
+    importIntoRow(*clip, row);
     return juce::Result::ok();
 }
 
@@ -173,6 +332,7 @@ void ZSynthProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = sampleRate;
     mixLimiterGain = 1.0f;
+    pseq.prepare(sampleRate);
     mixLimiterRelease = (float) std::exp(-1.0 / (0.08 * sampleRate));
     for (auto& e : engines)
         e.prepare(sampleRate, std::max(32, samplesPerBlock));
@@ -232,11 +392,7 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     for (int ch = 0; ch < inputs && ch < buffer.getNumChannels(); ++ch)
         buffer.clear(ch, 0, n);
 
-    // The audition clip plays on the receive channel, before the on-screen
-    // keyboard merge so its notes light the keys too.
     const int receive = juce::roundToInt(rawValues[(size_t) P::MidiChannel]->load());
-    if (! tracking)
-        audition.render(midi, n, currentSampleRate, receive <= 0 ? 1 : receive);
 
     // On-screen keyboard notes join the incoming MIDI (and external notes light the keys).
     keyboardState.processNextMidiBuffer(midi, 0, n, true);
@@ -329,12 +485,85 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
             }
         }
     }
+    dsp::TransportInfo transport;
+    readTransport(transport);
+
+    // PATTERN SEQUENCER: is it running? With KEY TRANSPOSE, played keys transpose it
+    // (C4 = 0) instead of sounding.
+    const auto* gp = partParams[getEditPart()];
+    const bool hostDriven = gp[P::PseqSync] >= 0.5f && transport.ppqValid;
+    const bool seqOn = hostDriven ? transport.playing : gp[P::PseqRun] >= 0.5f;
+    seqRunning.store(seqOn, std::memory_order_relaxed);
+    if (seqOn && gp[P::PseqKeyTr] >= 0.5f)
+    {
+        size_t w = 0;
+        for (size_t i = 0; i < events.size(); ++i)
+        {
+            const auto& e = events[i];
+            const int kind = e.status & 0xF0;
+            if (kind == 0x90 && e.data2 > 0)
+                pseqTranspose = juce::jlimit(-36, 36, (int) e.data1 - 60);
+            if (kind == 0x80 || kind == 0x90)
+                continue;
+            events[w++] = e;
+        }
+        events.resize(w);
+    }
+
     keyDetector.observe(events.data(), (int) events.size(), n);
     routeEvents(partParams[getEditPart()]);
     harmonise(n, partParams[getEditPart()]);
 
-    dsp::TransportInfo transport;
-    readTransport(transport);
+    {
+        // The sequencer's notes join each part's events, in time order. With SINGLE
+        // both rows play the sound on the panel; with SPLIT / LAYER, their own.
+        struct PartSink : dsp::PatternSequencer::Sink
+        {
+            std::array<std::vector<dsp::MidiEvent>, 2>& ev;
+            explicit PartSink(std::array<std::vector<dsp::MidiEvent>, 2>& e) : ev(e) {}
+            void add(int part, const dsp::MidiEvent& e) override
+            {
+                auto& list = ev[(size_t) part];
+                if (list.size() >= list.capacity())
+                    return; // never allocate on the audio thread
+                list.push_back(e);
+                for (size_t j = list.size() - 1; j > 0 && list[j - 1].offset > list[j].offset; --j)
+                    std::swap(list[j - 1], list[j]);
+            }
+        } sink(partEvents);
+        dsp::PseqSettings ps;
+        ps.run = gp[P::PseqRun] >= 0.5f;
+        ps.hostSync = gp[P::PseqSync] >= 0.5f;
+        ps.bpm = transport.hostTempo ? transport.bpm : gp[P::Tempo];
+        ps.swing = gp[P::PseqSwing] * 0.01f;
+        ps.transpose = gp[P::PseqKeyTr] >= 0.5f ? pseqTranspose : 0;
+        ps.channel = receive <= 0 ? 0 : receive - 1;
+        const auto splitMode = (SplitMode) juce::roundToInt(gp[P::SplitMode]);
+        for (int r = 0; r < 2; ++r)
+        {
+            const float* v = gp + (P::PseqAOn + r * kPseqRowStride); // row r's block
+            auto at = [&](int field) { return v[field - P::PseqAOn]; };
+            auto& row = ps.rows[r];
+            row.on = at(P::PseqAOn) >= 0.5f;
+            const int target = juce::roundToInt(at(P::PseqATarget));
+            row.partMask = splitMode == SplitMode::Single ? (1 << getEditPart()) : (target == 0 ? 1 : (target == 1 ? 2 : 3));
+            row.length = juce::roundToInt(at(P::PseqALen));
+            row.direction = juce::roundToInt(at(P::PseqADir));
+            row.stepBeats = pseqStepBeats(juce::roundToInt(at(P::PseqADiv)));
+            row.gate = at(P::PseqAGateLen) * 0.01f;
+            row.root = juce::roundToInt(at(P::PseqARoot));
+            row.velocity = juce::roundToInt(at(P::PseqAVel));
+            for (int st = 0; st < kPseqSteps; ++st)
+            {
+                const int f = P::PseqAPitch1 + st * kPseqStepStride;
+                row.steps[st].pitch = juce::roundToInt(at(f));
+                row.steps[st].gate = at(f + 1) >= 0.5f;
+                row.steps[st].accent = at(f + 2) >= 0.5f;
+                row.steps[st].slide = at(f + 3) >= 0.5f;
+            }
+        }
+        pseq.process(n, ps, transport, sink);
+    }
 
     float* left = buffer.getWritePointer(0);
     float* right = buffer.getNumChannels() > 1 ? buffer.getWritePointer(1) : nullptr;
@@ -427,7 +656,6 @@ juce::AudioProcessorEditor* ZSynthProcessor::createEditor()
 
 void ZSynthProcessor::panic()
 {
-    audition.stop();
     for (auto& e : engines)
         e.requestPanic();
     clearNoteMaps.store(true);
@@ -735,7 +963,6 @@ void ZSynthProcessor::timerCallback()
     applyLearnedSplit();
     applyDetectedKey();
     midiLearn.dispatchPending(apvts);
-    audition.collectGarbage();
 }
 
 bool ZSynthProcessor::applyLearnedSplit()
@@ -780,6 +1007,21 @@ void ZSynthProcessor::getStateInformation(juce::MemoryBlock& destData)
     if (auto learnXml = midiLearn.toValueTree().createXml())
         root.addChildElement(learnXml.release());
 
+    // Pattern sequencer: the eight pattern memories (the one on the panel is in the parameters).
+    {
+        auto* seq = root.createNewChildElement("PatternSeq");
+        seq->setAttribute("current", currentPattern);
+        for (int pi = 0; pi < kPatterns; ++pi)
+        {
+            if (pi == currentPattern)
+                capturePattern(pi);
+            juce::String values;
+            for (float v : patterns[(size_t) pi])
+                values << juce::String(v, 4) << " ";
+            seq->createNewChildElement("Pattern")->setAttribute("values", values.trimEnd());
+        }
+    }
+
     // Keyboard split / layer: the other part's sound, and which part is on the panel.
     {
         PresetData other;
@@ -816,6 +1058,20 @@ void ZSynthProcessor::setStateInformation(const void* data, int sizeInBytes)
     }
     if (auto* learn = xml->getChildByName("MidiLearn"))
         midiLearn.fromValueTree(juce::ValueTree::fromXml(*learn));
+    if (auto* seq = xml->getChildByName("PatternSeq"))
+    {
+        int pi = 0;
+        for (auto* pat : seq->getChildWithTagNameIterator("Pattern"))
+        {
+            if (pi >= kPatterns)
+                break;
+            const auto tokens = juce::StringArray::fromTokens(pat->getStringAttribute("values"), " ", "");
+            auto& dst = patterns[(size_t) pi++];
+            for (int k = 0; k < (int) dst.size() && k < tokens.size(); ++k)
+                dst[(size_t) k] = tokens[k].getFloatValue();
+        }
+        currentPattern = juce::jlimit(0, kPatterns - 1, seq->getIntAttribute("current", 0));
+    }
     if (auto* split = xml->getChildByName("Split"))
     {
         if (auto* other = split->getChildByName("ZSynthPreset"))

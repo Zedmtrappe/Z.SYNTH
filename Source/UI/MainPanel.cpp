@@ -1,7 +1,7 @@
 #include "MainPanel.h"
 #include "../DSP/Performance/Harmonizer.h"
 
-#include "Components/AuditionBar.h"
+#include "Components/SequencerBar.h"
 #include "Components/Materials.h"
 #include "Components/Skins.h"
 #include "Layout/ActivityRules.h"
@@ -43,6 +43,10 @@ namespace
             return eqSkin((EqModel) m.eq);
         if (section == "tapeModule" || section == "tapePage")
             return &tapeSkin((TapeModel) m.tape);
+        if (section == "pseqPage")
+            return &sequencerSkin();
+        if (section.startsWith("pseqRow"))
+            return &sequencerRowSkin();
         return nullptr;
     }
 
@@ -728,7 +732,31 @@ void MainPanel::buildUtilities()
         if (auto* prm = processor.getState().getParameter("split.point"))
             prm->setValueNotifyingHost(prm->convertTo0to1((float) key));
     };
-    keyboardParts.push_back(&addUtility<AuditionBar>("auditionBar", processor));
+    // PATTERN SEQUENCER: the transport strip, and its page's pattern, row and step-light controls.
+    addUtility<SequencerBar>("seqBar", processor).onEdit = [this] {
+        showPage(getVisiblePage() == "pseq" ? juce::String() : juce::String("pseq"));
+    };
+    for (int i = 0; i < ZSynthProcessor::kPatterns; ++i)
+    {
+        auto& b = button("pseqPat" + juce::String(i), juce::String::charToString((juce::juce_wchar) ('A' + i)),
+                         "Pattern " + juce::String::charToString((juce::juce_wchar) ('A' + i)) + ": recall it (the one you leave is kept)",
+                         [this, i] { processor.selectPattern(i); });
+        b.setClickingTogglesState(false);
+        patternButtons.push_back(&b);
+    }
+    for (int r = 0; r < 2; ++r)
+    {
+        const juce::String rowName = r == 0 ? "A" : "B";
+        addUtility<SequencerLights>("pseqLights" + rowName, processor, r);
+        button("pseqCopy" + rowName, "COPY", "Copy row " + rowName + " (steps and settings)", [this, r] { processor.copyRow(r); });
+        button("pseqPaste" + rowName, "PASTE", "Paste the copied row into row " + rowName + " (it keeps its PLAYS routing)",
+               [this, r] { processor.pasteRow(r); });
+        button("pseqClear" + rowName, "CLEAR", "Every step of row " + rowName + " back to a plain gate at the root",
+               [this, r] { processor.clearRow(r); });
+        button("pseqLoad" + rowName, juce::String::fromUTF8("LOAD \xe2\x96\xbe"),
+               "Fill row " + rowName + " from a built-in phrase or a MIDI file (row A takes the top line, row B the bass line)",
+               [this, r] { showPhraseMenu(r); });
+    }
     keyboardParts.push_back(&button("kbdOctDown", "OCT -", "Shift the on-screen keyboard down one octave", [this] { keyboard->shiftOctave(-1); }));
     keyboardParts.push_back(&button("kbdOctUp", "OCT +", "Shift the on-screen keyboard up one octave", [this] { keyboard->shiftOctave(1); }));
 }
@@ -1168,6 +1196,8 @@ void MainPanel::timerCallback()
     for (auto& [param, b] : blockButtons)
         if (b != nullptr)
             b->setAlpha(processor.getValue(param) >= 0.5f ? 1.0f : 0.32f);
+    for (size_t i = 0; i < patternButtons.size(); ++i)
+        patternButtons[i]->setToggleState((int) i == processor.getPattern(), juce::dontSendNotification);
     // The FM block is off in ANALOG engine mode: dim its algorithm display and OPERATORS too.
     {
         const bool fmOn = (EngineMode) juce::roundToInt(processor.getValue(P::Engine)) != EngineMode::Analog;
@@ -1238,7 +1268,6 @@ void MainPanel::updateTracking()
     if (locked)
     {
         showMusicalTyping(false);
-        processor.getAudition().stop();
         processor.getKeyboardState().allNotesOff(0);
     }
     if (typingButton != nullptr)
@@ -1362,6 +1391,44 @@ void MainPanel::renderBackground(float scale)
     g.setGradientFill(vignette);
     g.fillRect(bounds);
     paintLayoutPage(g, kMainPage);
+}
+
+void MainPanel::showPhraseMenu(int row)
+{
+    juce::PopupMenu menu;
+    const auto names = ZSynthProcessor::getPhraseNames();
+    juce::PopupMenu phrases;
+    for (int i = 0; i < names.size(); ++i)
+        phrases.addItem(i + 1, names[i]);
+    menu.addSubMenu("Built-in phrase", phrases);
+    menu.addItem(10000, juce::String::fromUTF8("MIDI file\xe2\x80\xa6"));
+    juce::Component::SafePointer<MainPanel> safe(this);
+    const auto anchor = juce::String("pseqLoad") + (row == 0 ? "A" : "B");
+    juce::Rectangle<int> target;
+    for (const auto& u : PanelLayout::get().utilities())
+        if (u.id == anchor)
+            target = parentForPage(u.page).localAreaToGlobal(u.bounds);
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetScreenArea(target), [safe, row](int result) {
+        if (safe == nullptr || result <= 0)
+            return;
+        if (result < 10000)
+        {
+            safe->processor.loadPhraseIntoRow(result - 1, row);
+            return;
+        }
+        safe->midiChooser = std::make_unique<juce::FileChooser>("Load a MIDI file into the row", juce::File::getSpecialLocation(juce::File::userMusicDirectory),
+                                                                 "*.mid;*.midi");
+        safe->midiChooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                                       [safe, row](const juce::FileChooser& fc) {
+                                           if (safe == nullptr || fc.getResult() == juce::File())
+                                               return;
+                                           const auto r = safe->processor.loadMidiFileIntoRow(fc.getResult(), row);
+                                           if (r.failed())
+                                               juce::AlertWindow::showAsync(juce::MessageBoxOptions().withIconType(juce::MessageBoxIconType::WarningIcon)
+                                                                                .withTitle("ZYNTH").withMessage(r.getErrorMessage()).withButton("OK"),
+                                                                            nullptr);
+                                       });
+    });
 }
 
 } // namespace zsynth::ui

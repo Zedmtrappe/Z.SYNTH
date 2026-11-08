@@ -108,6 +108,20 @@ const Skin* reverbSkin(ReverbType type)
     }
 }
 
+const Skin& sequencerSkin()
+{
+    static const Skin s = reverbStyle("ANALOG SEQUENCER  -  16 STEPS x 2", C(0xff1b1b1d), PlateFinish::Anodised, C(0xffe9e6df), kRedLed,
+                                      KnobStyle::BlackSkirt, C(0xff141414), C(0xff2a2a2c), C(0xffe9e6df), kRedLedBack, kRedLed);
+    return s;
+}
+
+const Skin& sequencerRowSkin()
+{
+    static const Skin s = reverbStyle("", C(0xff1b1b1d), PlateFinish::Anodised, C(0xffe9e6df), kRedLed, KnobStyle::BlackSkirt,
+                                      C(0xff141414), C(0xff2a2a2c), C(0xffe9e6df), kRedLedBack, kRedLed);
+    return s;
+}
+
 const Skin* eqSkin(EqModel model)
 {
     auto skin = [](const char* plateName, C plate, PlateFinish finish, C ink, KnobStyle knob, C knobColour, C faderCap, C insert) {

@@ -51,7 +51,7 @@ set(ZSYNTH_APP_SOURCES
     ${CMAKE_SOURCE_DIR}/Source/MIDI/MidiLearn.cpp
     ${CMAKE_SOURCE_DIR}/Source/Plugin/ZSynthProcessor.cpp
     ${CMAKE_SOURCE_DIR}/Source/Plugin/AuditionPlayer.cpp
-    ${CMAKE_SOURCE_DIR}/Source/UI/Components/AuditionBar.cpp
+    ${CMAKE_SOURCE_DIR}/Source/UI/Components/SequencerBar.cpp
     ${CMAKE_SOURCE_DIR}/Source/UI/Components/MusicalTyping.cpp
     ${CMAKE_SOURCE_DIR}/Source/UI/Components/Theme.cpp
     ${CMAKE_SOURCE_DIR}/Source/UI/Components/Materials.cpp
