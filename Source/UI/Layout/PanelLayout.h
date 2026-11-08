@@ -32,7 +32,8 @@ enum class ControlKind
     StepSlider,  // sequencer step value (bipolar bar)
     StepToggle,  // LED toggle (sequencer gate/accent/slide)
     HSlider,     // horizontal bipolar amount (mod matrix)
-    Segmented    // segmented choice buttons (engine mode)
+    Segmented,   // segmented choice buttons (engine mode)
+    NoteStrip    // pattern sequencer step: 12 note buttons (C..B) with octave up / down
 };
 
 inline const juce::String kMainPage = "main";

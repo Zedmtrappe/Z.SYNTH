@@ -38,6 +38,15 @@ ParamControl::ParamControl(juce::AudioProcessorValueTreeState& s, int paramIndex
       attachment(param, [this](float v) { valueChanged(v); }, nullptr)
 {
     attachment.sendInitialUpdate();
+    if (kind == ControlKind::NoteStrip)
+    {
+        // "pseq.a.s3.pitch" -> "pseq.a.root" and "pseq.a.s3.gate".
+        const juce::String id(paramDef(index).id);
+        const auto row = id.upToLastOccurrenceOf(".s", false, false);
+        linkedRoot = state.getRawParameterValue(row + ".root");
+        linkedGate = state.getRawParameterValue(id.upToLastOccurrenceOf(".", false, false) + ".gate");
+        gateParam = state.getParameter(id.upToLastOccurrenceOf(".", false, false) + ".gate");
+    }
     setWantsKeyboardFocus(true);
     setMouseClickGrabsKeyboardFocus(true);
     setTitle(paramDef(index).name);
@@ -148,6 +157,9 @@ void ParamControl::mouseDown(const juce::MouseEvent& e)
             attachment.setValueAsCompleteGesture((float) seg);
             return;
         }
+        case ControlKind::NoteStrip:
+            noteStripClick(e.position);
+            return;
         case ControlKind::StepSlider:
             attachment.beginGesture();
             dragging = true;
@@ -352,6 +364,7 @@ void ParamControl::paint(juce::Graphics& g)
         case ControlKind::StepToggle: paintStepToggle(g); break;
         case ControlKind::HSlider:    paintHSlider(g); break;
         case ControlKind::Segmented:  paintSegmented(g); break;
+        case ControlKind::NoteStrip:  paintNoteStrip(g); break;
         default: break;
     }
 
@@ -1016,6 +1029,160 @@ void ParamControl::paintSegmented(juce::Graphics& g)
         g.setFont(labelFont(10.0f));
         g.drawText(formatValue(index, (float) i).toUpperCase(), seg.toNearestInt(), juce::Justification::centred, false);
     }
+}
+
+// ------------------------------------------------------------- note strip
+// A pattern-sequencer step as a column of twelve lit note buttons (B at the
+// top, C at the bottom) between octave up / down arrows, with the note shown
+// below. The step's value stays semitones from the row's ROOT (-12..+24).
+juce::Rectangle<float> ParamControl::noteArrow(bool up) const
+{
+    const auto r = getLocalBounds().toFloat().reduced(4.0f, 0.0f);
+    return up ? r.withHeight(16.0f) : juce::Rectangle<float>(r.getX(), r.getBottom() - 34.0f, r.getWidth(), 16.0f);
+}
+
+juce::Rectangle<float> ParamControl::noteReadout() const
+{
+    const auto r = getLocalBounds().toFloat().reduced(4.0f, 0.0f);
+    return { r.getX(), r.getBottom() - 15.0f, r.getWidth(), 15.0f };
+}
+
+juce::Rectangle<float> ParamControl::noteSegment(int pitchClass) const
+{
+    const auto r = getLocalBounds().toFloat().reduced(4.0f, 0.0f);
+    const float top = 19.0f, bottom = r.getBottom() - 37.0f;
+    const float h = (bottom - top) / 12.0f;
+    return { r.getX(), top + (float) (11 - pitchClass) * h, r.getWidth(), h - 1.5f };
+}
+
+void ParamControl::refreshLinked()
+{
+    if (kind != ControlKind::NoteStrip)
+        return;
+    const float root = linkedRoot != nullptr ? linkedRoot->load() : 60.0f;
+    const float gate = linkedGate != nullptr ? linkedGate->load() : 1.0f;
+    if (root != shownRoot || gate != shownGate)
+    {
+        shownRoot = root;
+        shownGate = gate;
+        repaint();
+    }
+}
+
+void ParamControl::noteStripClick(juce::Point<float> p)
+{
+    const int root = linkedRoot != nullptr ? juce::roundToInt(linkedRoot->load()) : 60;
+    const int lo = juce::roundToInt(param.convertFrom0to1(0.0f)), hi = juce::roundToInt(param.convertFrom0to1(1.0f));
+    const int note = root + juce::roundToInt(value);
+    const bool gate = linkedGate == nullptr || linkedGate->load() >= 0.5f;
+    auto setGate = [this](bool on) {
+        if (gateParam != nullptr)
+        {
+            gateParam->beginChangeGesture();
+            gateParam->setValueNotifyingHost(on ? 1.0f : 0.0f);
+            gateParam->endChangeGesture();
+        }
+    };
+    // The lit note again: the step goes blank (a rest). Any note on a blank step: it plays again.
+    for (int pc = 0; pc < 12; ++pc)
+        if (noteSegment(pc).expanded(0.0f, 0.75f).contains(p) && pc == ((note % 12) + 12) % 12)
+        {
+            setGate(! gate);
+            return;
+        }
+    if (! gate && ! noteArrow(true).contains(p) && ! noteArrow(false).contains(p))
+        setGate(true);
+    int target = note;
+    if (noteArrow(true).contains(p))
+        target = note + 12;
+    else if (noteArrow(false).contains(p))
+        target = note - 12;
+    else
+        for (int pc = 0; pc < 12; ++pc)
+            if (noteSegment(pc).expanded(0.0f, 0.75f).contains(p))
+            {
+                // That note, in the octave the step is in (kept within the knob's range).
+                target = note - ((note % 12) + 12) % 12 + pc;
+                while (target - root > hi)
+                    target -= 12;
+                while (target - root < lo)
+                    target += 12;
+            }
+    if (target - root < lo || target - root > hi || target == note)
+        return;
+    attachment.setValueAsCompleteGesture((float) (target - root));
+}
+
+void ParamControl::paintNoteStrip(juce::Graphics& g)
+{
+    static const char* names[12] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+    const int root = linkedRoot != nullptr ? juce::roundToInt(linkedRoot->load()) : 60;
+    const bool gate = linkedGate == nullptr || linkedGate->load() >= 0.5f;
+    const int lo = juce::roundToInt(param.convertFrom0to1(0.0f)), hi = juce::roundToInt(param.convertFrom0to1(1.0f));
+    const int note = root + juce::roundToInt(value);
+    const int pc = ((note % 12) + 12) % 12;
+    const juce::Colour led(0xffff4a2a), amber(0xffffb347);
+
+    // Octave arrows: moulded buttons, dark when the step cannot go further.
+    for (bool up : { true, false })
+    {
+        const auto a = noteArrow(up);
+        const bool can = up ? (note + 12 - root <= hi) : (note - 12 - root >= lo);
+        juce::ColourGradient body(juce::Colour(0xff45474c), 0.0f, a.getY(), juce::Colour(0xff17181b), 0.0f, a.getBottom(), false);
+        g.setGradientFill(body);
+        g.fillRoundedRectangle(a, 3.0f);
+        g.setColour(juce::Colours::black.withAlpha(0.8f));
+        g.drawRoundedRectangle(a, 3.0f, 0.8f);
+        juce::Path tri;
+        const auto c = a.getCentre();
+        if (up)
+            tri.addTriangle(c.x - 6.0f, c.y + 3.0f, c.x + 6.0f, c.y + 3.0f, c.x, c.y - 4.0f);
+        else
+            tri.addTriangle(c.x - 6.0f, c.y - 3.0f, c.x + 6.0f, c.y - 3.0f, c.x, c.y + 4.0f);
+        g.setColour(can ? amber.withAlpha(hovered ? 1.0f : 0.85f) : juce::Colour(0xff4a4a4a));
+        g.fillPath(tri);
+    }
+
+    // Twelve note buttons: the step's note lit, the row's root marked.
+    g.setFont(labelFont(8.5f));
+    for (int k = 0; k < 12; ++k)
+    {
+        const auto r = noteSegment(k);
+        const bool sharp = names[k][1] == '#';
+        const bool lit = k == pc && gate; // a rest shows no note
+        g.setColour(juce::Colours::black);
+        g.fillRoundedRectangle(r.expanded(0.8f), 2.0f);
+        if (lit)
+        {
+            const auto c = gate ? led : led.withMultipliedBrightness(0.45f);
+            g.setColour(c.withAlpha(0.35f));
+            g.fillRoundedRectangle(r.expanded(2.0f), 3.0f);
+            juce::ColourGradient lens(c.brighter(0.5f), r.getCentreX(), r.getY(), c.darker(0.2f), r.getCentreX(), r.getBottom(), false);
+            g.setGradientFill(lens);
+            g.fillRoundedRectangle(r, 2.0f);
+            g.setColour(juce::Colours::white.withAlpha(0.35f));
+            g.fillRoundedRectangle(r.withHeight(r.getHeight() * 0.35f).reduced(2.0f, 0.5f), 1.5f);
+        }
+        else
+        {
+            g.setColour(sharp ? juce::Colour(0xff1c0f0d) : juce::Colour(0xff2a1512));
+            g.fillRoundedRectangle(r, 2.0f);
+        }
+        g.setColour(lit ? juce::Colours::black.withAlpha(0.85f)
+                        : (sharp ? juce::Colour(0xff8a6a60) : juce::Colour(0xffd8c8bc)).withAlpha(0.8f));
+        g.drawText(names[k], r.toNearestInt(), juce::Justification::centred, false);
+        if (k == ((root % 12) + 12) % 12)
+        {
+            g.setColour(amber.withAlpha(0.8f)); // the row's ROOT
+            g.fillRect(r.getX() + 1.5f, r.getCentreY() - 2.0f, 2.0f, 4.0f);
+        }
+    }
+
+    // The note itself, on a small red LED readout.
+    const auto rd = noteReadout();
+    drawLcd(g, rd, juce::Colour(0xff170504));
+    material::glowText(g, gate ? juce::MidiMessage::getMidiNoteName(note, true, true, 4) : juce::String("REST"), rd, lcdFont(10.5f),
+                gate ? led.brighter(0.2f) : led.withMultipliedBrightness(0.45f), juce::Justification::centred, 0.8f);
 }
 
 } // namespace zsynth::ui

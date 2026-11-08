@@ -1196,6 +1196,9 @@ void MainPanel::timerCallback()
     for (auto& [param, b] : blockButtons)
         if (b != nullptr)
             b->setAlpha(processor.getValue(param) >= 0.5f ? 1.0f : 0.32f);
+    if (getVisiblePage() == "pseq")
+        for (auto& c : controls)
+            c->refreshLinked(); // note strips follow their row's ROOT and the step's GATE
     for (size_t i = 0; i < patternButtons.size(); ++i)
         patternButtons[i]->setToggleState((int) i == processor.getPattern(), juce::dontSendNotification);
     // The FM block is off in ANALOG engine mode: dim its algorithm display and OPERATORS too.

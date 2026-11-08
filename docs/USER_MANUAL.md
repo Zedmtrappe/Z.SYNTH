@@ -73,7 +73,7 @@ Closing the window (or the QWERTY button) releases any held notes.
 ## Pattern sequencer
 
 A two-row, sixteen-step analog-style sequencer, laid out like the 1970s units:
-a PITCH knob and GATE / ACCENT / SLIDE switches for every step, a row of step
+a column of twelve lit note buttons (with octave arrows) and GATE / ACCENT / SLIDE switches for every step, a row of step
 lights, and black-skirted knobs on a black faceplate. Its two rows play
 together, so a bass line and a melody (or two interlocking lines) can run at
 once. It also replaces the old audition player: press PLAY to hear a sound
@@ -98,10 +98,10 @@ sequencer window.
 | DIRECTION | Forward, backward, pendulum (back and forth) or random |
 | LENGTH | 1–16 steps; rows of different lengths drift against each other (polymeter) |
 | GATE TIME | How much of each step a note lasts |
-| ROOT | The note a step plays with its PITCH knob at 0 |
+| ROOT | The row's home note: steps reach from an octave below it to two octaves above |
 | VELOCITY | The row's velocity; accented steps play at 127 |
-| PITCH (per step) | −12 to +24 semitones from ROOT |
-| GATE / ACCENT / SLIDE (per step) | Play or rest; full velocity; hold into the next step (legato, so mono and legato voices glide) |
+| NOTE (per step) | A column of twelve note buttons, C at the bottom to B at the top, with ▲ / ▼ to move the step up or down an octave; the red readout below shows the note. Click a note to play it; click the lit note again to make the step a rest (the column goes blank, the readout shows REST); click any note on a blank step to bring it back. A small amber mark shows the row's ROOT. Steps reach from an octave below ROOT to two above |
+| GATE / ACCENT / SLIDE (per step) | Play or rest (the same as clicking the lit note); full velocity; hold into the next step (legato, so mono and legato voices glide) |
 | COPY / PASTE / CLEAR | Copy a row, paste it into a row (it keeps its PLAYS routing), or reset every step to a plain gate |
 | LOAD ▾ | Fill a row from a built-in phrase or a MIDI file. The opening bars are quantised to the row's steps: row A takes the top line, row B the bass line; notes still sounding at a step become slides |
 

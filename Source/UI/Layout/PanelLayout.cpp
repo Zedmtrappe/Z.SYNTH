@@ -19,6 +19,7 @@ juce::Point<int> controlSize(ControlKind kind)
         case ControlKind::StepToggle: return { 44, 16 };
         case ControlKind::HSlider:    return { 104, 24 };
         case ControlKind::Segmented:  return { 200, 20 };
+        case ControlKind::NoteStrip:  return { 60, 196 };
         default:                      return { 50, 50 };
     }
 }
@@ -862,9 +863,9 @@ PanelLayout::PanelLayout()
     // ---------------------------------------------------- pattern sequencer
     // Two rows of sixteen steps, laid out like a 1970s analog sequencer: per step a
     // PITCH knob and GATE / ACCENT / SLIDE switches; per row its routing and timing.
-    pageList.push_back({ "pseq", "PATTERN SEQUENCER", { 70, 120, 1780, 470 } });
+    pageList.push_back({ "pseq", "PATTERN SEQUENCER", { 70, 60, 1780, 744 } });
     page("pseq");
-    sectionAt("pseqPage", "ANALOG PATTERN SEQUENCER", 0, 0, 1780, 470);
+    sectionAt("pseqPage", "ANALOG PATTERN SEQUENCER", 0, 0, 1780, 744);
     utilityAt("pseqClose", 1740, 3, 34, 20);
     add("pseq.run", K::Switch, 20, 36, "RUN");
     add("pseq.keytr", K::Switch, 80, 36, "KEY TRANSP", 84);
@@ -879,8 +880,8 @@ PanelLayout::PanelLayout()
     for (int r = 0; r < 2; ++r)
     {
         const juce::String rowId = r == 0 ? "a" : "b", rowName = r == 0 ? "A" : "B";
-        const int y0 = r == 0 ? 100 : 284;
-        sectionAt("pseqRow" + rowName, "ROW " + rowName, 8, y0, 1764, 176, true);
+        const int y0 = r == 0 ? 100 : 422;
+        sectionAt("pseqRow" + rowName, "ROW " + rowName, 8, y0, 1764, 314, true);
         const juce::String p = "pseq." + rowId + ".";
         add(p + "on", K::Switch, 16, y0 + 22, "ON");
         add(p + "target", K::Selector, 70, y0 + 22, "PLAYS", 90);
@@ -899,10 +900,10 @@ PanelLayout::PanelLayout()
         {
             const juce::String n(s + 1);
             const int x = 372 + s * 87;
-            add(p + "s" + n + ".pitch", K::Knob, x + 17, y0 + 48, n);
-            add(p + "s" + n + ".gate", K::StepToggle, x + 21, y0 + 116, "GATE");
-            add(p + "s" + n + ".acc", K::StepToggle, x + 21, y0 + 136, "ACCENT");
-            add(p + "s" + n + ".slide", K::StepToggle, x + 21, y0 + 156, "SLIDE");
+            add(p + "s" + n + ".pitch", K::NoteStrip, x + 12, y0 + 50, n, 62, 196);
+            add(p + "s" + n + ".gate", K::StepToggle, x + 13, y0 + 252, "GATE", 60, 18);
+            add(p + "s" + n + ".acc", K::StepToggle, x + 13, y0 + 272, "ACCENT", 60, 18);
+            add(p + "s" + n + ".slide", K::StepToggle, x + 13, y0 + 292, "SLIDE", 60, 18);
         }
     }
 }

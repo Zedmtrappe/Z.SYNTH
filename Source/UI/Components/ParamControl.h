@@ -50,6 +50,8 @@ public:
     void setGlowWhenOn(bool g) { glowWhenOn = g; repaint(); }
     /** Switch lit while the parameter is OFF (a switch for the opposite setting, e.g. POST FX for peq.pre). */
     void setInverted(bool i) { inverted = i; repaint(); }
+    /** NoteStrip: repaints when the row's ROOT or the step's GATE changed (call from a timer). */
+    void refreshLinked();
     /** Legends printed in this ink (for controls on a light plate). */
     void setLegendInk(juce::Colour ink) { inkOverride = ink; hasInk = true; legend.clear(); repaint(); }
     bool glowsWhenOn() const { return glowWhenOn; }
@@ -79,6 +81,16 @@ public:
     void resetToDefault();
 
 private:
+    // NoteStrip: the step's row ROOT and GATE (labels and dimming).
+    std::atomic<float>* linkedRoot = nullptr;
+    std::atomic<float>* linkedGate = nullptr;
+    juce::RangedAudioParameter* gateParam = nullptr;
+    float shownRoot = -1.0f, shownGate = -1.0f;
+    void paintNoteStrip(juce::Graphics&);
+    void noteStripClick(juce::Point<float>);
+    juce::Rectangle<float> noteSegment(int pitchClass) const;
+    juce::Rectangle<float> noteArrow(bool up) const;
+    juce::Rectangle<float> noteReadout() const;
     void valueChanged(float newValue);
     void stepBy(int steps);
     int numSteps() const;
