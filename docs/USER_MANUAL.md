@@ -448,9 +448,9 @@ marks the current step.
 
 ## Effects
 
-The bottom row holds two plates. **EFFECTS** (DRIVE, MODULATION) and
-**OUTPUT**, an L-shaped plate that runs from the EQ along the row (EQ,
-SMOOTH, DELAY, REVERB, TAPE, OUTPUT COMP) and up the right-hand column
+The bottom row holds two plates. **EFFECTS** (DRIVE, MODULATION, DELAY,
+REVERB) and **OUTPUT**, an L-shaped plate that runs from the EQ along the
+row (EQ, SMOOTH, TAPE, OUTPUT COMP) and up the right-hand column
 (LIMITER, VALVE, TRANSFORMER, MACRO / WIDTH / MASTER and the meter). It is
 brushed aluminium and stands higher than the other plates. Each
 module has an **ON** switch and fades in/out smoothly.

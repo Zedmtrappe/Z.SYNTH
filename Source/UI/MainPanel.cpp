@@ -153,9 +153,11 @@ namespace
             g.setColour(juce::Colours::black.withAlpha(0.85f));
             g.strokePath(plate, juce::PathStrokeType(0.7f));
 
-            // Its title at the far left of the L, printed in dark ink.
-            m::engravedText(g, s.title, juce::Rectangle<float>(row.getX() + 12.0f, row.getY() + 3.0f, 300.0f, 23.0f),
-                            titleFont(13.0f), juce::Justification::centredLeft, kOutputInk, 0.0f);
+            // Its title, printed in dark ink, twice: at the top of the column and at
+            // the far left of the L.
+            for (const auto at : { r.getTopLeft(), row.getTopLeft() })
+                m::engravedText(g, s.title, juce::Rectangle<float>(at.x + 12.0f, at.y + 3.0f, 300.0f, 23.0f),
+                                titleFont(13.0f), juce::Justification::centredLeft, kOutputInk, 0.0f);
             return;
         }
         else

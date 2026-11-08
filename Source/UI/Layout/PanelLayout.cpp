@@ -305,16 +305,14 @@ PanelLayout::PanelLayout()
     add("out.xfmr.amt", K::Knob, 1780, 676, "AMOUNT", 52);
 
     // ------------------------------------------------------------ effects
-    // EFFECTS: drive and modulation; the rest of the row belongs to OUTPUT.
-    sectionAt("fx", "EFFECTS", 10, 760, 490, 204);
-    sectionAt("outputRow", "", 508, 760, 1402, 204);
-    // Left to right: drive, modulation, graphic EQ, SMOOTH, delay, reverb, tape,
-    // compressor. (The EQ runs before delay and reverb unless POST FX is on; the
-    // compressor's PRE FX moves it before them.)
+    // Left to right: EFFECTS (drive, modulation, delay, reverb), then the OUTPUT
+    // part of the row (graphic EQ, SMOOTH, tape, compressor). In the audio the EQ
+    // and SMOOTH run before the delay and reverb unless the EQ's POST FX is on;
+    // the compressor's PRE FX moves it before them.
     struct Module { const char* id; const char* title; int width; };
-    enum { mDrive, mMod, mEq, mSmooth, mDelay, mReverb, mTape, mComp };
-    const Module modules[8] = { { "fxDrive", "DRIVE", 216 }, { "fxMod", "MODULATION", 252 }, { "peqModule", "EQ", 0 },
-                                { "smoothModule", "SMOOTH", 104 }, { "fxDelay", "DELAY", 256 }, { "fxReverb", "REVERB", 264 },
+    enum { mDrive, mMod, mDelay, mReverb, mEq, mSmooth, mTape, mComp };
+    const Module modules[8] = { { "fxDrive", "DRIVE", 216 }, { "fxMod", "MODULATION", 252 }, { "fxDelay", "DELAY", 256 },
+                                { "fxReverb", "REVERB", 264 }, { "peqModule", "EQ", 0 }, { "smoothModule", "SMOOTH", 104 },
                                 { "tapeModule", "TAPE", 140 }, { "compModule", "OUTPUT COMP", 390 } };
     int fixedWidth = 0;
     for (const auto& m : modules)
@@ -328,9 +326,14 @@ PanelLayout::PanelLayout()
             x += plateGap;
         mx[i] = x;
         mw[i] = modules[i].width > 0 ? modules[i].width : peqWidth;
-        sectionAt(modules[i].id, modules[i].title, mx[i], 788, mw[i], 170, true);
         x += mw[i] + 6;
     }
+    // The two plates first (they are drawn under the module bays).
+    const int fxRight = mx[mReverb] + mw[mReverb] + 8, rowLeft = mx[mEq] - 8;
+    sectionAt("fx", "EFFECTS", 10, 760, fxRight - 10, 204);
+    sectionAt("outputRow", "", rowLeft, 760, 1910 - rowLeft, 204);
+    for (int i = 0; i < 8; ++i)
+        sectionAt(modules[i].id, modules[i].title, mx[i], 788, mw[i], 170, true);
     auto fxFader = [&](int m, int k, const char* id, const char* label) { shortFader(id, mx[m] + 8 + k * 36, 810, label); };
     auto fxOn = [&](int m, const char* id) { compact(id, mx[m] + mw[m] - 42, 789, "ON"); };
 
