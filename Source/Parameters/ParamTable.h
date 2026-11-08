@@ -123,7 +123,7 @@ X(AmpPan,        "amp.pan",        "Pan",           "Voice", Float, -1.f, 1.f, 0
 X(VoiceMode,     "voice.mode",     "Voice Mode",    "Voice", Choice, 0, 0, 0.f, LIN, "", ZS_CH_VOICE_MODE, "Poly, Mono (retriggers), or Legato (mono, no retrigger when notes overlap).") \
 X(VoicePriority, "voice.priority", "Note Priority", "Voice", Choice, 0, 0, 0.f, LIN, "", ZS_CH_PRIORITY, "Which held note sounds in mono modes.") \
 X(VoiceAlloc,    "voice.alloc",    "Allocation",    "Voice", Choice, 0, 0, 0.f, LIN, "", ZS_CH_ALLOC, "Rotate cycles voices (vintage behaviour); Reuse re-plays the same voice per note; Lowest always fills from voice 1.") \
-X(Polyphony,     "voice.poly",     "Polyphony",     "Voice", Int, 1.f, 32.f, 16.f, LIN, "", nullptr, "Maximum number of physical voices (unison voices count individually).") \
+X(Polyphony,     "voice.poly",     "Polyphony",     "Voice", Int, 1.f, 64.f, 16.f, LIN, "", nullptr, "Maximum number of physical voices (unison voices count individually).") \
 X(Unison,        "voice.unison",   "Unison",        "Voice", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "Stacks several detuned voices per note.") \
 X(UnisonVoices,  "voice.univoices","Unison Voices", "Voice", Int, 2.f, 8.f, 4.f, LIN, "", nullptr, "Voices stacked per note when unison is on.") \
 X(UnisonDetune,  "voice.detune",   "Detune",        "Voice", Float, 0.f, 1.f, 0.25f, LIN, "", nullptr, "Unison detune spread (up to +/-50 cents).") \

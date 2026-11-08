@@ -287,7 +287,7 @@ PanelLayout::PanelLayout()
     utilityAt("outputInfo", 1546, 482, 106, 74);
     fader("out.macro",     1546, 562, "MACRO");
     fader("out.width",     1582, 562, "WIDTH");
-    fader("out.character", 1618, 562, "CHAR");
+    fader("master.volume", 1618, 562, "MASTER"); // the final level (feeds the safety limiter)
     utilityAt("meter", 1842, 464, 60, 282);
 
     // The valve stage: a window onto the valve plus DRIVE; the rest is on the "valve" page.
@@ -570,17 +570,17 @@ PanelLayout::PanelLayout()
     sectionAt("valvePage", "VALVE STAGE  -  ADVANCED", 0, 0, 560, 330);
     utilityAt("valveClose", 520, 3, 34, 20);
     add("out.valve.type", K::Selector, 20, 48, "VALVE TYPE", 220);
-    const std::pair<const char*, const char*> valveFaders[4] = { { "out.valve.bias", "BIAS" }, { "out.valve.sag", "SAG" },
-        { "out.valve.warmth", "WARMTH" }, { "out.valve.mix", "MIX" } };
-    for (int k = 0; k < 4; ++k)
-        fader(valveFaders[k].first, 24 + k * 54, 122, valveFaders[k].second);
+    const std::pair<const char*, const char*> valveFaders[5] = { { "out.valve.bias", "BIAS" }, { "out.valve.sag", "SAG" },
+        { "out.valve.warmth", "WARMTH" }, { "out.valve.mix", "MIX" }, { "out.character", "CHAR" } };
+    for (int k = 0; k < 5; ++k)
+        fader(valveFaders[k].first, 24 + k * 48, 122, valveFaders[k].second);
     heading("VALVE TYPES", 270, 48, 270);
     text("12AX7  High-gain preamp triode: even harmonics, sings when pushed.", 270, 70, 276, 34, juce::Justification::topLeft);
     text("12AU7  Low-gain triode: gentle, clean warmth with lots of headroom.", 270, 108, 276, 34, juce::Justification::topLeft);
     text("EL84   Push-pull pair: odd harmonics, compresses and breaks up early.", 270, 146, 276, 34, juce::Justification::topLeft);
     text("6L6    Big power pair: smooth, solid low end, the most headroom.", 270, 184, 276, 34, juce::Justification::topLeft);
     heading("CONTROLS", 270, 226, 270);
-    text("BIAS cold = cleaner/symmetric, hot = richer/grittier.  SAG = supply droop that blooms on loud notes.  WARMTH = output transformer (softer top, fuller bass).",
+    text("BIAS cold = cleaner/symmetric, hot = richer/grittier.  SAG = supply droop that blooms on loud notes.  WARMTH = output transformer (softer top, fuller bass).  CHAR = gentle saturation of the whole output stage.",
          270, 246, 276, 70, juce::Justification::topLeft);
 
     // ------------------------------------------------------- delay advanced

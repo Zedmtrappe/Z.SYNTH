@@ -57,6 +57,8 @@ namespace
     const juce::Colour kPlate     { 0xff2e3035 }; // anodised, brushed steel section plates
     const juce::Colour kSubPlate  { 0xff1d1f23 }; // recessed sub-panels
     const juce::Colour kHeader    { 0xff1a1b1e }; // header moulding
+    const juce::Colour kOutputPlate { 0xff8a8e93 }; // OUTPUT: dull brushed aluminium
+    const juce::Colour kOutputInk   { 0xff1b1c1f }; // legends printed on it
 
     void paintSection(juce::Graphics& g, const SectionSpec& s)
     {
@@ -122,21 +124,39 @@ namespace
             outline.lineTo(row.getX(), row.getY());
             outline.lineTo(r.getX(), row.getY());
             outline.closeSubPath();
+            // Dull brushed aluminium, standing higher than the other plates: a
+            // deeper shadow, a visible edge (its thickness) below and to the right,
+            // and a stronger bevel.
             const auto plate = outline.createPathWithRoundedCorners(6.0f);
-            m::castShadow(g, plate, 12.0f, { 2, 7 }, 0.85f);
+            m::castShadow(g, plate, 22.0f, { 5, 16 }, 0.95f);
+            constexpr float thickness = 5.0f;
+            for (float k = thickness; k > 0.0f; k -= 1.0f)
+            {
+                g.setColour(kOutputPlate.darker(1.4f + 0.12f * k));
+                g.fillPath(plate, juce::AffineTransform::translation(k * 0.45f, k));
+            }
             g.saveState();
             g.reduceClipRegion(plate);
-            m::brushedMetal(g, plate.getBounds(), 0.0f, kPlate, 1.0f);
-            g.restoreState();
-            // Bevel: lit top/left edges, shadowed bottom/right, following the L.
+            m::brushedMetal(g, plate.getBounds(), 0.0f, kOutputPlate, 0.7f);
+            // Satin, not polished: a soft, broad sheen from the top.
             const auto box = plate.getBounds();
-            juce::ColourGradient bevel(juce::Colours::white.withAlpha(0.22f), box.getX(), box.getY(),
-                                       juce::Colours::black.withAlpha(0.7f), box.getRight(), box.getBottom(), false);
-            bevel.addColour(0.5, juce::Colours::white.withAlpha(0.05f));
+            juce::ColourGradient sheen(juce::Colours::white.withAlpha(0.1f), 0.0f, box.getY(), juce::Colours::transparentWhite, 0.0f,
+                                       box.getY() + 160.0f, false);
+            g.setGradientFill(sheen);
+            g.fillRect(box);
+            g.restoreState();
+            juce::ColourGradient bevel(juce::Colours::white.withAlpha(0.55f), box.getX(), box.getY(),
+                                       juce::Colours::black.withAlpha(0.75f), box.getRight(), box.getBottom(), false);
+            bevel.addColour(0.45, juce::Colours::white.withAlpha(0.12f));
             g.setGradientFill(bevel);
-            g.strokePath(plate, juce::PathStrokeType(1.4f));
-            g.setColour(juce::Colours::black.withAlpha(0.8f));
-            g.strokePath(plate, juce::PathStrokeType(0.6f), juce::AffineTransform::translation(0.6f, 0.9f));
+            g.strokePath(plate, juce::PathStrokeType(2.0f));
+            g.setColour(juce::Colours::black.withAlpha(0.85f));
+            g.strokePath(plate, juce::PathStrokeType(0.7f));
+
+            // Its title at the far left of the L, printed in dark ink.
+            m::engravedText(g, s.title, juce::Rectangle<float>(row.getX() + 12.0f, row.getY() + 3.0f, 300.0f, 23.0f),
+                            titleFont(13.0f), juce::Justification::centredLeft, kOutputInk, 0.0f);
+            return;
         }
         else
         {
@@ -148,12 +168,8 @@ namespace
 
         if (s.title.isNotEmpty())
         {
-            // Coloured back-lit tag, engraved legend and an engraved rule.
-            const auto tag = juce::Rectangle<float>(r.getX() + 11.0f, r.getY() + 9.0f, 4.0f, 11.0f);
-            juce::DropShadow(colour.withAlpha(0.7f), 6, {}).drawForRectangle(g, tag.toNearestInt());
-            g.setColour(colour.brighter(0.2f));
-            g.fillRoundedRectangle(tag, 1.0f);
-            m::engravedText(g, s.title, juce::Rectangle<float>(r.getX() + 23.0f, r.getY() + 3.0f, r.getWidth() - 30.0f, 23.0f),
+            // Engraved legend and an engraved rule.
+            m::engravedText(g, s.title, juce::Rectangle<float>(r.getX() + 12.0f, r.getY() + 3.0f, r.getWidth() - 20.0f, 23.0f),
                             titleFont(13.0f), juce::Justification::centredLeft, m::kLegend, 0.9f);
             m::engravedLine(g, { r.getX() + 8.0f, r.getY() + 27.0f, r.getRight() - 8.0f, r.getY() + 27.0f });
         }
@@ -278,7 +294,7 @@ const int ModEffectSelector::onParams[kCount] = { P::ChorusOn, P::EnsOn, P::Phas
 
 ModEffectSelector::ModEffectSelector(ZSynthProcessor& p) : processor(p)
 {
-    setTooltip("Choose which modulation effect to edit. Each has its own ON, so they can be stacked.");
+    setTooltip("Choose the modulation effect. If the block is on, the effect you choose stays on (it takes over from the previous one).");
 }
 
 void ModEffectSelector::setCurrent(int index)
@@ -315,9 +331,21 @@ void ModEffectSelector::mouseDown(const juce::MouseEvent&)
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMinimumWidth(getWidth()), [safe](int result) {
         if (safe == nullptr || result <= 0)
             return;
-        safe->setCurrent(result - 1);
+        // The block stays on when its type changes: if the effect shown was on,
+        // the one chosen takes over (switched on, the previous one off).
+        const int previous = safe->current, chosen = result - 1;
+        auto& state = safe->processor.getState();
+        if (chosen != previous && safe->processor.getValue(onParams[previous]) >= 0.5f)
+            for (const auto& [index, value] : { std::pair<int, float>(onParams[chosen], 1.0f), std::pair<int, float>(onParams[previous], 0.0f) })
+                if (auto* prm = state.getParameter(paramDef(index).id))
+                {
+                    prm->beginChangeGesture();
+                    prm->setValueNotifyingHost(prm->convertTo0to1(value));
+                    prm->endChangeGesture();
+                }
+        safe->setCurrent(chosen);
         if (safe->onChange)
-            safe->onChange(result - 1);
+            safe->onChange(chosen);
     });
 }
 
@@ -402,6 +430,8 @@ void MainPanel::buildControls()
             c->setGlowWhenOn(true);
             trackSwitch = c.get();
         }
+        if (juce::String(spec.section) == "output")
+            c->setLegendInk(kOutputInk); // printed on the aluminium OUTPUT plate
         if (juce::String(spec.paramId) == "peq.pre")
         {
             // Shown as POST FX: lit when the EQ runs on the whole output (after delay and reverb).
@@ -472,7 +502,7 @@ void MainPanel::buildUtilities()
 
     button("openMatrix", juce::String::fromUTF8("MOD MATRIX \xe2\x96\xb8"), "Open the 8-slot modulation matrix", [this] {
         showPage(getVisiblePage() == "matrix" ? juce::String() : juce::String("matrix")); });
-    button("openFm", juce::String::fromUTF8("OPERATORS \xe2\x96\xb8"), "Edit the six FM operators (ratio, level, envelopes)", [this] {
+    fmOperatorsButton = &button("openFm", juce::String::fromUTF8("OPERATORS \xe2\x96\xb8"), "Edit the six FM operators (ratio, level, envelopes)", [this] {
         showPage(getVisiblePage() == "fm" ? juce::String() : juce::String("fm")); });
     button("openSeq", juce::String::fromUTF8("STEPS \xe2\x96\xb8"), "Edit the 16 sequencer steps", [this] {
         showPage(getVisiblePage() == "seq" ? juce::String() : juce::String("seq")); });
@@ -573,7 +603,9 @@ void MainPanel::buildUtilities()
     displays.push_back(&addUtility<EnvelopeDisplay>("env1Display", processor, (int) P::Env1A));
     displays.push_back(&addUtility<EnvelopeDisplay>("env2Display", processor, (int) P::Env2A));
     displays.push_back(&addUtility<EnvelopeDisplay>("env3Display", processor, (int) P::Env3A));
-    displays.push_back(&addUtility<FmAlgorithmDisplay>("fmAlgoDisplay", processor));
+    auto& fmAlgo = addUtility<FmAlgorithmDisplay>("fmAlgoDisplay", processor);
+    fmDisplay = &fmAlgo;
+    displays.push_back(&fmAlgo);
     displays.push_back(&addUtility<LfoShapeDisplay>("lfo1Display", processor, 0));
     displays.push_back(&addUtility<LfoShapeDisplay>("lfo2Display", processor, 1));
     displays.push_back(&addUtility<VoiceLeds>("voiceLeds", processor));
@@ -685,6 +717,15 @@ void MainPanel::buildUtilities()
     keyboardParts.push_back(wheels.back()); // pitch bend comes from the strings while tracking
     wheels.push_back(&addUtility<PerformanceWheel>("modWheel", processor, false));
     keyboard = &addUtility<ZKeyboard>("keyboard", processor.getKeyboardState());
+    // Dragging the split handle on the keyboard moves the split point.
+    keyboard->onSplitGesture = [this](bool begin) {
+        if (auto* prm = processor.getState().getParameter("split.point"))
+            begin ? prm->beginChangeGesture() : prm->endChangeGesture();
+    };
+    keyboard->onSplitMoved = [this](int key) {
+        if (auto* prm = processor.getState().getParameter("split.point"))
+            prm->setValueNotifyingHost(prm->convertTo0to1((float) key));
+    };
     keyboardParts.push_back(&addUtility<AuditionBar>("auditionBar", processor));
     keyboardParts.push_back(&button("kbdOctDown", "OCT -", "Shift the on-screen keyboard down one octave", [this] { keyboard->shiftOctave(-1); }));
     keyboardParts.push_back(&button("kbdOctUp", "OCT +", "Shift the on-screen keyboard up one octave", [this] { keyboard->shiftOctave(1); }));
@@ -1125,6 +1166,14 @@ void MainPanel::timerCallback()
     for (auto& [param, b] : blockButtons)
         if (b != nullptr)
             b->setAlpha(processor.getValue(param) >= 0.5f ? 1.0f : 0.32f);
+    // The FM block is off in ANALOG engine mode: dim its algorithm display and OPERATORS too.
+    {
+        const bool fmOn = (EngineMode) juce::roundToInt(processor.getValue(P::Engine)) != EngineMode::Analog;
+        if (fmDisplay != nullptr)
+            fmDisplay->setAlpha(fmOn ? 1.0f : 0.32f);
+        if (fmOperatorsButton != nullptr)
+            fmOperatorsButton->setAlpha(fmOn ? 1.0f : 0.32f);
+    }
     // PITCH TRACK pulses while it is on.
     if (trackSwitch != nullptr && processor.getValue(P::TrkOn) >= 0.5f)
         trackSwitch->repaint();

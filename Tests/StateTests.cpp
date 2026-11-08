@@ -596,9 +596,11 @@ ZS_TEST(layout_every_parameter_exactly_once)
     }
     for (int i = 0; i < kNumParams; ++i)
     {
-        if (count[(size_t) i] != 1)
+        // MASTER is both the header knob and the OUTPUT fader (two views of one value).
+        const int expected = i == P::MasterVolume ? 2 : 1;
+        if (count[(size_t) i] != expected)
             std::printf("    %s appears %d times\n", paramDef(i).id, count[(size_t) i]);
-        ZS_CHECK(count[(size_t) i] == 1);
+        ZS_CHECK(count[(size_t) i] == expected);
     }
 }
 
@@ -673,7 +675,8 @@ ZS_TEST(layout_controls_inside_sections_and_not_overlapping)
                             || (id.contains(".wt.") && ! id.endsWith(".wt.pos")) || id.startsWith("wt.evo.")
                             || id == "wt.drift" || id == "wt.drate"
                             || (id.startsWith("split.") && id != "split.mode")
-                            || (id.startsWith("harm.") && id != "harm.on");
+                            || (id.startsWith("harm.") && id != "harm.on")
+                            || id == "out.character";
         ZS_CHECK(advanced == (c.page != ui::kMainPage));
     }
 }

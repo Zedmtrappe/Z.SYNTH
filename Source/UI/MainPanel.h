@@ -167,6 +167,8 @@ private:
     void updateSplit();
     juce::TextButton* partButtons[4] {};
     juce::TextButton* learnButton = nullptr;
+    juce::TextButton* fmOperatorsButton = nullptr;
+    juce::Component* fmDisplay = nullptr;
     std::vector<std::pair<int, juce::TextButton*>> blockButtons; // (on param, ADVANCED button)
     ParamControl* trackSwitch = nullptr;
     ParamControl* harmSwitch = nullptr;

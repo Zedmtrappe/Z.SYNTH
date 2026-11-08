@@ -1779,7 +1779,7 @@ void TrackDisplay::paint(juce::Graphics& g)
 // ============================================================ voice LEDs ====
 void VoiceLeds::refresh()
 {
-    const uint32_t m = processor.getEngine().getVoiceMask();
+    const uint64_t m = processor.getEngine().getVoiceMask();
     const int l = (int) std::lround(processor.getValue(P::Polyphony));
     if (m != mask || l != limit)
     {
@@ -1791,31 +1791,30 @@ void VoiceLeds::refresh()
 
 void VoiceLeds::paint(juce::Graphics& g)
 {
+    // 64 voices: four rows of 16 (a VOICES legend too when there is room).
     const auto r = getLocalBounds().toFloat();
     fillPanelInset(g, r);
-    auto inner = r.reduced(8.0f, 6.0f);
-    // Wide: a VOICES legend and two rows of 16; narrow: four rows of 8.
-    const bool wide = r.getWidth() > 180.0f;
-    if (wide)
+    auto inner = r.reduced(6.0f, 5.0f);
+    if (r.getWidth() > 180.0f)
     {
         g.setFont(lcdFont(9.0f));
         g.setColour(Colours::lcdDim.brighter(0.6f));
         g.drawText("VOICES", inner.removeFromLeft(44.0f).toNearestInt(), juce::Justification::centredLeft, false);
     }
-    const int cols = wide ? 16 : 8, rows = 32 / cols;
+    constexpr int cols = 16, rows = dsp::kMaxVoices / cols;
     const float cell = inner.getWidth() / (float) cols;
-    const float ledSize = wide ? 7.0f : 5.5f;
-    for (int i = 0; i < 32; ++i)
+    const float ledSize = juce::jmin(cell, inner.getHeight() / (float) rows) - 1.8f;
+    for (int i = 0; i < dsp::kMaxVoices; ++i)
     {
         const float x = inner.getX() + (float) (i % cols) * cell + cell * 0.5f;
         const float y = inner.getY() + ((float) (i / cols) + 0.5f) / (float) rows * inner.getHeight();
-        const bool on = (mask >> i) & 1u;
+        const bool on = ((mask >> i) & 1u) != 0;
         const bool available = i < limit;
         const auto led = juce::Rectangle<float>(ledSize, ledSize).withCentre({ x, y });
         if (on)
         {
             g.setColour(Colours::lcdText.withAlpha(0.3f));
-            g.fillEllipse(led.expanded(3.0f));
+            g.fillEllipse(led.expanded(1.5f));
         }
         g.setColour(on ? Colours::lcdText : (available ? Colours::lcdDim : Colours::lcdDim.withAlpha(0.25f)));
         g.fillEllipse(led);

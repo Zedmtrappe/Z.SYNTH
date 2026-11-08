@@ -25,6 +25,15 @@ public:
     /** Outlines the keys of a scale (bit n = pitch class n, 0 = C); tonic gets a stronger outline. mask 0 = none. */
     void setScale(uint16_t mask, int tonic);
 
+    // SPLIT: hovering over the split line shows a handle; dragging it moves the split point.
+    std::function<void(int)> onSplitMoved;    // the new first key of the UPPER zone
+    std::function<void(bool)> onSplitGesture; // true = drag starts, false = drag ends
+    void mouseMove(const juce::MouseEvent&) override;
+    void mouseExit(const juce::MouseEvent&) override;
+    void mouseDown(const juce::MouseEvent&) override;
+    void mouseDrag(const juce::MouseEvent&) override;
+    void mouseUp(const juce::MouseEvent&) override;
+
 protected:
     void drawWhiteNote(int note, juce::Graphics&, juce::Rectangle<float> area, bool isDown, bool isOver, juce::Colour lineColour, juce::Colour textColour) override;
     void drawBlackNote(int note, juce::Graphics&, juce::Rectangle<float> area, bool isDown, bool isOver, juce::Colour noteFillColour) override;
@@ -33,6 +42,10 @@ protected:
 private:
     int lowestKey = 36; // C2, 61 keys shown
     int splitPoint = -1;
+    bool hoverSplit = false, draggingSplit = false;
+    float splitX() const { return splitPoint >= 0 ? getKeyStartPosition(splitPoint) : -1000.0f; }
+    bool nearSplit(juce::Point<float> p) const { return splitPoint >= 0 && std::abs(p.x - splitX()) < 8.0f; }
+    int keyNearest(float x) const;
     bool editLower = false;
     bool greyed(int note) const { return splitPoint >= 0 && (editLower ? note >= splitPoint : note < splitPoint); }
     uint16_t scaleMask = 0;

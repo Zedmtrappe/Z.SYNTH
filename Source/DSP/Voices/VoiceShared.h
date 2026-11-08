@@ -13,7 +13,7 @@
 namespace zsynth::dsp
 {
 
-constexpr int kMaxVoices = 32;
+constexpr int kMaxVoices = 64;
 constexpr int kControlBlock = 32; // internal samples per modulation update (max)
 
 struct VoiceShared

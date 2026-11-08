@@ -87,6 +87,109 @@ void ZKeyboard::paint(juce::Graphics& g)
     g.drawText("LOWER", juce::Rectangle<float>(x - 64.0f, (float) getHeight() - 34.0f, 58.0f, 14.0f), juce::Justification::centredRight, false);
     g.setColour(juce::Colour(0xff8a5a14));
     g.drawText("UPPER", juce::Rectangle<float>(x + 6.0f, (float) getHeight() - 34.0f, 58.0f, 14.0f), juce::Justification::centredLeft, false);
+
+    if (hoverSplit || draggingSplit)
+    {
+        // The handle: a grip on the line with arrows either side, and the key it sits on.
+        const auto grip = juce::Rectangle<float>(x - 8.0f, 4.0f, 16.0f, 34.0f);
+        g.setColour(juce::Colours::black.withAlpha(0.45f));
+        g.fillRoundedRectangle(grip.translated(1.0f, 2.0f), 4.0f);
+        juce::ColourGradient body(Colours::accent.brighter(0.4f), grip.getX(), grip.getY(), Colours::accent.darker(0.4f), grip.getRight(),
+                                  grip.getBottom(), false);
+        g.setGradientFill(body);
+        g.fillRoundedRectangle(grip, 4.0f);
+        g.setColour(juce::Colours::black.withAlpha(0.55f));
+        for (int k = 0; k < 4; ++k)
+            g.fillRect(grip.getX() + 4.0f, grip.getY() + 10.0f + (float) k * 4.0f, grip.getWidth() - 8.0f, 1.4f);
+        juce::Path arrows;
+        arrows.addTriangle(grip.getX() - 9.0f, grip.getCentreY(), grip.getX() - 3.0f, grip.getCentreY() - 5.0f, grip.getX() - 3.0f, grip.getCentreY() + 5.0f);
+        arrows.addTriangle(grip.getRight() + 9.0f, grip.getCentreY(), grip.getRight() + 3.0f, grip.getCentreY() - 5.0f, grip.getRight() + 3.0f, grip.getCentreY() + 5.0f);
+        g.setColour(Colours::accent);
+        g.fillPath(arrows);
+        const auto tag = juce::Rectangle<float>(x - 22.0f, grip.getBottom() + 4.0f, 44.0f, 16.0f);
+        g.setColour(Colours::lcdBack.withAlpha(0.92f));
+        g.fillRoundedRectangle(tag, 3.0f);
+        g.setColour(Colours::lcdText);
+        g.setFont(lcdFont(11.0f));
+        g.drawText(juce::MidiMessage::getMidiNoteName(splitPoint, true, true, 4), tag, juce::Justification::centred, false);
+    }
+}
+
+int ZKeyboard::keyNearest(float x) const
+{
+    int best = splitPoint;
+    float bestDist = 1.0e9f;
+    for (int n = getLowestVisibleKey(); n <= juce::jmin(127, getLowestVisibleKey() + 72); ++n)
+    {
+        const float d = std::abs(getKeyStartPosition(n) - x);
+        if (d < bestDist)
+        {
+            bestDist = d;
+            best = n;
+        }
+    }
+    return juce::jlimit(12, 120, best);
+}
+
+void ZKeyboard::mouseMove(const juce::MouseEvent& e)
+{
+    const bool near = nearSplit(e.position);
+    if (near != hoverSplit)
+    {
+        hoverSplit = near;
+        repaint();
+    }
+    setMouseCursor(near ? juce::MouseCursor::LeftRightResizeCursor : juce::MouseCursor::NormalCursor);
+    if (! near)
+        juce::MidiKeyboardComponent::mouseMove(e);
+}
+
+void ZKeyboard::mouseExit(const juce::MouseEvent& e)
+{
+    if (hoverSplit && ! draggingSplit)
+    {
+        hoverSplit = false;
+        repaint();
+    }
+    juce::MidiKeyboardComponent::mouseExit(e);
+}
+
+void ZKeyboard::mouseDown(const juce::MouseEvent& e)
+{
+    if (nearSplit(e.position))
+    {
+        draggingSplit = true; // grabbing the handle plays no note
+        if (onSplitGesture)
+            onSplitGesture(true);
+        return;
+    }
+    juce::MidiKeyboardComponent::mouseDown(e);
+}
+
+void ZKeyboard::mouseDrag(const juce::MouseEvent& e)
+{
+    if (draggingSplit)
+    {
+        const int key = keyNearest(e.position.x);
+        if (key != splitPoint && onSplitMoved)
+            onSplitMoved(key);
+        return;
+    }
+    juce::MidiKeyboardComponent::mouseDrag(e);
+}
+
+void ZKeyboard::mouseUp(const juce::MouseEvent& e)
+{
+    if (draggingSplit)
+    {
+        draggingSplit = false;
+        hoverSplit = nearSplit(e.position);
+        repaint();
+        if (onSplitGesture)
+            onSplitGesture(false);
+        return;
+    }
+    juce::MidiKeyboardComponent::mouseUp(e);
 }
 
 void ZKeyboard::drawWhiteNote(int note, juce::Graphics& g, juce::Rectangle<float> area, bool isDown, bool isOver, juce::Colour, juce::Colour)

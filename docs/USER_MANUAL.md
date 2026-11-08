@@ -147,7 +147,8 @@ effects. The controls are under the panel, at the right of the audition bar.
   load a pad.
 * **SPLIT ▸** opens the KEYBOARD SPLIT window:
   * A map of the two zones (the part being edited is lit).
-  * The **split point** (the first key of the UPPER zone). Drag the marker
+  * The **split point** (the first key of the UPPER zone). On the panel's
+    keyboard, hover over the split line to show its handle and drag it. Or drag the marker
     on the map left or right, turn the KEY knob, or press **LEARN** and play
     the key (that key does not sound). LEARN also switches SINGLE to SPLIT.
   * **OCTAVE** (±3) and **LEVEL** for each part, and the EDIT buttons.
@@ -385,7 +386,7 @@ Tip: for vibrato on the mod wheel set DEST = Pitch, AMOUNT = 0, and route
 * **MODE** Poly / Mono (retriggers) / Legato (no retrigger while notes overlap).
 * **PRIORITY** (mono): last, lowest or highest note.
 * **ALLOCATE** (poly): Rotate (vintage round-robin), Reuse, Lowest.
-* **VEL CURVE**, **VOICES** (1–32 physical voices), **BEND** range, **AMP**
+* **VEL CURVE**, **VOICES** (1–64 physical voices), **BEND** range, **AMP**
   level, **PAN**.
 * **GLIDE** (time), **GLIDE MODE** (every note, or only legato) and **GLIDE
   TYPE**: **Analog** (the classic slide: quick at first, easing into the note,
@@ -395,7 +396,7 @@ Tip: for vibrato on the mod wheel set DEST = Pitch, AMOUNT = 0, and route
 * **UNISON** with **STACK** (2–8 voices per note), **DETUNE** and **SPREAD**
   (also spreads poly voices across the stereo field).
 * **VINTAGE** — per-voice differences in tuning, cutoff, level and position.
-* The LED panel shows which of the 32 voices are sounding.
+* The LED panel shows which of the 64 voices are sounding.
 
 ## FM operators
 
@@ -450,7 +451,8 @@ marks the current step.
 The bottom row holds two plates. **EFFECTS** (DRIVE, MODULATION) and
 **OUTPUT**, an L-shaped plate that runs from the EQ along the row (EQ,
 SMOOTH, DELAY, REVERB, TAPE, OUTPUT COMP) and up the right-hand column
-(LIMITER, VALVE, TRANSFORMER, MACRO / WIDTH / CHAR and the meter). Each
+(LIMITER, VALVE, TRANSFORMER, MACRO / WIDTH / MASTER and the meter). It is
+brushed aluminium and stands higher than the other plates. Each
 module has an **ON** switch and fades in/out smoothly.
 
 Signal order (defaults): DRIVE → MODULATION (phaser, flanger, chorus,
@@ -468,10 +470,10 @@ open the panel behind it dims, and the window has a warm halo and a lit rim
 | Module | Controls |
 |---|---|
 | DRIVE | TYPE (overdrive, distortion, fold), DRIVE, TONE, MIX |
-| MODULATION | EFFECT selects which modulation effect is shown: Chorus (TYPE: Classic BBD, Roland Digital (JD-800 / JV, bright), Korg Stereo (Wavestation / Triton, wide), Virus (short, with feedback); RATE, DEPTH, MIX), Ensemble (three-phase string ensemble: RATE, DEPTH, MIX), Phaser (RATE, DEPTH, FDBK, MIX) or Flanger (RATE, DEPTH, FDBK, MIX). Each keeps its own ON, so they can be stacked; the EFFECT menu marks the ones that are on |
+| MODULATION | EFFECT selects which modulation effect is shown: Chorus (TYPE: Classic BBD, Roland Digital (JD-800 / JV, bright), Korg Stereo (Wavestation / Triton, wide), Virus (short, with feedback); RATE, DEPTH, MIX), Ensemble (three-phase string ensemble: RATE, DEPTH, MIX), Phaser (RATE, DEPTH, FDBK, MIX) or Flanger (RATE, DEPTH, FDBK, MIX). When the block is on, choosing another EFFECT keeps it on: the new effect takes over from the old one. (Presets can still stack several; the EFFECT menu marks the ones that are on.) |
 | DELAY | SYNC, P.PONG, TIME or DIVISION, FDBK, TONE, MIX, TYPE; **ADV ▸** for the rest |
 | REVERB | SIZE, DAMP, PRE-DLY, MIX, TYPE; **ADVANCED ▸** for the rest |
-| STEREO | WIDTH (0 = mono, 100 % = unchanged, 200 % = wide), CHAR (output warmth) |
+| STEREO | WIDTH (0 = mono, 100 % = unchanged, 200 % = wide); MASTER (the final level, the same as the header knob; it feeds the safety LIMITER); CHAR (output warmth) is in the VALVE ADVANCED window |
 
 ### EQ (output)
 

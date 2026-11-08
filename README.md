@@ -62,7 +62,7 @@ advanced sections.
   12/24 dB, drive, self-oscillation, plus a pre-filter high-pass.
 * **Modulation** — 3 ADSRs, 2 LFOs (7 shapes, tempo sync, delay, retrigger
   modes), 8-slot matrix with 16 sources and 29 destinations, including effects.
-* **Voices** — up to 32 voices, poly/mono/legato, note priority, three
+* **Voices** — up to 64 voices, poly/mono/legato, note priority, three
   allocation modes, click-free voice stealing, unison up to 8, glide,
   vintage per-voice variation, sustain pedal.
 * **Panel** — a photo-real hardware surface: brushed steel plates on a black

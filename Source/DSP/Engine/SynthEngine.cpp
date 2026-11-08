@@ -225,10 +225,10 @@ void SynthEngine::processChunk(float* left, float* right, int n, const MidiEvent
     peaks[0].store(output.getPeak(0), std::memory_order_relaxed);
     peaks[1].store(output.getPeak(1), std::memory_order_relaxed);
     seqStepAtomic.store(seq.currentStep(), std::memory_order_relaxed);
-    uint32_t mask = 0;
+    uint64_t mask = 0;
     for (int i = 0; i < kMaxVoices; ++i)
         if (voices.voice(i).isActive())
-            mask |= 1u << i;
+            mask |= (uint64_t) 1 << i;
     voiceMask.store(mask, std::memory_order_relaxed);
     {
         // Wavetable positions of the newest sounding voice (for the displays).

@@ -331,6 +331,8 @@ juce::Colour ParamControl::legendInk() const
 {
     if (const auto* s = skin())
         return s->ink;
+    if (hasInk)
+        return inkOverride;
     return material::kLegend;
 }
 
@@ -536,7 +538,7 @@ void ParamControl::paintKnob(juce::Graphics& g, float diameter, bool showLabel)
         if (dragging || hovered)
             valueReadout(g, getValueText(), textArea.reduced(6.0f, 0.0f));
         else
-            legend.draw(g, label, textArea, labelFont(10.0f), juce::Justification::centred, legendInk(), skin() != nullptr ? 0.15f : 0.7f);
+            legend.draw(g, label, textArea, labelFont(10.0f), juce::Justification::centred, legendInk(), printedLegend() ? 0.15f : 0.7f);
     }
 }
 
@@ -717,7 +719,7 @@ void ParamControl::paintSkinnedKnob(juce::Graphics& g, float diameter, bool show
         if (dragging || hovered)
             valueReadout(g, getValueText(), textArea.reduced(6.0f, 0.0f));
         else
-            legend.draw(g, label, textArea, labelFont(10.0f), juce::Justification::centred, legendInk(), skin() != nullptr ? 0.15f : 0.7f);
+            legend.draw(g, label, textArea, labelFont(10.0f), juce::Justification::centred, legendInk(), printedLegend() ? 0.15f : 0.7f);
     }
 }
 
@@ -800,8 +802,15 @@ void ParamControl::paintSwitch(juce::Graphics& g)
         g.drawText(label, area, juce::Justification::centred, false);
     }
     else if (compact)
-        legend.draw(g, label, button.withTrimmedLeft(12.0f), labelFont(9.0f), juce::Justification::centred,
-                    on ? m::kLegend : m::kLegend.withMultipliedBrightness(0.6f), on ? 0.6f : 0.2f);
+    {
+        // Plainly printed and the same whether on or off (the LED shows the state).
+        const auto area = button.withTrimmedLeft(12.0f).toNearestInt();
+        g.setFont(labelFont(9.5f));
+        g.setColour(juce::Colours::black.withAlpha(0.6f));
+        g.drawFittedText(label, area.translated(0, 1), juce::Justification::centred, 1, 0.6f);
+        g.setColour(m::kLegend);
+        g.drawFittedText(label, area, juce::Justification::centred, 1, 0.6f);
+    }
 }
 
 void ParamControl::paintVSlider(juce::Graphics& g)
@@ -931,7 +940,7 @@ void ParamControl::paintFader(juce::Graphics& g)
     if (dragging || hovered)
         valueReadout(g, getValueText(), labelArea.reduced(0.0f, 1.0f));
     else
-        legend.draw(g, label, labelArea, labelFont(9.0f), juce::Justification::centred, legendInk(), skin() != nullptr ? 0.15f : 0.6f);
+        legend.draw(g, label, labelArea, labelFont(9.0f), juce::Justification::centred, legendInk(), printedLegend() ? 0.15f : 0.6f);
 }
 
 void ParamControl::paintStepSlider(juce::Graphics& g)

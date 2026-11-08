@@ -50,6 +50,8 @@ public:
     void setGlowWhenOn(bool g) { glowWhenOn = g; repaint(); }
     /** Switch lit while the parameter is OFF (a switch for the opposite setting, e.g. POST FX for peq.pre). */
     void setInverted(bool i) { inverted = i; repaint(); }
+    /** Legends printed in this ink (for controls on a light plate). */
+    void setLegendInk(juce::Colour ink) { inkOverride = ink; hasInk = true; legend.clear(); repaint(); }
     bool glowsWhenOn() const { return glowWhenOn; }
     void setSkinSource(std::function<const Skin*()> source) { skinSource = std::move(source); }
     bool hasSkinSource() const { return skinSource != nullptr; }
@@ -89,6 +91,10 @@ private:
     void paintSkinnedKnob(juce::Graphics&, float diameter, bool showLabel, const Skin&);
     const Skin* skin() const { return skinSource ? skinSource() : nullptr; }
     juce::Colour legendInk() const;
+    /** Printed (not back-lit) legend: on a model faceplate, or with an ink set. */
+    bool printedLegend() const { return skin() != nullptr || hasInk; }
+    juce::Colour inkOverride;
+    bool hasInk = false;
     void paintSelector(juce::Graphics&);
     void paintSwitch(juce::Graphics&);
     void paintVSlider(juce::Graphics&);

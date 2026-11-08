@@ -301,7 +301,7 @@ public:
     void refresh() override;
     void paint(juce::Graphics&) override;
 private:
-    uint32_t mask = 0;
+    uint64_t mask = 0;
     int limit = 16;
 };
 
