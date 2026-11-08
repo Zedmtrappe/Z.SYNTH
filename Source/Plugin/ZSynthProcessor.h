@@ -147,6 +147,8 @@ private:
     std::vector<float> partL, partR;
     int partTail[2] {};                        // samples a quiet part keeps running (effect tails)
     float partGain[2] { 1.0f, 1.0f };
+    // SPLIT / LAYER: a safety limiter on the two parts mixed (each part has its own).
+    float mixLimiterGain = 1.0f, mixLimiterRelease = 0.999f;
     std::atomic<bool> learningSplit { false };
     std::atomic<int> learnedNote { -1 };
     std::atomic<bool> clearNoteMaps { false };

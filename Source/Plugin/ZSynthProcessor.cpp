@@ -172,6 +172,8 @@ bool ZSynthProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 void ZSynthProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = sampleRate;
+    mixLimiterGain = 1.0f;
+    mixLimiterRelease = (float) std::exp(-1.0 / (0.08 * sampleRate));
     for (auto& e : engines)
         e.prepare(sampleRate, std::max(32, samplesPerBlock));
     monoScratch.assign((size_t) std::max(32, samplesPerBlock) * 2, 0.0f);
@@ -378,6 +380,25 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
             for (int i = 0; i < n; ++i)
                 left[i] += 0.5f * (partL[(size_t) i] + partR[(size_t) i]) * (g0 + step * (float) (i + 1));
         }
+    }
+
+    // SPLIT / LAYER: each part is limited on its own, but two loud parts can still
+    // add up past full scale. A last limiter on the mix catches that (ceiling
+    // -0.3 dBFS, instant attack, 80 ms release); it does nothing below the ceiling.
+    if (mode != SplitMode::Single || mixLimiterGain < 1.0f)
+    {
+        constexpr float ceiling = 0.966f;
+        for (int i = 0; i < n; ++i)
+        {
+            const float p = std::max(std::abs(left[i]), right != nullptr ? std::abs(right[i]) : 0.0f);
+            const float needed = p > ceiling ? ceiling / p : 1.0f;
+            mixLimiterGain = needed < mixLimiterGain ? needed : needed + (mixLimiterGain - needed) * mixLimiterRelease;
+            left[i] *= mixLimiterGain;
+            if (right != nullptr)
+                right[i] *= mixLimiterGain;
+        }
+        if (mixLimiterGain > 0.9999f)
+            mixLimiterGain = 1.0f;
     }
 
     // DRY: the instrument itself, mixed with the synth.

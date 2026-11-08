@@ -1046,6 +1046,24 @@ namespace
     };
 }
 
+ZS_TEST(layer_mix_is_limited)
+{
+    // Two loud parts, both levels up: each is limited on its own, and the final
+    // mix limiter keeps their sum under full scale.
+    SplitRig r("split5");
+    r.set("split.mode", (float) SplitMode::Layer);
+    r.set("split.lo.vol", 6.0f);
+    r.set("split.up.vol", 6.0f);
+    r.set("master.volume", 6.0f);
+    r.set("amp.level", 1.0f);
+    const float peak = r.run({ juce::MidiMessage::noteOn(1, 48, (uint8_t) 127), juce::MidiMessage::noteOn(1, 52, (uint8_t) 127),
+                               juce::MidiMessage::noteOn(1, 55, (uint8_t) 127), juce::MidiMessage::noteOn(1, 60, (uint8_t) 127),
+                               juce::MidiMessage::noteOn(1, 64, (uint8_t) 127) }, 80);
+    std::printf("    layered mix peak %.3f\n", peak);
+    ZS_CHECK(peak > 0.5f);
+    ZS_CHECK(peak <= 0.97f);
+}
+
 ZS_TEST(split_routes_keys_to_two_sounds)
 {
     SplitRig r("split1");
