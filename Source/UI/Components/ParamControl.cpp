@@ -75,6 +75,18 @@ void ParamControl::setInactive(bool shouldBeInactive, const juce::String& reason
 
 juce::String ParamControl::getTooltip()
 {
+    if (kind == ControlKind::NoteStrip)
+    {
+        // The key under the mouse names its note; the arrows say what they do.
+        const auto m = getMouseXYRelative().toFloat();
+        const int k = keyAt(m);
+        if (k >= 0)
+            return juce::MidiMessage::getMidiNoteName(noteForKey(k), true, true, 4);
+        if (noteArrow(true).contains(m))
+            return "Octave up";
+        if (noteArrow(false).contains(m))
+            return "Octave down";
+    }
     const auto& d = paramDef(index);
     juce::String t = juce::String(d.name) + ":  " + formatValue(index, value) + "\n" + d.help;
     if (inactive && inactiveReason.isNotEmpty())
@@ -1047,12 +1059,60 @@ juce::Rectangle<float> ParamControl::noteReadout() const
     return { r.getX(), r.getBottom() - 15.0f, r.getWidth(), 15.0f };
 }
 
-juce::Rectangle<float> ParamControl::noteSegment(int pitchClass) const
+namespace
+{
+    constexpr bool isBlackKey(int pc) { return pc == 1 || pc == 3 || pc == 6 || pc == 8 || pc == 10; }
+    // Position of each white key from the bottom (C = 0 ... B = 6); a black key sits on the
+    // boundary above the white key below it.
+    constexpr int whiteSlot[12] = { 0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6 };
+}
+
+juce::Rectangle<float> ParamControl::noteKey(int pitchClass) const
 {
     const auto r = getLocalBounds().toFloat().reduced(4.0f, 0.0f);
     const float top = 19.0f, bottom = r.getBottom() - 37.0f;
-    const float h = (bottom - top) / 12.0f;
-    return { r.getX(), top + (float) (11 - pitchClass) * h, r.getWidth(), h - 1.5f };
+    const float wh = (bottom - top) / 7.0f;
+    const int slot = whiteSlot[pitchClass];
+    if (! isBlackKey(pitchClass))
+        return { r.getX(), bottom - (float) (slot + 1) * wh, r.getWidth(), wh };
+    const float bh = wh * 0.62f, edge = bottom - (float) (slot + 1) * wh;
+    return { r.getX(), edge - bh * 0.5f, r.getWidth() * 0.6f, bh };
+}
+
+int ParamControl::keyAt(juce::Point<float> p) const
+{
+    for (int pc : { 1, 3, 6, 8, 10 })
+        if (noteKey(pc).contains(p))
+            return pc;
+    for (int pc : { 0, 2, 4, 5, 7, 9, 11 })
+        if (noteKey(pc).contains(p))
+            return pc;
+    return -1;
+}
+
+int ParamControl::noteForKey(int pc) const
+{
+    const int root = linkedRoot != nullptr ? juce::roundToInt(linkedRoot->load()) : 60;
+    const int lo = juce::roundToInt(param.convertFrom0to1(0.0f)), hi = juce::roundToInt(param.convertFrom0to1(1.0f));
+    const int note = root + juce::roundToInt(value);
+    int target = note - ((note % 12) + 12) % 12 + pc;
+    while (target - root > hi)
+        target -= 12;
+    while (target - root < lo)
+        target += 12;
+    return target;
+}
+
+void ParamControl::mouseMove(const juce::MouseEvent& e)
+{
+    if (kind != ControlKind::NoteStrip)
+        return;
+    const int k = keyAt(e.position);
+    if (k != hoverKey)
+    {
+        hoverKey = k;
+        repaint();
+    }
 }
 
 void ParamControl::refreshLinked()
@@ -1084,14 +1144,14 @@ void ParamControl::noteStripClick(juce::Point<float> p)
         }
     };
     // The lit note again: the step goes blank (a rest). Any note on a blank step: it plays again.
-    for (int pc = 0; pc < 12; ++pc)
-        if (noteSegment(pc).expanded(0.0f, 0.75f).contains(p) && pc == ((note % 12) + 12) % 12)
-        {
-            setGate(! gate);
-            if (! gate && onNoteChosen)
-                onNoteChosen(note); // back from a rest: hear it
-            return;
-        }
+    const int key = keyAt(p);
+    if (key >= 0 && key == ((note % 12) + 12) % 12)
+    {
+        setGate(! gate);
+        if (! gate && onNoteChosen)
+            onNoteChosen(note); // back from a rest: hear it
+        return;
+    }
     if (! gate && ! noteArrow(true).contains(p) && ! noteArrow(false).contains(p))
         setGate(true);
     auto chosen = [this](int n) {
@@ -1103,17 +1163,8 @@ void ParamControl::noteStripClick(juce::Point<float> p)
         target = note + 12;
     else if (noteArrow(false).contains(p))
         target = note - 12;
-    else
-        for (int pc = 0; pc < 12; ++pc)
-            if (noteSegment(pc).expanded(0.0f, 0.75f).contains(p))
-            {
-                // That note, in the octave the step is in (kept within the knob's range).
-                target = note - ((note % 12) + 12) % 12 + pc;
-                while (target - root > hi)
-                    target -= 12;
-                while (target - root < lo)
-                    target += 12;
-            }
+    else if (key >= 0)
+        target = noteForKey(key); // that note, in the octave the step is in
     if (target - root < lo || target - root > hi || target == note)
     {
         if (target == note && ! gate)
@@ -1126,7 +1177,6 @@ void ParamControl::noteStripClick(juce::Point<float> p)
 
 void ParamControl::paintNoteStrip(juce::Graphics& g)
 {
-    static const char* names[12] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
     const int root = linkedRoot != nullptr ? juce::roundToInt(linkedRoot->load()) : 60;
     const bool gate = linkedGate == nullptr || linkedGate->load() >= 0.5f;
     const int lo = juce::roundToInt(param.convertFrom0to1(0.0f)), hi = juce::roundToInt(param.convertFrom0to1(1.0f));
@@ -1154,40 +1204,76 @@ void ParamControl::paintNoteStrip(juce::Graphics& g)
         g.fillPath(tri);
     }
 
-    // Twelve note buttons: the step's note lit, the row's root marked.
-    g.setFont(labelFont(8.5f));
-    for (int k = 0; k < 12; ++k)
+    // A one-octave keyboard on its side (C at the bottom, black keys on the left):
+    // the step's note is the green key, the row's ROOT has an amber dot.
+    const juce::Colour green(0xff3fdc5a);
+    const int rootPc = ((root % 12) + 12) % 12;
     {
-        const auto r = noteSegment(k);
-        const bool sharp = names[k][1] == '#';
-        const bool lit = k == pc && gate; // a rest shows no note
+        auto bed = noteKey(0).getUnion(noteKey(11)).expanded(1.5f);
         g.setColour(juce::Colours::black);
-        g.fillRoundedRectangle(r.expanded(0.8f), 2.0f);
+        g.fillRoundedRectangle(bed, 2.5f);
+    }
+    auto drawKey = [&](int k) {
+        const auto r = noteKey(k);
+        const bool black = isBlackKey(k);
+        const bool lit = k == pc && gate; // a rest shows no note
+        const auto kr = black ? r : r.reduced(0.0f, 0.5f);
+        juce::Colour top, bottom;
         if (lit)
         {
-            const auto c = gate ? led : led.withMultipliedBrightness(0.45f);
-            g.setColour(c.withAlpha(0.35f));
-            g.fillRoundedRectangle(r.expanded(2.0f), 3.0f);
-            juce::ColourGradient lens(c.brighter(0.5f), r.getCentreX(), r.getY(), c.darker(0.2f), r.getCentreX(), r.getBottom(), false);
-            g.setGradientFill(lens);
-            g.fillRoundedRectangle(r, 2.0f);
-            g.setColour(juce::Colours::white.withAlpha(0.35f));
-            g.fillRoundedRectangle(r.withHeight(r.getHeight() * 0.35f).reduced(2.0f, 0.5f), 1.5f);
+            top = green.brighter(black ? 0.1f : 0.45f);
+            bottom = green.darker(black ? 0.55f : 0.15f);
+        }
+        else if (black)
+        {
+            top = juce::Colour(0xff3a3b3f);
+            bottom = juce::Colour(0xff0d0d0f);
         }
         else
         {
-            g.setColour(sharp ? juce::Colour(0xff1c0f0d) : juce::Colour(0xff2a1512));
-            g.fillRoundedRectangle(r, 2.0f);
+            top = juce::Colour(0xfff4f1ea);
+            bottom = juce::Colour(0xffc9c4b8);
         }
-        g.setColour(lit ? juce::Colours::black.withAlpha(0.85f)
-                        : (sharp ? juce::Colour(0xff8a6a60) : juce::Colour(0xffd8c8bc)).withAlpha(0.8f));
-        g.drawText(names[k], r.toNearestInt(), juce::Justification::centred, false);
-        if (k == ((root % 12) + 12) % 12)
+        if (k == hoverKey && ! lit)
         {
-            g.setColour(amber.withAlpha(0.8f)); // the row's ROOT
-            g.fillRect(r.getX() + 1.5f, r.getCentreY() - 2.0f, 2.0f, 4.0f);
+            top = top.brighter(black ? 0.35f : 0.0f).interpolatedWith(green, 0.18f);
+            bottom = bottom.interpolatedWith(green, 0.12f);
         }
-    }
+        // Lit from the right (the key's front edge), like keys seen from the player.
+        juce::ColourGradient body(bottom, kr.getX(), kr.getCentreY(), top, kr.getRight(), kr.getCentreY(), false);
+        g.setGradientFill(body);
+        g.fillRoundedRectangle(kr, black ? 1.5f : 1.0f);
+        if (lit)
+        {
+            g.setColour(green.withAlpha(0.35f));
+            g.drawRoundedRectangle(kr.expanded(0.5f), 1.5f, 1.2f);
+        }
+        if (black)
+        {
+            g.setColour(juce::Colours::white.withAlpha(lit ? 0.35f : 0.12f));
+            g.fillRect(kr.getRight() - 3.0f, kr.getY() + 1.5f, 1.5f, kr.getHeight() - 3.0f);
+            g.setColour(juce::Colours::black.withAlpha(0.6f));
+            g.drawRoundedRectangle(kr, 1.5f, 0.8f);
+        }
+        else
+        {
+            g.setColour(juce::Colours::black.withAlpha(0.45f)); // the gap to the key above
+            g.drawLine(kr.getX(), kr.getY(), kr.getRight(), kr.getY(), 0.8f);
+        }
+        if (k == rootPc)
+        {
+            const float d = 4.0f;
+            const float cx = kr.getRight() - 6.0f;
+            g.setColour(amber);
+            g.fillEllipse(cx - d * 0.5f, kr.getCentreY() - d * 0.5f, d, d);
+            g.setColour(juce::Colours::black.withAlpha(0.5f));
+            g.drawEllipse(cx - d * 0.5f, kr.getCentreY() - d * 0.5f, d, d, 0.6f);
+        }
+    };
+    for (int k : { 0, 2, 4, 5, 7, 9, 11 })
+        drawKey(k);
+    for (int k : { 1, 3, 6, 8, 10 })
+        drawKey(k);
 
     // The note itself, on a small red LED readout.
     const auto rd = noteReadout();

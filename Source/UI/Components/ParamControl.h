@@ -73,7 +73,8 @@ public:
     void mouseDoubleClick(const juce::MouseEvent&) override;
     void mouseWheelMove(const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
     void mouseEnter(const juce::MouseEvent&) override { hovered = true; repaint(); }
-    void mouseExit(const juce::MouseEvent&) override { hovered = false; repaint(); }
+    void mouseExit(const juce::MouseEvent&) override { hovered = false; hoverKey = -1; repaint(); }
+    void mouseMove(const juce::MouseEvent&) override;
     bool keyPressed(const juce::KeyPress&) override;
     void focusGained(FocusChangeType) override { repaint(); }
     void focusLost(FocusChangeType) override { repaint(); }
@@ -90,7 +91,13 @@ private:
     float shownRoot = -1.0f, shownGate = -1.0f;
     void paintNoteStrip(juce::Graphics&);
     void noteStripClick(juce::Point<float>);
-    juce::Rectangle<float> noteSegment(int pitchClass) const;
+    /** Mini keyboard (C at the bottom, black keys on the left): the key of one pitch class. */
+    juce::Rectangle<float> noteKey(int pitchClass) const;
+    /** Pitch class of the key under p (black keys first), or -1. */
+    int keyAt(juce::Point<float> p) const;
+    /** The note a key gives the step: that pitch class in the step's octave, kept in range. */
+    int noteForKey(int pitchClass) const;
+    int hoverKey = -1;
     juce::Rectangle<float> noteArrow(bool up) const;
     juce::Rectangle<float> noteReadout() const;
     void valueChanged(float newValue);
