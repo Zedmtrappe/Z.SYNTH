@@ -59,6 +59,10 @@ public:
                  const float* params, const MidiEvent* events, int numEvents,
                  const TransportInfo& transport);
 
+    /** Audio thread: the next block starts with every parameter at its value, no glide
+        (for an engine that was idle, so changes made meanwhile do not sweep in). */
+    void snapParameters() { smoothedValid = false; }
+
     /** Thread-safe: requests an immediate silence of all voices and effect tails. */
     void requestPanic() { panicRequested.store(true, std::memory_order_relaxed); }
 

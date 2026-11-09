@@ -28,8 +28,6 @@ Activity activityFor(int i, const float* v, bool hostTempo)
             return inactive("VOICES is below 3: voice 3 is not used.");
         if ((i == P::HarmKey || i == P::HarmOutKey) && (HarmScale) choice(v, P::HarmScale) == HarmScale::Fixed)
             return inactive("FIXED intervals ignore the key.");
-        if (i == P::HarmPart && (SplitMode) choice(v, P::SplitMode) == SplitMode::Single)
-            return inactive("KEYBOARD is SINGLE: the harmony plays the one sound.");
     }
 
     // ---- keyboard split / layer

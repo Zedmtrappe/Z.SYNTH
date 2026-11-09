@@ -143,7 +143,7 @@ When it is on, the button glows orange; **▸** opens its window.
 | INTERVAL / UP-DOWN | Each voice's interval (2nd ... 10th, octave), above or below. In the seven-note scales intervals count scale steps: a 3rd above E in C major is G, above F it is A, as a singer would harmonise |
 | HARMONISE | EVERY NOTE, or the TOP NOTE only (the melody of a chord: much cleaner when you play chords on the keyboard; with a single line it makes no difference) |
 | OUT OF KEY | A played note outside the scale: SNAP it to the nearest scale note, HARMONISE it anyway, or PLAY it ALONE |
-| APPLIES TO | With SPLIT / LAYER: harmonise both sounds, or only UPPER or LOWER |
+| APPLIES TO | Harmonise both sounds, or only UPPER or LOWER, in any mode. Harmony goes on whatever a sound plays: the keyboard, MIDI, PITCH TRACK and the pattern sequencer's notes |
 | LEVEL | Velocity of the harmony notes against yours |
 | STRUM | Each harmony note follows the one before by up to 50 ms (played, not stacked) |
 | RANGE | Harmony notes outside LOWEST ... HIGHEST fold back by octaves |
@@ -175,7 +175,7 @@ effects. The controls are under the panel, at the right of the sequencer strip.
     keyboard, hover over the split line to show its handle and drag it. Or drag the marker
     on the map left or right, turn the KEY knob, or press **LEARN** and play
     the key (that key does not sound). LEARN also switches SINGLE to SPLIT.
-  * **OCTAVE** (±3) and **LEVEL** for each part, and the EDIT buttons.
+  * **OCTAVE** (±3) for each part, and the EDIT buttons. (Each part's level is its own MASTER.)
 
 **Changing presets.** A preset saved while SPLIT or LAYER is on brings
 back the split (or layer) and both sounds; one saved with HARMONY on brings
@@ -193,7 +193,8 @@ the keys of the part you are not editing are greyed out (they still play
 that part). A note
 always releases in the part it started in, even if you move the split point
 while holding it. Controllers (sustain, mod wheel, pitch bend, aftertouch)
-reach both parts. Each part has its own complete output section (EQ, SMOOTH,
+reach both parts in SPLIT and LAYER, and only the selected part in SINGLE.
+**PITCH TRACK** always plays the selected part, whatever the keyboard mode. Each part has its own complete output section (EQ, SMOOTH,
 TAPE, compressor, valve, transformer, limiter) and its own MASTER level.
 Whichever part is selected (UPPER or LOWER) owns the whole panel: every
 control, the output section and MASTER included, shows and changes that part

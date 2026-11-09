@@ -600,7 +600,8 @@ ZS_TEST(layout_every_parameter_exactly_once)
     {
         // MASTER is both the header knob and the OUTPUT fader (two views of one value).
         // (The sequencer's RUN is driven by the PLAY / STOP transport keys, not a control of its own.)
-        const int expected = i == P::MasterVolume ? 2 : (i == P::PseqRun || i == P::PseqARoot || i == P::PseqBRoot ? 0 : 1);
+        const int expected = i == P::MasterVolume ? 2
+                           : (i == P::PseqRun || i == P::PseqARoot || i == P::PseqBRoot || i == P::SplitLowVol || i == P::SplitUpVol ? 0 : 1);
         if (count[(size_t) i] != expected)
             std::printf("    %s appears %d times\n", paramDef(i).id, count[(size_t) i]);
         ZS_CHECK(count[(size_t) i] == expected);
@@ -1199,9 +1200,10 @@ ZS_TEST(layer_mix_is_limited)
     // mix limiter keeps their sum under full scale.
     SplitRig r("split5");
     r.set("split.mode", (float) SplitMode::Layer);
-    r.set("split.lo.vol", 6.0f);
-    r.set("split.up.vol", 6.0f);
     r.set("master.volume", 6.0f);
+    r.p.setEditPart(ZSynthProcessor::kLower);
+    r.set("master.volume", 6.0f);
+    r.p.setEditPart(ZSynthProcessor::kUpper);
     r.set("amp.level", 1.0f);
     const float peak = r.run({ juce::MidiMessage::noteOn(1, 48, (uint8_t) 127), juce::MidiMessage::noteOn(1, 52, (uint8_t) 127),
                                juce::MidiMessage::noteOn(1, 55, (uint8_t) 127), juce::MidiMessage::noteOn(1, 60, (uint8_t) 127),
@@ -1352,6 +1354,45 @@ ZS_TEST(arpeggiator_plays_from_the_sequencer)
     ZS_CHECK(arpeggiated >= 3 * plain);
 }
 
+ZS_TEST(harmony_plays_on_sequencer_notes_and_controllers_follow_the_part)
+{
+    // HARMONY adds its voices to the sequencer's notes too (it applies to whatever
+    // a part plays): one step, two voices of harmony = three notes sounding.
+    auto voicesFor = [](bool harmony) {
+        SplitRig r(harmony ? "harm-seq-on" : "harm-seq-off");
+        r.set("harm.on", harmony ? 1.0f : 0.0f);
+        r.set("harm.voices", 2.0f);
+        r.set("voice.unison", 0.0f);
+        r.set("pseq.b.on", 0.0f);
+        r.set("pseq.a.div", 6.0f);
+        r.set("pseq.a.len", 1.0f);
+        r.set("pseq.a.glen", 100.0f);
+        r.set("pseq.a.s1.gate", 1.0f);
+        r.set("pseq.a.s1.pitch", 60.0f);
+        r.set("pseq.run", 1.0f);
+        int most = 0;
+        for (int b = 0; b < 40; ++b)
+        {
+            r.run({}, 1);
+            most = std::max(most, r.voices(ZSynthProcessor::kUpper));
+        }
+        return most;
+    };
+    const int plain = voicesFor(false), harmonised = voicesFor(true);
+    std::printf("    voices: %d plain, %d harmonised\n", plain, harmonised);
+    ZS_CHECK(plain >= 1);
+    ZS_CHECK(harmonised >= 3 * plain);
+
+    // Controllers: in SINGLE only the selected part gets them; in SPLIT both.
+    SplitRig r("ctl-part");
+    r.run({ juce::MidiMessage::controllerEvent(1, 1, 127) }, 4);
+    ZS_CHECK(r.p.getPartEngine(ZSynthProcessor::kUpper).getModWheel() > 0.9f);
+    ZS_CHECK(r.p.getPartEngine(ZSynthProcessor::kLower).getModWheel() < 0.1f);
+    r.set("split.mode", (float) SplitMode::Split);
+    r.run({ juce::MidiMessage::controllerEvent(1, 1, 100) }, 4);
+    ZS_CHECK(r.p.getPartEngine(ZSynthProcessor::kLower).getModWheel() > 0.7f);
+}
+
 ZS_TEST(selected_part_owns_keyboard_and_every_panel_control)
 {
     // With LOWER selected the keyboard plays LOWER (SINGLE), and every control on the
@@ -1425,13 +1466,16 @@ ZS_TEST(split_routes_keys_to_two_sounds)
     const float layered = r.run({ juce::MidiMessage::noteOn(1, 64, (uint8_t) 100) });
     ZS_CHECK(r.voices(ZSynthProcessor::kLower) > 0 && r.voices(ZSynthProcessor::kUpper) > 0);
     ZS_CHECK(layered > 0.01f);
-    // Part volumes: both at -40 dB is (nearly) silent.
+    // Part levels are each part's MASTER: both at -60 dB (off) is silent.
     r.run({ juce::MidiMessage::allNotesOff(1) }, 400);
-    r.set("split.up.vol", -40.0f);
-    r.set("split.lo.vol", -40.0f);
-    r.run({}, 2); // the level change glides over one block
+    const int was = r.p.getEditPart();
+    r.set("master.volume", -60.0f);
+    r.p.setEditPart(1 - was);
+    r.set("master.volume", -60.0f);
+    r.p.setEditPart(was);
+    r.run({}, 20); // MASTER glides (about 50 ms)
     const float quiet = r.run({ juce::MidiMessage::noteOn(1, 64, (uint8_t) 100) });
-    std::printf("    layer peak %.3f, both parts at -40 dB %.4f\n", layered, quiet);
+    std::printf("    layer peak %.3f, both parts' MASTER off %.4f\n", layered, quiet);
     ZS_CHECK(quiet < 0.02f * layered);
 }
 
@@ -1624,6 +1668,33 @@ ZS_TEST(pitch_track_plays_the_synth_from_the_audio_input)
     }
     ZS_CHECK(p.getTracker().getNote() == -1);
     ZS_CHECK(p.getEngine().getActiveVoices() == 0);
+
+    // PITCH TRACK plays the selected part, whatever the keyboard mode: with SPLIT at C4
+    // and UPPER selected, the A string (below the split) still plays UPPER only.
+    set("split.mode", (float) SplitMode::Split);
+    set("split.point", 60.0f);
+    p.setEditPart(ZSynthProcessor::kUpper);
+    set("trk.on", 1.0f);
+    set("trk.dry", 0.0f);
+    int upper = 0, lower = 0;
+    phase = 0.0;
+    for (int b = 0; b < 48000 / 256; ++b)
+    {
+        for (int i = 0; i < 256; ++i)
+        {
+            phase += 2.0 * juce::MathConstants<double>::pi * 110.0 / 48000.0;
+            const float t = (float) (b * 256 + i) / 48000.0f;
+            buffer.setSample(0, i, 0.3f * std::exp(-t * 2.0f) * (float) (std::sin(phase) + 0.5 * std::sin(2.0 * phase)));
+            buffer.setSample(1, i, 0.0f);
+        }
+        juce::MidiBuffer midi;
+        p.processBlock(buffer, midi);
+        upper = std::max(upper, p.getPartEngine(ZSynthProcessor::kUpper).getActiveVoices());
+        lower = std::max(lower, p.getPartEngine(ZSynthProcessor::kLower).getActiveVoices());
+    }
+    ZS_CHECK(upper > 0);
+    ZS_CHECK(lower == 0);
+    set("trk.on", 0.0f);
 
     // The plug-in formats have no input: nothing to track.
     ZSynthProcessor plugin(dir, ZSynthProcessor::AudioInput::Disabled);
@@ -1907,7 +1978,6 @@ static int snapshots(const juce::File& dir)
     set("split.mode", (float) SplitMode::Split);
     set("split.point", 55.0f);
     set("split.lo.oct", -1.0f);
-    set("split.lo.vol", -3.0f);
     shoot("split", "split");
     shoot("splitmain", {});
     set("harm.on", 1.0f);

@@ -514,19 +514,17 @@ PanelLayout::PanelLayout()
     utilityAt("splitMap", 20, 34, 680, 92);
     heading("LOWER", 20, 138, 200);
     add("split.lo.oct", K::Knob, 20, 158, "OCTAVE");
-    add("split.lo.vol", K::Knob, 80, 158, "LEVEL");
     utilityAt("editLower", 140, 170, 120, 26);
     heading("SPLIT POINT", 290, 138, 140);
     add("split.point", K::Knob, 300, 158, "KEY");
     utilityAt("splitLearn", 360, 170, 70, 26);
     heading("UPPER", 460, 138, 200);
     add("split.up.oct", K::Knob, 460, 158, "OCTAVE");
-    add("split.up.vol", K::Knob, 520, 158, "LEVEL");
     utilityAt("editUpper", 580, 170, 120, 26);
-    text("Two complete sounds, each with its own oscillators, filter, envelopes and effects.  SPLIT: LOWER plays below the "
-         "split point, UPPER from it up.  LAYER: both on every key.  SINGLE: just the sound on the panel.  "
-         "UPPER / LOWER (next to KEYBOARD, under the panel) choose which sound the panel edits: load a preset or tweak "
-         "anything and it goes to that part.  LEARN: press it, then play the key that should start the UPPER zone.",
+    text("Two complete instruments, each with its own oscillators, filter, envelopes, effects and MASTER level.  "
+         "UPPER / LOWER (next to KEYBOARD, under the panel) choose the one the panel shows and edits, PITCH TRACK plays and, "
+         "in SINGLE, the keyboard plays.  SPLIT: LOWER below the split point, UPPER from it up.  LAYER: both on every key.  "
+         "The sequencer plays each row's own choice in any mode.  LEARN: press it, then play the key that should start the UPPER zone.",
          20, 236, 680, 84, juce::Justification::topLeft);
 
     // ------------------------------------------------------ wavetable engine

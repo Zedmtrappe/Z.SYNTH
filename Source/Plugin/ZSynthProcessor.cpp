@@ -56,6 +56,7 @@ ZSynthProcessor::ZSynthProcessor(juce::File userPresetDir, AudioInput input)
     }
 
     events.reserve(kMaxEventsPerBlock);
+    fromTracker.reserve(kMaxEventsPerBlock);
     presets = std::make_unique<PresetManager>(apvts, factoryBanks(), userPresetDir);
     loadKeepPolicies();
     presets->onLoaded = [this](const PresetData& p) { applyPresetSetup(p); };
@@ -531,6 +532,7 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     midiLearn.process(midi);
 
     events.clear();
+    fromTracker.clear();
     for (const auto metadata : midi)
     {
         if (events.size() >= (size_t) kMaxEventsPerBlock - 32)
@@ -549,6 +551,7 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
         e.data1 = metadata.numBytes > 1 ? raw[1] : 0;
         e.data2 = metadata.numBytes > 2 ? raw[2] : 0;
         events.push_back(e);
+        fromTracker.push_back(0);
     }
 
     // The tracker's notes join the events, in time order.
@@ -581,8 +584,12 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
         {
             // Insert in time order (after events at the same offset); no allocation.
             events.push_back(tracked[k]);
+            fromTracker.push_back(1);
             for (size_t j = events.size() - 1; j > 0 && events[j - 1].offset > events[j].offset; --j)
+            {
                 std::swap(events[j - 1], events[j]);
+                std::swap(fromTracker[j - 1], fromTracker[j]);
+            }
         }
     }
 
@@ -626,18 +633,19 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
                 pseqTranspose = juce::jlimit(-36, 36, (int) e.data1 - 60);
             if (kind == 0x80 || kind == 0x90)
                 continue;
+            fromTracker[w] = fromTracker[i];
             events[w++] = e;
         }
         events.resize(w);
+        fromTracker.resize(w);
     }
 
     keyDetector.observe(events.data(), (int) events.size(), n);
     routeEvents(partParams[getEditPart()]);
-    harmonise(n, partParams[getEditPart()]);
 
     {
-        // The sequencer's notes join each part's events, in time order. With SINGLE
-        // both rows play the sound on the panel; with SPLIT / LAYER, their own.
+        // The sequencer's notes join each part's events, in time order: each row
+        // plays the part(s) its PLAYS chooses, whatever the keyboard mode.
         struct PartSink : dsp::PatternSequencer::Sink
         {
             std::array<std::vector<dsp::MidiEvent>, 2>& ev;
@@ -722,6 +730,8 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
             send(previewMask, 0, 0x90, previewNote, row.velocity);
         }
     }
+    // HARMONY: on everything each part plays (keys, PITCH TRACK and the sequencer).
+    harmonise(n, partParams[getEditPart()]);
 
     float* left = buffer.getWritePointer(0);
     float* right = buffer.getNumChannels() > 1 ? buffer.getWritePointer(1) : nullptr;
@@ -731,15 +741,17 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     if ((int) partL.size() < n)
         return; // host exceeded its announced block size: never allocate here
 
-    const auto* g = partParams[getEditPart()];
-    const auto mode = (SplitMode) juce::roundToInt(g[P::SplitMode]);
     const int tail = (int) (currentSampleRate * 15.0); // reverb and delay tails of a part that stopped playing
     for (int part = 0; part < 2; ++part)
     {
         auto& ev = partEvents[(size_t) part];
         auto& eng = engines[(size_t) part];
         if (! ev.empty() || eng.getActiveVoices() > 0)
+        {
+            if (partTail[part] <= 0)
+                eng.snapParameters(); // waking up: settings changed while idle apply at once
             partTail[part] = tail;
+        }
         else if (partTail[part] <= 0)
             continue; // silent: skip it entirely
         else
@@ -747,9 +759,8 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 
         eng.process(partL.data(), partR.data(), n, partParams[part], ev.data(), (int) ev.size(), transport);
 
-        // Part levels (split / layer); smoothed over the block.
-        const float target = mode == SplitMode::Single ? 1.0f
-                           : juce::Decibels::decibelsToGain(g[part == kLower ? P::SplitLowVol : P::SplitUpVol], -40.0f);
+        // (Each part's level is its own MASTER; the split page's part levels are retired.)
+        const float target = 1.0f;
         const float g0 = partGain[part], step = (target - g0) / (float) n;
         partGain[part] = target;
         if (right != nullptr)
@@ -843,15 +854,19 @@ void ZSynthProcessor::routeEvents(const float* g)
             for (auto& ch : part)
                 std::fill(std::begin(ch), std::end(ch), (int8_t) -1);
 
-    const auto mode = (SplitMode) juce::roundToInt(g[P::SplitMode]);
+    const auto keyMode = (SplitMode) juce::roundToInt(g[P::SplitMode]);
     const int point = juce::roundToInt(g[P::SplitPoint]);
     const int octave[2] = { juce::roundToInt(g[P::SplitUpOct]), juce::roundToInt(g[P::SplitLowOct]) };
     const int edit = getEditPart();
     partEvents[0].clear();
     partEvents[1].clear();
 
-    for (const auto& e : events)
+    for (size_t i = 0; i < events.size(); ++i)
     {
+        const auto& e = events[i];
+        // PITCH TRACK always plays the part that is selected, as SINGLE does.
+        const bool tracked = i < fromTracker.size() && fromTracker[i] != 0;
+        const auto mode = tracked ? SplitMode::Single : keyMode;
         const int kind = e.status & 0xF0, ch = e.status & 0x0F, key = e.data1 & 0x7F;
         const bool on = kind == 0x90 && e.data2 > 0;
         const bool off = kind == 0x80 || (kind == 0x90 && e.data2 == 0);
@@ -894,12 +909,15 @@ void ZSynthProcessor::routeEvents(const float* g)
         }
         else
         {
-            // Controllers, pitch bend, channel pressure: both parts.
-            if (kind == 0xB0 && (e.data1 == 120 || e.data1 == 123))
+            // Controllers, pitch bend, channel pressure: in SINGLE (and from PITCH TRACK)
+            // the selected part; with SPLIT / LAYER, both. All-notes-off: both, always.
+            const bool allOff = kind == 0xB0 && (e.data1 == 120 || e.data1 == 123);
+            if (allOff)
                 for (auto& part : noteMap)
                     std::fill(std::begin(part[ch]), std::end(part[ch]), (int8_t) -1);
-            partEvents[0].push_back(e);
-            partEvents[1].push_back(e);
+            for (int part = 0; part < 2; ++part)
+                if (allOff || mode != SplitMode::Single || part == edit)
+                    partEvents[(size_t) part].push_back(e);
         }
     }
 }
@@ -924,11 +942,10 @@ void ZSynthProcessor::harmonise(int n, const float* g)
     hs.highest = juce::roundToInt(g[P::HarmHigh]);
 
     const bool on = g[P::HarmOn] >= 0.5f;
-    const auto mode = (SplitMode) juce::roundToInt(g[P::SplitMode]);
     const int applies = juce::roundToInt(g[P::HarmPart]); // 0 both, 1 upper, 2 lower
     for (int part = 0; part < 2; ++part)
     {
-        const bool wanted = on && (mode == SplitMode::Single || applies == 0 || (applies == 1) == (part == kUpper));
+        const bool wanted = on && (applies == 0 || (applies == 1) == (part == kUpper));
         auto& ev = partEvents[(size_t) part];
         auto& h = harmonizers[(size_t) part];
         const int cap = (int) std::min(harmScratch.size(), ev.capacity());

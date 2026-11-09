@@ -2169,14 +2169,11 @@ void SplitMap::paint(juce::Graphics& g)
     auto label = [&](int part, juce::Rectangle<int> where, juce::Justification j) {
         const auto c = part == ZSynthProcessor::kLower ? lowerColour : upperColour;
         const int oct = iv(part == ZSynthProcessor::kLower ? P::SplitLowOct : P::SplitUpOct);
-        const float vol = v(part == ZSynthProcessor::kLower ? P::SplitLowVol : P::SplitUpVol);
         juce::String t = (part == ZSynthProcessor::kLower ? "LOWER: " : "UPPER: ") + processor.getPartName(part);
         if (mode != SplitMode::Single)
         {
             if (oct != 0)
                 t << "   " << (oct > 0 ? "+" : "") << oct << " oct";
-            if (std::abs(vol) > 0.05f)
-                t << "   " << juce::String(vol, 1) << " dB";
         }
         if (part == edit)
             t << "   (EDITING)";

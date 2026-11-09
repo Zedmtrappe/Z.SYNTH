@@ -368,8 +368,8 @@ X(SplitMode,     "split.mode",    "Keyboard Mode", "Global", Choice, 0, 0, 0.f, 
 X(SplitPoint,    "split.point",   "Split Point", "Global", Int, 12.f, 120.f, 60.f, LIN, "note", nullptr, "The lowest key of the UPPER zone (LEARN: play a key to set it).") \
 X(SplitLowOct,   "split.lo.oct",  "Lower Octave", "Global", Int, -3.f, 3.f, 0.f, LIN, "oct", nullptr, "Octave shift of the LOWER sound.") \
 X(SplitUpOct,    "split.up.oct",  "Upper Octave", "Global", Int, -3.f, 3.f, 0.f, LIN, "oct", nullptr, "Octave shift of the UPPER sound.") \
-X(SplitLowVol,   "split.lo.vol",  "Lower Volume", "Global", Float, -40.f, 6.f, 0.f, LIN, "dB", nullptr, "Level of the LOWER sound.") \
-X(SplitUpVol,    "split.up.vol",  "Upper Volume", "Global", Float, -40.f, 6.f, 0.f, LIN, "dB", nullptr, "Level of the UPPER sound.") \
+X(SplitLowVol,   "split.lo.vol",  "Lower Volume", "Global", Float, -40.f, 6.f, 0.f, LIN, "dB", nullptr, "Unused (older projects): each part\'s level is now its MASTER.") \
+X(SplitUpVol,    "split.up.vol",  "Upper Volume", "Global", Float, -40.f, 6.f, 0.f, LIN, "dB", nullptr, "Unused (older projects): each part\'s level is now its MASTER.") \
 X(TrkClean,      "trk.clean",     "Track Clean Up", "Global", Float, 0.f, 1.f, 0.5f, LIN, "", nullptr, "CLEAN UP: suppresses tracking glitches (short stray low notes). Only doubtful readings wait to be confirmed: picked, clean notes are never delayed.") \
 /* ------------------------------------------------------------- Harmoniser */ \
 X(HarmOn,        "harm.on",       "Harmony", "Global", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "HARMONY: adds up to three notes in key to every note you play (keyboard, MIDI or PITCH TRACK).") \
@@ -388,7 +388,7 @@ X(HarmLevel,     "harm.level",    "Harmony Level", "Global", Float, 0.f, 1.f, 0.
 X(HarmStrum,     "harm.strum",    "Harmony Strum", "Global", Float, 0.f, 50.f, 0.f, LIN, "ms", nullptr, "STRUM: each harmony note follows the one before by this much (played, not stacked).") \
 X(HarmLow,       "harm.lo",       "Harmony Lowest", "Global", Int, 12.f, 120.f, 36.f, LIN, "note", nullptr, "RANGE: harmony notes below this fold up by octaves.") \
 X(HarmHigh,      "harm.hi",       "Harmony Highest", "Global", Int, 12.f, 120.f, 96.f, LIN, "note", nullptr, "RANGE: harmony notes above this fold down by octaves.") \
-X(HarmPart,      "harm.part",     "Harmony Applies To", "Global", Choice, 0, 0, 0.f, LIN, "", ZS_CH_HARM_PART, "With SPLIT / LAYER: harmonise both sounds, or only UPPER or LOWER.") \
+X(HarmPart,      "harm.part",     "Harmony Applies To", "Global", Choice, 0, 0, 0.f, LIN, "", ZS_CH_HARM_PART, "APPLIES TO: harmonise both sounds, or only UPPER or LOWER (whatever plays them: keys, PITCH TRACK or the sequencer).") \
 X(GlideType,     "voice.glidetype","Glide Type",    "Voice", Choice, 0, 0, 0.f, LIN, "", ZS_CH_GLIDE_TYPE, "ANALOG: the classic slide, quick at first then easing in (each slide takes about GLIDE). CONSTANT TIME: a straight slide that always takes GLIDE. CONSTANT RATE: a straight slide at GLIDE per octave, so bigger leaps take longer.") \
 X(TrkSustain,    "trk.sus",       "Track Sustain", "Global", Float, 0.f, 1.f, 0.f, LIN, "", nullptr, "SUSTAIN: lets tracked notes ring on as the string dies away: while the tracker still clearly hears the note it holds, below the GATE. Full = HOLD: every note holds until you play the next one (a muted pick, with no pitch, stops it). Changes only when notes end: no added latency.") \
 /* ------------------------------------------- Pattern sequencer (global: not in presets) */ \

@@ -242,6 +242,7 @@ private:
     std::optional<bool> startupBlanksSequencer;
 
     std::vector<dsp::MidiEvent> events;
+    std::vector<uint8_t> fromTracker; // per entry of `events`: 1 = played by PITCH TRACK
     std::vector<float> monoScratch;
     std::vector<float> trackInput;
     dsp::PitchTracker tracker;
