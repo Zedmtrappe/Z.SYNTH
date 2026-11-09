@@ -1318,6 +1318,40 @@ ZS_TEST(sequencer_patterns_state_routing_and_key_transpose)
     ZS_CHECK(p.getSeqStep(0) == -1);
 }
 
+ZS_TEST(arpeggiator_plays_from_the_sequencer)
+{
+    // The sequencer's notes go through the sound's arpeggiator, like keys do:
+    // one long step with ARP on (1/32, 3 octaves) becomes a run of notes.
+    auto notesStarted = [](bool arp) {
+        SplitRig r(arp ? "arp-seq-on" : "arp-seq-off");
+        r.set("arp.on", arp ? 1.0f : 0.0f);
+        r.set("arp.div", 15.0f);
+        r.set("arp.oct", 3.0f);
+        r.set("pseq.b.on", 0.0f);
+        r.set("pseq.a.div", 6.0f);   // 1/4
+        r.set("pseq.a.len", 1.0f);
+        r.set("pseq.a.glen", 100.0f);
+        r.set("pseq.a.s1.gate", 1.0f);
+        r.set("pseq.a.s1.pitch", 60.0f);
+        r.set("pseq.run", 1.0f);
+        int started = 0;
+        uint64_t last = 0;
+        for (int b = 0; b < 48000 / 256; ++b) // one second: two steps at 120 BPM
+        {
+            r.run({}, 1);
+            const auto mask = r.p.getPartEngine(ZSynthProcessor::kUpper).getVoiceMask();
+            started += juce::countNumberOfBits((uint32_t) (mask & ~last)) + juce::countNumberOfBits((uint32_t) ((mask & ~last) >> 32));
+            last = mask;
+        }
+        return started;
+    };
+    const int plain = notesStarted(false), arpeggiated = notesStarted(true);
+    std::printf("    voices started: %d plain, %d through the arpeggiator\n", plain, arpeggiated);
+    // (The sound may use more than one voice per note: compare the two runs.)
+    ZS_CHECK(plain >= 1);
+    ZS_CHECK(arpeggiated >= 3 * plain);
+}
+
 ZS_TEST(selected_part_owns_keyboard_and_every_panel_control)
 {
     // With LOWER selected the keyboard plays LOWER (SINGLE), and every control on the
