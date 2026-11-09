@@ -750,6 +750,62 @@ ZS_TEST(song_library_factory_songs_save_and_load)
     ZS_CHECK(names.contains("Grieg - In the Hall of the Mountain King"));
     ProcessorFixture f("songs");
     auto& p = f.processor;
+    // CLEAR ALL: a factory song, then nothing left.
+    p.loadFactorySong(0);
+    p.clearSong();
+    ZS_CHECK(p.getValue(P::PseqSongOn) < 0.5f);
+    ZS_CHECK(juce::roundToInt(p.getValue(P::PseqSlot1)) == 0);
+    for (int pi = 0; pi < ZSynthProcessor::kPatterns; ++pi)
+    {
+        p.selectPattern(pi);
+        for (int st = 0; st < kPseqSteps; ++st)
+            ZS_CHECK(p.getValue(P::PseqAGate1 + st * kPseqStepStride) < 0.5f && p.getValue(P::PseqBGate1 + st * kPseqStepStride) < 0.5f);
+    }
+    p.selectPattern(0);
+
+    // A preset saved with its song brings it back; one saved without leaves the sequencer alone.
+    {
+        p.loadFactorySong(names.indexOf("Pachelbel - Canon in D"));
+        auto& pm = p.getPresets();
+        p.setIncludeSongWithPreset(true);
+        ZS_CHECK(pm.saveUser("With Song", "User", true).wasOk());
+        p.setIncludeSongWithPreset(false);
+        ZS_CHECK(pm.saveUser("Without Song", "User", true).wasOk());
+        auto userIndex = [&pm](const juce::String& n) {
+            for (int i = 0; i < (int) pm.getEntries().size(); ++i)
+                if (! pm.getEntries()[(size_t) i].factory && pm.getEntries()[(size_t) i].name == n)
+                    return i;
+            return -1;
+        };
+        p.clearSong();
+        pm.load(userIndex("Without Song"));
+        ZS_CHECK(juce::roundToInt(p.getValue(P::PseqSlot1)) == 0);
+        pm.load(userIndex("With Song"));
+        ZS_CHECK(p.currentPresetHasSong());
+        ZS_CHECK(p.getSongName() == "Pachelbel - Canon in D");
+        ZS_CHECK(juce::roundToInt(p.getValue(P::PseqSlot1)) == 1);
+        ZS_CHECK(juce::roundToInt(p.getValue(P::PseqAPitch1)) == 62); // D4
+
+        // The app starting up: an empty sequencer, unless its preset has a song.
+        juce::MemoryBlock state;
+        p.getStateInformation(state);
+        ProcessorFixture app("songs-app");
+        app.processor.setStartupBlanksSequencer(true);
+        app.processor.getPresets().loadInit();
+        app.processor.loadFactorySong(0);
+        juce::MemoryBlock noSongState;
+        app.processor.getStateInformation(noSongState);
+        ProcessorFixture app2("songs-app2");
+        app2.processor.setStartupBlanksSequencer(true);
+        app2.processor.setStateInformation(noSongState.getData(), (int) noSongState.getSize());
+        ZS_CHECK(juce::roundToInt(app2.processor.getValue(P::PseqSlot1)) == 0);
+        ZS_CHECK(app2.processor.getValue(P::PseqAGate1) < 0.5f);
+        // (In a host, the project's song comes back.)
+        ProcessorFixture host("songs-host");
+        host.processor.setStateInformation(noSongState.getData(), (int) noSongState.getSize());
+        ZS_CHECK(juce::roundToInt(host.processor.getValue(P::PseqSlot1)) == 1);
+        juce::ignoreUnused(state);
+    }
     for (int i = 0; i < names.size(); ++i)
     {
         ZS_CHECK(p.loadFactorySong(i));
@@ -1201,22 +1257,39 @@ ZS_TEST(sequencer_patterns_state_routing_and_key_transpose)
         ZS_CHECK_NEAR(r3.p.getValue(P::PseqAPitch1 + kPseqStepStride), 36.0f, 1e-3);
     }
 
-    // Routing: with SPLIT, row A plays UPPER and row B plays LOWER; with SINGLE both play the panel's sound.
-    p.selectPattern(0);
-    r.set("split.mode", (float) SplitMode::Split);
-    r.set("pseq.run", 1.0f);
-    r.run({}, 60);
-    ZS_CHECK(p.isSeqRunning());
-    ZS_CHECK(r.voices(ZSynthProcessor::kUpper) + r.voices(ZSynthProcessor::kLower) > 0);
-    bool sawLower = false, sawUpper = false;
-    for (int b = 0; b < 200; ++b)
+    // A new sequencer is empty: every step a rest, no song.
     {
-        r.run({}, 1);
-        sawUpper = sawUpper || r.voices(ZSynthProcessor::kUpper) > 0;
-        sawLower = sawLower || r.voices(ZSynthProcessor::kLower) > 0;
+        ProcessorFixture fresh("pseq-fresh");
+        for (int k = 0; k < 2 * kPseqRowParams; ++k)
+            if (juce::String(paramDef(P::PseqAOn + k).id).endsWith(".gate"))
+                ZS_CHECK(fresh.processor.getValue(P::PseqAOn + k) < 0.5f);
+        ZS_CHECK(juce::roundToInt(fresh.processor.getValue(P::PseqSlot1)) == 0);
     }
-    ZS_CHECK(sawUpper && sawLower);
-    r.set("split.mode", (float) SplitMode::Single);
+
+    // Routing: row A plays UPPER and row B plays LOWER (their PLAYS), in SPLIT and in SINGLE alike.
+    p.selectPattern(0);
+    ZS_CHECK(p.loadPhraseIntoRow(ZSynthProcessor::getPhraseNames().indexOf("Arpeggio"), 0));
+    ZS_CHECK(p.loadPhraseIntoRow(ZSynthProcessor::getPhraseNames().indexOf("Mono Bassline"), 1));
+    for (auto mode : { SplitMode::Split, SplitMode::Single })
+    {
+        r.set("split.mode", (float) mode);
+        r.set("pseq.run", 1.0f);
+        r.run({}, 60);
+        ZS_CHECK(p.isSeqRunning());
+        bool sawLower = false, sawUpper = false;
+        for (int b = 0; b < 200; ++b)
+        {
+            r.run({}, 1);
+            sawUpper = sawUpper || r.voices(ZSynthProcessor::kUpper) > 0;
+            sawLower = sawLower || r.voices(ZSynthProcessor::kLower) > 0;
+        }
+        ZS_CHECK(sawUpper && sawLower);
+        r.set("pseq.run", 0.0f);
+        r.run({}, 400);
+    }
+    // Row B set to UPPER: nothing reaches LOWER.
+    r.set("pseq.b.target", 0.0f);
+    r.set("pseq.run", 1.0f);
     r.run({}, 80);
     for (int b = 0; b < 100; ++b)
     {

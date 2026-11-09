@@ -57,7 +57,12 @@ ZSynthProcessor::ZSynthProcessor(juce::File userPresetDir, AudioInput input)
     presets = std::make_unique<PresetManager>(apvts, factoryBanks(), userPresetDir);
     loadKeepPolicies();
     presets->onLoaded = [this](const PresetData& p) { applyPresetSetup(p); };
-    presets->onCapture = [this](PresetData& p) { captureSplitPart(p); };
+    presets->onCapture = [this](PresetData& p) {
+        captureSplitPart(p);
+        if (includeSongWithPreset)
+            p.song = std::make_shared<SongData>(captureSong());
+        presetHasSong = includeSongWithPreset;
+    };
 
     presets->seedDefaultFavourites({ kStartupPreset, "AXEL F", "JP-8000 - Resonant Sweep", "Synthex - Galactic Lead" });
 
@@ -77,22 +82,11 @@ ZSynthProcessor::ZSynthProcessor(juce::File userPresetDir, AudioInput input)
             lower = capturePreset(apvts);
         storeSound(lower);
     }
-    // The eight pattern memories start with demos (a line over a bass line, from
-    // the built-in phrases), ready to audition sounds with: press PLAY.
-    {
-        const auto names = getPhraseNames();
-        const char* demos[kPatterns][2] = { { "Arpeggio", "Mono Bassline" }, { "Trance Lead", "Acid Line" },
-                                            { "Synthwave Lead", "Synthwave Bass" }, { "Pentatonic Melody", "Funk Bass" },
-                                            { "Chiptune", "Disco Octaves" }, { "Slow Arpeggio", "Reese Bass" },
-                                            { "Jump", "Techno Rumble" }, { "Harp Arpeggio", "Wobble Bass" } };
-        for (int pi = kPatterns - 1; pi >= 0; --pi)
-        {
-            loadPhraseIntoRow(names.indexOf(demos[pi][0]), 0);
-            loadPhraseIntoRow(names.indexOf(demos[pi][1]), 1);
+    // The eight pattern memories start empty (every step a rest), unless the
+    // startup preset brought a song of its own.
+    if (! presetHasSong)
+        for (int pi = 0; pi < kPatterns; ++pi)
             capturePattern(pi);
-        }
-        currentPattern = 0;
-    }
     for (auto& part : noteMap)
         for (auto& ch : part)
             std::fill(std::begin(ch), std::end(ch), (int8_t) -1);
@@ -176,7 +170,8 @@ void ZSynthProcessor::fillRows(const float* v, int edit, bool single, dsp::PseqR
         auto& row = rows[r];
         row.on = at(P::PseqAOn) >= 0.5f;
         const int target = juce::roundToInt(at(P::PseqATarget));
-        row.partMask = single ? (1 << edit) : (target == 0 ? 1 : (target == 1 ? 2 : 3));
+        juce::ignoreUnused(single, edit);
+        row.partMask = target == 0 ? 1 : (target == 1 ? 2 : 3); // PLAYS: in every mode
         row.length = juce::roundToInt(at(P::PseqALen));
         row.direction = juce::roundToInt(at(P::PseqADir));
         row.stepBeats = pseqStepBeats(juce::roundToInt(at(P::PseqADiv)));
@@ -381,6 +376,7 @@ SongData ZSynthProcessor::captureSong() const
 {
     SongData song;
     song.name = songName;
+    song.songMode = getValue(P::PseqSongOn) >= 0.5f;
     song.tempo = getValue(P::Tempo);
     song.swing = getValue(P::PseqSwing);
     for (int pi = 0; pi < kPatterns; ++pi)
@@ -395,7 +391,13 @@ SongData ZSynthProcessor::captureSong() const
     return song;
 }
 
-void ZSynthProcessor::applySong(const SongData& song)
+void ZSynthProcessor::clearSong()
+{
+    setParamValue(P::PseqRun, 0.0f);
+    applySong(blankSong(), false);
+}
+
+void ZSynthProcessor::applySong(const SongData& song, bool withTempo)
 {
     for (int pi = 0; pi < kPatterns; ++pi)
         for (int k = 0; k < 2 * kPseqRowParams; ++k)
@@ -409,9 +411,12 @@ void ZSynthProcessor::applySong(const SongData& song)
         setParamValue(P::PseqSlot1 + i, (float) song.slots[(size_t) i]);
         setParamValue(P::PseqRep1 + i, (float) song.repeats[(size_t) i]);
     }
-    setParamValue(P::Tempo, song.tempo);
-    setParamValue(P::PseqSwing, song.swing);
-    setParamValue(P::PseqSongOn, 1.0f);
+    if (withTempo)
+    {
+        setParamValue(P::Tempo, song.tempo);
+        setParamValue(P::PseqSwing, song.swing);
+    }
+    setParamValue(P::PseqSongOn, song.songMode ? 1.0f : 0.0f);
     songName = song.name;
     restartSequencer();
 }
@@ -765,7 +770,7 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     // SPLIT / LAYER: each part is limited on its own, but two loud parts can still
     // add up past full scale. A last limiter on the mix catches that (ceiling
     // -0.3 dBFS, instant attack, 80 ms release); it does nothing below the ceiling.
-    if (mode != SplitMode::Single || mixLimiterGain < 1.0f)
+    // (In SINGLE the sequencer can play both sounds too, so it always runs.)
     {
         constexpr float ceiling = 0.966f;
         for (int i = 0; i < n; ++i)
@@ -971,6 +976,10 @@ void ZSynthProcessor::storeSound(const PresetData& p)
 
 void ZSynthProcessor::applyPresetSetup(const PresetData& p)
 {
+    // A preset saved with its sequencer song brings it; others leave the sequencer alone.
+    presetHasSong = p.song != nullptr;
+    if (p.song != nullptr)
+        applySong(*p.song);
     // Loading a preset switches the keyboard split and the harmoniser off,
     // unless the preset was saved with them on: then their settings come back
     // with it (a split preset also brings the other part's sound).
@@ -1254,6 +1263,21 @@ void ZSynthProcessor::setStateInformation(const void* data, int sizeInBytes)
         applyingPattern.store(true);
         applyPattern(currentPattern);
         applyingPattern.store(false);
+    }
+    if (startupBlanksSequencer.value_or(wrapperType == wrapperType_Standalone))
+    {
+        // The app starting up: an empty sequencer, unless the preset it opens on
+        // was saved with a song (a host's project, by contrast, keeps its song).
+        setParamValue(P::PseqRun, 0.0f);
+        applySong(blankSong(), false);
+        songName.clear();
+        PresetData current;
+        presetHasSong = false;
+        if (presets->getPresetData(presets->getCurrentIndex(), current) && current.song != nullptr)
+        {
+            applySong(*current.song);
+            presetHasSong = true;
+        }
     }
     if (auto* split = xml->getChildByName("Split"))
     {

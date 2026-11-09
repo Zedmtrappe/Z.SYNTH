@@ -887,8 +887,9 @@ PanelLayout::PanelLayout()
         add("pseq.song." + juce::String(i + 1) + ".rep", K::Selector, 852 + i * 57, 76, "", 54, 22);
     utilityAt("pseqSongLights", 852, 102, 16 * 57, 14);
     // SONG LIBRARY: whole songs (eight patterns, the slots and their repeats, tempo, swing).
-    utilityAt("pseqSongLoad", 20, 92, 120, 24);
-    utilityAt("pseqSongSave", 144, 92, 80, 24);
+    utilityAt("pseqSongLoad", 20, 92, 112, 24);
+    utilityAt("pseqSongSave", 136, 92, 70, 24);
+    utilityAt("pseqSongClear", 210, 92, 90, 24);
     for (int r = 0; r < 2; ++r)
     {
         const juce::String rowId = r == 0 ? "a" : "b", rowName = r == 0 ? "A" : "B";

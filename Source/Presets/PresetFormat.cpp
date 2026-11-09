@@ -35,6 +35,8 @@ std::unique_ptr<juce::XmlElement> presetToXml(const PresetData& preset)
         split->setAttribute("editPart", preset.editPart);
         split->addChildElement(presetToXml(*preset.splitPart).release());
     }
+    if (preset.song != nullptr)
+        xml->addChildElement(songToXml(*preset.song).release());
     return xml;
 }
 
@@ -88,6 +90,13 @@ PresetLoadResult presetFromXml(const juce::XmlElement& xml, PresetData& out)
                 p.editPart = juce::jlimit(0, 1, split->getIntAttribute("editPart", 0));
             }
         }
+
+    if (auto* songXml = xml.getChildByName("ZynthSong"))
+    {
+        auto song = std::make_shared<SongData>();
+        if (songFromXml(*songXml, *song))
+            p.song = std::move(song);
+    }
 
     out = p;
     result.ok = true;

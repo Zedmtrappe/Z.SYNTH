@@ -25,7 +25,11 @@ struct SongData
     std::array<std::array<float, 2 * kPseqRowParams>, kPatterns> patterns {};
     std::array<int, kSlots> slots {};   // ZS_CH_PSEQ_SLOT index: 0 empty, 1..8 = A..H, 9 LOOP, 10 END
     std::array<int, kSlots> repeats {}; // ZS_CH_PSEQ_REPEAT index: 0 = x1 .. 15 = x16
+    bool songMode = true;               // SONG on when it is loaded
 };
+
+/** An empty sequencer: every step of every pattern a rest, no song slots, SONG off. */
+SongData blankSong();
 
 /** The factory songs (public-domain pieces arranged for the two rows). */
 const std::vector<SongData>& factorySongs();

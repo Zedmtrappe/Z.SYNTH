@@ -184,6 +184,15 @@ namespace
     }
 }
 
+SongData blankSong()
+{
+    SongData s;
+    for (auto& p : s.patterns)
+        p = blankPattern();
+    s.songMode = false;
+    return s;
+}
+
 const std::vector<SongData>& factorySongs()
 {
     static const std::vector<SongData> songs { bachPrelude(), grieg(), pachelbel(), minuet() };
@@ -197,6 +206,7 @@ std::unique_ptr<juce::XmlElement> songToXml(const SongData& s)
     xml->setAttribute("name", s.name);
     xml->setAttribute("tempo", s.tempo);
     xml->setAttribute("swing", s.swing);
+    xml->setAttribute("songMode", s.songMode);
     for (const auto& p : s.patterns)
     {
         juce::String values;
@@ -225,6 +235,7 @@ bool songFromXml(const juce::XmlElement& xml, SongData& s)
     s.name = xml.getStringAttribute("name");
     s.tempo = juce::jlimit(40.0f, 240.0f, (float) xml.getDoubleAttribute("tempo", 120.0));
     s.swing = juce::jlimit(50.0f, 75.0f, (float) xml.getDoubleAttribute("swing", 50.0));
+    s.songMode = xml.getBoolAttribute("songMode", true);
     int pi = 0;
     for (auto* pat : xml.getChildWithTagNameIterator("Pattern"))
     {

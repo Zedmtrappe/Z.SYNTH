@@ -341,13 +341,20 @@ void showSaveAsDialog(ZSynthProcessor& processor, juce::Component* parent)
         const int i = cats.indexOf(pm.getCurrentCategory());
         box->setSelectedItemIndex(i >= 0 ? i : cats.indexOf("User"));
     }
+    // The sequencer song goes with the preset only when asked for.
+    auto withSong = std::make_shared<juce::ToggleButton>("Include the sequencer song (patterns and song slots)");
+    withSong->setSize(380, 24);
+    withSong->setToggleState(processor.currentPresetHasSong(), juce::dontSendNotification);
+    w->addCustomComponent(withSong.get());
     w->addButton("Save", 1, juce::KeyPress(juce::KeyPress::returnKey));
     w->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
 
     juce::Component::SafePointer<juce::Component> safeParent(parent);
-    w->enterModalState(true, juce::ModalCallbackFunction::create([&processor, w, safeParent](int result) {
+    w->enterModalState(true, juce::ModalCallbackFunction::create([&processor, w, safeParent, withSong](int result) {
+        w->removeCustomComponent(0);
         if (result != 1)
             return;
+        processor.setIncludeSongWithPreset(withSong->getToggleState());
         const auto name = w->getTextEditorContents("name");
         auto* box = w->getComboBoxComponent("category");
         const auto category = box != nullptr ? box->getText() : juce::String("User");

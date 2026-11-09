@@ -398,7 +398,7 @@ X(PseqSync,      "pseq.sync",     "Sequencer Host Sync", "Global", Bool, 0.f, 1.
 X(PseqSwing,     "pseq.swing",    "Sequencer Swing", "Global", Float, 50.f, 75.f, 50.f, LIN, "%", nullptr, "SWING: 50 % = straight; higher pushes every second step late (shuffle).") \
 ZS_PSEQ_ROW(X, A, "a", "A", 0.f, 60.f) ZS_PSEQ_ROW(X, B, "b", "B", 1.f, 36.f) \
 X(PseqSongOn,    "pseq.song",     "Sequencer Song Mode", "Global", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "SONG: plays the song slots in order instead of the pattern on the panel.") \
-ZS_PSEQ_SLOT(X, 1, 1.f)  ZS_PSEQ_SLOT(X, 2, 0.f)  ZS_PSEQ_SLOT(X, 3, 0.f)  ZS_PSEQ_SLOT(X, 4, 0.f) \
+ZS_PSEQ_SLOT(X, 1, 0.f)  ZS_PSEQ_SLOT(X, 2, 0.f)  ZS_PSEQ_SLOT(X, 3, 0.f)  ZS_PSEQ_SLOT(X, 4, 0.f) \
 ZS_PSEQ_SLOT(X, 5, 0.f)  ZS_PSEQ_SLOT(X, 6, 0.f)  ZS_PSEQ_SLOT(X, 7, 0.f)  ZS_PSEQ_SLOT(X, 8, 0.f) \
 ZS_PSEQ_SLOT(X, 9, 0.f)  ZS_PSEQ_SLOT(X, 10, 0.f) ZS_PSEQ_SLOT(X, 11, 0.f) ZS_PSEQ_SLOT(X, 12, 0.f) \
 ZS_PSEQ_SLOT(X, 13, 0.f) ZS_PSEQ_SLOT(X, 14, 0.f) ZS_PSEQ_SLOT(X, 15, 0.f) ZS_PSEQ_SLOT(X, 16, 0.f) \
@@ -410,7 +410,7 @@ ZS_PSEQ_REP(X, 13) ZS_PSEQ_REP(X, 14) ZS_PSEQ_REP(X, 15) ZS_PSEQ_REP(X, 16)
 
 #define ZS_PSEQ_STEP(X, R, r, n, def) \
 X(Pseq##R##Pitch##n, "pseq." r ".s" #n ".pitch", "Seq " r " Step " #n " Note", "Global", Int, 21.f, 108.f, def, LIN, "note", nullptr, "NOTE: the note the step plays (A0 to C8; KEY TRANSPOSE moves it).") \
-X(Pseq##R##Gate##n,  "pseq." r ".s" #n ".gate",  "Seq " r " Step " #n " Gate",  "Global", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "GATE: the step plays (on) or rests (off).") \
+X(Pseq##R##Gate##n,  "pseq." r ".s" #n ".gate",  "Seq " r " Step " #n " Gate",  "Global", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "GATE: the step plays (on) or rests (off).") \
 X(Pseq##R##Acc##n,   "pseq." r ".s" #n ".acc",   "Seq " r " Step " #n " Accent","Global", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "ACCENT: the step plays at full velocity.") \
 X(Pseq##R##Slide##n, "pseq." r ".s" #n ".slide", "Seq " r " Step " #n " Slide", "Global", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "SLIDE: the step is held into the next one (legato: mono and legato voices glide).")
 
@@ -422,7 +422,7 @@ X(PseqRep##n, "pseq.song." #n ".rep", "Song Slot " #n " Repeats", "Global", Choi
 
 #define ZS_PSEQ_ROW(X, R, r, label, target, root) \
 X(Pseq##R##On,     "pseq." r ".on",     "Seq " label " On",       "Global", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "Row on (off = it keeps time silently).") \
-X(Pseq##R##Target, "pseq." r ".target", "Seq " label " Plays",    "Global", Choice, 0, 0, target, LIN, "", ZS_CH_PSEQ_TARGET, "Which sound the row plays with SPLIT / LAYER (with SINGLE, both rows play the sound on the panel).") \
+X(Pseq##R##Target, "pseq." r ".target", "Seq " label " Plays",    "Global", Choice, 0, 0, target, LIN, "", ZS_CH_PSEQ_TARGET, "PLAYS: which sound the row plays, UPPER, LOWER or both (in SINGLE mode too).") \
 X(Pseq##R##Len,    "pseq." r ".len",    "Seq " label " Length",   "Global", Int, 1.f, 16.f, 16.f, LIN, "", nullptr, "LENGTH: steps before the row repeats (rows of different lengths drift against each other).") \
 X(Pseq##R##Dir,    "pseq." r ".dir",    "Seq " label " Direction","Global", Choice, 0, 0, 0.f, LIN, "", ZS_CH_PSEQ_DIR, "DIRECTION: forward, backward, pendulum (back and forth) or random.") \
 X(Pseq##R##Div,    "pseq." r ".div",    "Seq " label " Step Size","Global", Choice, 0, 0, 2.f, LIN, "", ZS_CH_PSEQ_DIV, "STEP: the length of one step, against the tempo.") \

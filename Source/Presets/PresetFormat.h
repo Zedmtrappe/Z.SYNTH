@@ -4,6 +4,7 @@
 // bank, the plug-in state and the tests. See docs/PRESET_FORMAT.md.
 
 #include "../Parameters/ParamTable.h"
+#include "../Plugin/SongLibrary.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
@@ -30,6 +31,10 @@ struct PresetData
         sound; editPart says which part `values` is (0 UPPER, 1 LOWER). */
     std::shared_ptr<const PresetData> splitPart;
     int editPart = 0;
+
+    /** A preset saved with "include the sequencer song" also holds the whole
+        pattern sequencer (patterns, song slots, tempo, swing). */
+    std::shared_ptr<const SongData> song;
 };
 
 struct PresetLoadResult

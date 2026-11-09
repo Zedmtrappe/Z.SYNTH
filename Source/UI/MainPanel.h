@@ -89,6 +89,9 @@ public:
     KeepPrompt();
     /** items: ZSynthProcessor::KeepItem bits (added to any still unanswered). */
     void ask(int items);
+    /** Drops a question that no longer applies (e.g. HARMONY was switched off on the panel). */
+    void dismiss(int items);
+    int getPending() const { return pending; }
     /** item, keep, remember (make it the policy for next time). */
     std::function<void(int, bool, bool)> onAnswer;
     void paint(juce::Graphics&) override;

@@ -14,6 +14,8 @@
 #include "AuditionPlayer.h"
 #include "SongLibrary.h"
 
+#include <optional>
+
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_utils/juce_audio_utils.h>
 
@@ -100,8 +102,16 @@ public:
     /** The song last loaded or saved ("" for none). */
     juce::String getSongName() const { return songName; }
     SongData captureSong() const;
-    /** Replaces the patterns, slots, tempo and swing; SONG on, pattern A, back to the top. */
-    void applySong(const SongData& song);
+    /** Replaces the patterns, slots (and tempo and swing); SONG as saved, pattern A, back to the top. */
+    void applySong(const SongData& song, bool withTempo = true);
+    /** CLEAR ALL: every pattern empty, no song slots, SONG and RUN off. */
+    void clearSong();
+    /** Saving a preset stores the sequencer song with it (set by the save dialog). */
+    void setIncludeSongWithPreset(bool include) { includeSongWithPreset = include; }
+    /** The current preset was loaded or saved with a sequencer song. */
+    bool currentPresetHasSong() const { return presetHasSong; }
+    /** Tests: whether restoring a state empties the sequencer (default: only in the standalone app). */
+    void setStartupBlanksSequencer(bool blank) { startupBlanksSequencer = blank; }
     /** The step a row is on (0..15), or -1 when stopped (any thread). */
     int getSeqStep(int row) const { return pseq.getShownStep(row); }
     /** Is the sequencer playing (RUN, or the host with HOST SYNC)? (any thread) */
@@ -228,6 +238,8 @@ private:
     void setParamValue(int index, float value);
     void importIntoRow(const AuditionPlayer::Clip& clip, int row);
     juce::String songName;
+    bool includeSongWithPreset = false, presetHasSong = false;
+    std::optional<bool> startupBlanksSequencer;
 
     std::vector<dsp::MidiEvent> events;
     std::vector<float> monoScratch;

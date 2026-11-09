@@ -783,6 +783,18 @@ void MainPanel::buildUtilities()
            [this] { showSongMenu(); });
     button("pseqSongSave", juce::String::fromUTF8("SAVE\xe2\x80\xa6"), "Save the eight patterns, song slots, tempo and swing as a song",
            [this] { saveSong(); });
+    button("pseqSongClear", "CLEAR ALL", "Clear everything: all eight patterns and the song slots (asks first)", [this] {
+        juce::Component::SafePointer<MainPanel> safe(this);
+        juce::AlertWindow::showAsync(juce::MessageBoxOptions().withIconType(juce::MessageBoxIconType::QuestionIcon)
+                                         .withTitle("Clear the sequencer?")
+                                         .withMessage("Every step of all eight patterns becomes a rest and the song slots are emptied. "
+                                                      "(Save the song first if you want to keep it.)")
+                                         .withButton("Clear all").withButton("Cancel"),
+                                     [safe](int answer) {
+                                         if (safe != nullptr && answer == 1)
+                                             safe->processor.clearSong();
+                                     });
+    });
     keyboardParts.push_back(&button("kbdOctDown", "OCT -", "Shift the on-screen keyboard down one octave", [this] { keyboard->shiftOctave(-1); }));
     keyboardParts.push_back(&button("kbdOctUp", "OCT +", "Shift the on-screen keyboard up one octave", [this] { keyboard->shiftOctave(1); }));
 }
@@ -826,11 +838,25 @@ void KeepPrompt::answer(int item, bool keep)
     }
 }
 
+void KeepPrompt::dismiss(int items)
+{
+    if ((pending & items) == 0)
+        return;
+    pending &= ~items;
+    layoutRows();
+    if (pending == 0)
+    {
+        setVisible(false);
+        remember.setToggleState(false, juce::dontSendNotification);
+    }
+}
+
 void KeepPrompt::layoutRows()
 {
-    // The window sits under the preset display; one row per question.
+    // The window sits in the middle of the panel; one row per question.
     const int n = juce::countNumberOfBits((uint32_t) pending);
-    setBounds(438, 92, 400, 60 + 36 * juce::jmax(1, n) + 30);
+    const int w = 400, h = 60 + 36 * juce::jmax(1, n) + 30;
+    setBounds((PanelLayout::kWidth - w) / 2, (PanelLayout::kHeight - h) / 2, w, h);
     resized();
     repaint();
 }
@@ -1205,6 +1231,14 @@ void MainPanel::timerCallback()
     updateSplit();
     if (const int ask = processor.takeKeepQuestion(); ask != 0)
         keepPrompt.ask(ask);
+    // A question goes away once its answer no longer matters (switched off on the panel).
+    if (keepPrompt.isVisible())
+    {
+        if (processor.getValue(P::HarmOn) < 0.5f)
+            keepPrompt.dismiss(ZSynthProcessor::kKeepHarmony);
+        if ((SplitMode) juce::roundToInt(processor.getValue(P::SplitMode)) == SplitMode::Single)
+            keepPrompt.dismiss(ZSynthProcessor::kKeepSplit);
+    }
 
     const int step = processor.getEngine().getSeqStep();
     const bool seqRunning = std::lround(processor.getValue(P::SeqMode)) != 0;

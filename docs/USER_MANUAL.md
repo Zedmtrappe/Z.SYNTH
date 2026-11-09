@@ -98,9 +98,9 @@ window shows it.
 | SONG | Plays the sixteen song slots in order instead of the pattern on the panel |
 | Song slots 1–16 | Each is a pattern (A–H), **Loop** (back to slot 1) or **End** (stop; RUN switches off); "-" is skipped, and running off slot 16 also ends the song. A slot plays its pattern once through: its longest row's full cycle (a pendulum row goes there and back). The light under the slot playing is lit. Edits to the pattern on the panel are heard as it plays |
 | Repeats (under each slot) | **x1**–**x16**: how many times the slot's pattern plays before the song moves on. While a slot repeats, its light shows which time through it is (e.g. 2/4), and so does the SONG key on the main panel |
-| LOAD SONG ▾ / SAVE… | The song library. A song is the whole sequencer: the eight patterns, the song slots and their repeats, the tempo and the swing. **LOAD SONG** offers the factory songs, your saved songs and any song file; loading one switches SONG on, puts pattern A on the panel and starts from the top (the sounds on the panel stay as they are). **SAVE…** stores yours as a `.zsong` file in the Songs folder beside your user presets. Factory songs (public-domain pieces): Bach – Prelude in C (BWV 846, bars 1–8, looping), Grieg – In the Hall of the Mountain King, Pachelbel – Canon in D, Petzold – Minuet in G (first half). Row A plays UPPER and row B LOWER, so with SPLIT or LAYER pick a lead and a bass sound |
+| LOAD SONG ▾ / SAVE… | The song library. A song is the whole sequencer: the eight patterns, the song slots and their repeats, the tempo and the swing. **LOAD SONG** offers the factory songs, your saved songs and any song file; loading one switches SONG on, puts pattern A on the panel and starts from the top (the sounds on the panel stay as they are). **SAVE…** stores yours as a `.zsong` file in the Songs folder beside your user presets. **CLEAR ALL** (it asks first) empties the whole sequencer: every step of all eight patterns becomes a rest, the song slots are emptied and SONG and RUN switch off. Factory songs (public-domain pieces): Bach – Prelude in C (BWV 846, bars 1–8, looping), Grieg – In the Hall of the Mountain King, Pachelbel – Canon in D, Petzold – Minuet in G (first half). Row A plays UPPER and row B LOWER, so with SPLIT or LAYER pick a lead and a bass sound |
 | ON (per row) | Row on; off, it keeps time silently |
-| PLAYS | UPPER, LOWER or BOTH: which sound the row plays with SPLIT or LAYER. With SINGLE both rows play the sound on the panel |
+| PLAYS | UPPER, LOWER or BOTH: which sound the row plays, in every mode (in SINGLE too: the sound not on the panel still plays the row's notes) |
 | STEP | Step length against the tempo: 1/32 to 1 bar, triplets included |
 | DIRECTION | Forward, backward, pendulum (back and forth) or random |
 | LENGTH | 1–16 steps; rows of different lengths drift against each other (polymeter) |
@@ -108,12 +108,15 @@ window shows it.
 | VELOCITY | The row's velocity; accented steps play at 127 |
 | NOTE (per step) | Each step holds its own note, anywhere from A0 to C8 (new steps start on C4 in row A and C2 in row B). A one-octave mini keyboard on its side shows one octave at a time, C at the bottom to B at the top (black keys on the left); the step's note is the green key when its octave is on show, and the red readout below always names it. ▲ / ▼ show the octave above or below without changing the note. Beside it, a slim strip of all 88 keys: the octave on show is lit and framed, the rest greyed, and a green mark shows where the step's note is; click the strip to jump to an octave. Hover over a key to see its note name. Click a key to give the step that note (you hear it, on the row's sound); click the green key again to make the step a rest (the readout shows REST); click any key on a rest to bring the step back |
 | GATE / ACCENT / SLIDE (per step) | Play or rest (the same as clicking the lit note); full velocity; hold into the next step (legato, so mono and legato voices glide) |
-| COPY / PASTE / CLEAR | Copy a row, paste it into a row (it keeps its PLAYS routing), or reset every step to a plain gate |
+| COPY / PASTE / CLEAR | Copy a row, paste it into a row (it keeps its PLAYS routing), or make every step of the row a rest |
 | LOAD ▾ | Fill a row from a built-in phrase or a MIDI file. The opening bars are quantised to the row's steps: row A takes the top line, row B the bass line; notes still sounding at a step become slides |
 
-The tempo is the header's TEMPO, or the host's. The sequencer's settings are
-not part of a preset: they belong to your setup and project. The patterns
-start with demos (a line over a bass line) built from the phrases.
+The tempo is the header's TEMPO, or the host's. The sequencer starts empty
+(every step a rest, no song) each time the app starts; in a host, a project
+brings back its own sequencer. A preset normally leaves the sequencer alone,
+but **SAVE AS** can store the whole sequencer song with it (**Include the
+sequencer song**): loading that preset (or starting the app on it) brings the
+song back. SAVE keeps whatever the preset was saved with.
 
 Built-in phrases (original, generated by `tools/make_audition_clips.py`):
 Mono Bassline, Acid Line, Wobble Bass, Synthwave Bass, Techno Rumble, Reese
@@ -181,7 +184,9 @@ SPLIT / LAYER or HARMONY is on asks whether to **KEEP** them or **TURN OFF**
 (the new sound has already loaded; until you answer they stay on). Tick
 **Remember my choice** to stop being asked; the preset menu (click the preset
 name) has **When changing presets** to change it later: Ask, Keep it on or
-Turn it off, for SPLIT / LAYER and HARMONY separately.
+Turn it off, for SPLIT / LAYER and HARMONY separately. The question appears in
+the middle of the panel, and goes away by itself if you switch SPLIT / LAYER or
+HARMONY off on the panel instead.
 
 The on-screen keyboard tints the LOWER zone and marks the split; in SPLIT,
 the keys of the part you are not editing are greyed out (they still play
