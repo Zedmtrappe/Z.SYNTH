@@ -37,7 +37,7 @@ enum class ParamType : unsigned char { Float, Int, Choice, Bool };
 // For Choice params min/max are derived from the list; pass 0,0.
 #define ZS_PARAM_LIST(X) \
 /* ---------------------------------------------------------------- Global */ \
-X(MasterVolume,  "master.volume",  "Master Volume", "Global", Float, -60.f, 6.f, -6.f, LIN, "dB", nullptr, "Final output level after all effects.") \
+X(MasterVolume,  "master.volume",  "Master Volume", "Global", Float, -60.f, 6.f, -6.f, LIN, "dB", nullptr, "MASTER: the selected part's final output level, after all its effects (UPPER and LOWER each have their own; presets leave it alone).") \
 X(MasterTune,    "master.tune",    "Master Tune",   "Global", Float, -100.f, 100.f, 0.f, LIN, "ct", nullptr, "Global fine tuning in cents (A4 = 440 Hz at 0).") \
 X(Transpose,     "master.transpose","Transpose",    "Global", Int, -24.f, 24.f, 0.f, LIN, "st", nullptr, "Transposes all incoming notes by semitones.") \
 X(OctaveShift,   "master.octave",  "Octave Shift",  "Global", Int, -3.f, 3.f, 0.f, LIN, "oct", nullptr, "Shifts all incoming notes by whole octaves.") \

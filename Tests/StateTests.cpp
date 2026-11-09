@@ -1318,6 +1318,48 @@ ZS_TEST(sequencer_patterns_state_routing_and_key_transpose)
     ZS_CHECK(p.getSeqStep(0) == -1);
 }
 
+ZS_TEST(selected_part_owns_keyboard_and_every_panel_control)
+{
+    // With LOWER selected the keyboard plays LOWER (SINGLE), and every control on the
+    // panel, the output chain and MASTER included, is LOWER's; the same for UPPER.
+    SplitRig r("part-owns");
+    auto& p = r.p;
+    r.set("master.volume", -3.0f);
+    r.set("out.valve.drive", 0.2f);
+    p.setEditPart(ZSynthProcessor::kLower);
+    ZS_CHECK_NEAR(p.getValue(P::MasterVolume), -6.0f, 1e-3); // LOWER's own (its default)
+    r.set("master.volume", -12.0f);
+    r.set("out.valve.drive", 0.9f);
+    r.run({ juce::MidiMessage::noteOn(1, 60, (uint8_t) 100) });
+    ZS_CHECK(r.voices(ZSynthProcessor::kLower) > 0);
+    ZS_CHECK(r.voices(ZSynthProcessor::kUpper) == 0);
+    r.run({ juce::MidiMessage::noteOff(1, 60) }, 200);
+    p.setEditPart(ZSynthProcessor::kUpper);
+    ZS_CHECK_NEAR(p.getValue(P::MasterVolume), -3.0f, 1e-3);
+    ZS_CHECK_NEAR(p.getValue(findParamIndex("out.valve.drive")), 0.2f, 1e-3);
+    r.run({ juce::MidiMessage::noteOn(1, 60, (uint8_t) 100) });
+    ZS_CHECK(r.voices(ZSynthProcessor::kUpper) > 0);
+    ZS_CHECK(r.voices(ZSynthProcessor::kLower) == 0);
+    r.run({ juce::MidiMessage::noteOff(1, 60) }, 200);
+    p.setEditPart(ZSynthProcessor::kLower);
+    ZS_CHECK_NEAR(p.getValue(P::MasterVolume), -12.0f, 1e-3);
+    ZS_CHECK_NEAR(p.getValue(findParamIndex("out.valve.drive")), 0.9f, 1e-3);
+    // Each part's MASTER sets its own level: LOWER at -60 dB (off) is silent while UPPER plays on.
+    r.set("master.volume", -60.0f);
+    r.set("split.mode", (float) SplitMode::Layer);
+    const float layered = r.run({ juce::MidiMessage::noteOn(1, 60, (uint8_t) 100) }, 40);
+    ZS_CHECK(layered > 0.01f);
+    // The setting survives a project save / load.
+    juce::MemoryBlock state;
+    p.getStateInformation(state);
+    SplitRig r2("part-owns2");
+    r2.p.setStateInformation(state.getData(), (int) state.getSize());
+    ZS_CHECK(r2.p.getEditPart() == ZSynthProcessor::kLower);
+    ZS_CHECK_NEAR(r2.p.getValue(P::MasterVolume), -60.0f, 1e-3);
+    r2.p.setEditPart(ZSynthProcessor::kUpper);
+    ZS_CHECK_NEAR(r2.p.getValue(P::MasterVolume), -3.0f, 1e-3);
+}
+
 ZS_TEST(split_routes_keys_to_two_sounds)
 {
     SplitRig r("split1");

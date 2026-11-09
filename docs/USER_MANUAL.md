@@ -194,8 +194,13 @@ that part). A note
 always releases in the part it started in, even if you move the split point
 while holding it. Controllers (sustain, mod wheel, pitch bend, aftertouch)
 reach both parts. Each part has its own complete output section (EQ, SMOOTH,
-TAPE, compressor, valve, transformer, limiter); MASTER is shared (it is a
-global setting, like TUNE). After the two parts are mixed, a last safety
+TAPE, compressor, valve, transformer, limiter) and its own MASTER level.
+Whichever part is selected (UPPER or LOWER) owns the whole panel: every
+control, the output section and MASTER included, shows and changes that part
+only, and in SINGLE the keyboard plays it. (In SPLIT the keyboard still plays
+each zone's part, and in LAYER both.) A preset load changes the sound but
+leaves the part's MASTER where you set it. TUNE, TRANSPOSE, TEMPO and the
+other setup controls are shared. After the two parts are mixed, a last safety
 limiter stops a loud split or layer from clipping (it does nothing below
 full scale). The split setup and both sounds are saved with your
 project. A new instance starts with Classic Saw Bass as the LOWER sound.

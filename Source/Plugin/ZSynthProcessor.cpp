@@ -15,13 +15,15 @@ namespace
     // The LOWER part's sound on a new instance.
     constexpr const char* kDefaultLowerPreset = "Classic Saw Bass";
 
-    /** Parameters both parts share (setup, master, split): always the panel's values. */
+    /** Parameters both parts share (setup, tuning, split, sequencer): always the panel's
+        values. MASTER is not one of them: each part has its own output level (and,
+        like the setup, a preset load leaves it alone). */
     const std::array<bool, kNumParams>& sharedParams()
     {
         static const auto flags = [] {
             std::array<bool, kNumParams> f {};
             for (int i = 0; i < kNumParams; ++i)
-                f[(size_t) i] = isGlobalSetupParam(i);
+                f[(size_t) i] = isGlobalSetupParam(i) && i != P::MasterVolume;
             return f;
         }();
         return flags;
@@ -1113,6 +1115,7 @@ void ZSynthProcessor::setEditPart(int part)
         arriving.values[(size_t) i] = stored[(size_t) i].load(std::memory_order_relaxed);
     storeSound(leaving);
     applyPreset(arriving, apvts, ApplyScope::SoundOnly);
+    setParamValue(P::MasterVolume, arriving.values[(size_t) P::MasterVolume]); // each part's own MASTER
     editPart.store(part, std::memory_order_release);
     swapSequence.fetch_add(1, std::memory_order_acq_rel);
     presets->setCurrentNameFromState(arriving.name, arriving.category);
