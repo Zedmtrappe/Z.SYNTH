@@ -401,7 +401,11 @@ X(PseqSongOn,    "pseq.song",     "Sequencer Song Mode", "Global", Bool, 0.f, 1.
 ZS_PSEQ_SLOT(X, 1, 1.f)  ZS_PSEQ_SLOT(X, 2, 0.f)  ZS_PSEQ_SLOT(X, 3, 0.f)  ZS_PSEQ_SLOT(X, 4, 0.f) \
 ZS_PSEQ_SLOT(X, 5, 0.f)  ZS_PSEQ_SLOT(X, 6, 0.f)  ZS_PSEQ_SLOT(X, 7, 0.f)  ZS_PSEQ_SLOT(X, 8, 0.f) \
 ZS_PSEQ_SLOT(X, 9, 0.f)  ZS_PSEQ_SLOT(X, 10, 0.f) ZS_PSEQ_SLOT(X, 11, 0.f) ZS_PSEQ_SLOT(X, 12, 0.f) \
-ZS_PSEQ_SLOT(X, 13, 0.f) ZS_PSEQ_SLOT(X, 14, 0.f) ZS_PSEQ_SLOT(X, 15, 0.f) ZS_PSEQ_SLOT(X, 16, 0.f)
+ZS_PSEQ_SLOT(X, 13, 0.f) ZS_PSEQ_SLOT(X, 14, 0.f) ZS_PSEQ_SLOT(X, 15, 0.f) ZS_PSEQ_SLOT(X, 16, 0.f) \
+ZS_PSEQ_REP(X, 1)  ZS_PSEQ_REP(X, 2)  ZS_PSEQ_REP(X, 3)  ZS_PSEQ_REP(X, 4) \
+ZS_PSEQ_REP(X, 5)  ZS_PSEQ_REP(X, 6)  ZS_PSEQ_REP(X, 7)  ZS_PSEQ_REP(X, 8) \
+ZS_PSEQ_REP(X, 9)  ZS_PSEQ_REP(X, 10) ZS_PSEQ_REP(X, 11) ZS_PSEQ_REP(X, 12) \
+ZS_PSEQ_REP(X, 13) ZS_PSEQ_REP(X, 14) ZS_PSEQ_REP(X, 15) ZS_PSEQ_REP(X, 16)
 
 
 #define ZS_PSEQ_STEP(X, R, r, n, def) \
@@ -412,6 +416,9 @@ X(Pseq##R##Slide##n, "pseq." r ".s" #n ".slide", "Seq " r " Step " #n " Slide", 
 
 #define ZS_PSEQ_SLOT(X, n, def) \
 X(PseqSlot##n, "pseq.song." #n, "Song Slot " #n, "Global", Choice, 0, 0, def, LIN, "", ZS_CH_PSEQ_SLOT, "SONG slot: a pattern (played once through: its longest row's full cycle), LOOP (back to slot 1) or END (stop). Empty slots are skipped.")
+
+#define ZS_PSEQ_REP(X, n) \
+X(PseqRep##n, "pseq.song." #n ".rep", "Song Slot " #n " Repeats", "Global", Choice, 0, 0, 0.f, LIN, "", ZS_CH_PSEQ_REPEAT, "REPEATS: how many times the slot's pattern plays before the song moves on.")
 
 #define ZS_PSEQ_ROW(X, R, r, label, target, root) \
 X(Pseq##R##On,     "pseq." r ".on",     "Seq " label " On",       "Global", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "Row on (off = it keeps time silently).") \

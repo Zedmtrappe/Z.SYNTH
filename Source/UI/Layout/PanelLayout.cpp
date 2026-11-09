@@ -863,9 +863,9 @@ PanelLayout::PanelLayout()
     // ---------------------------------------------------- pattern sequencer
     // Two rows of sixteen steps, laid out like a 1970s analog sequencer: per step a
     // PITCH knob and GATE / ACCENT / SLIDE switches; per row its routing and timing.
-    pageList.push_back({ "pseq", "PATTERN SEQUENCER", { 70, 60, 1780, 744 } });
+    pageList.push_back({ "pseq", "PATTERN SEQUENCER", { 70, 50, 1780, 770 } });
     page("pseq");
-    sectionAt("pseqPage", "ANALOG PATTERN SEQUENCER", 0, 0, 1780, 744);
+    sectionAt("pseqPage", "ANALOG PATTERN SEQUENCER", 0, 0, 1780, 770);
     utilityAt("pseqClose", 1740, 3, 34, 20);
     // Transport keys (RUN is pseq.run, driven by PLAY / STOP here and on the strip).
     heading("TRANSPORT", 20, 32, 200);
@@ -882,11 +882,17 @@ PanelLayout::PanelLayout()
     add("pseq.song", K::Switch, 790, 36, "SONG", 52);
     for (int i = 0; i < 16; ++i)
         add("pseq.song." + juce::String(i + 1), K::Selector, 852 + i * 57, 34, juce::String(i + 1), 54);
-    utilityAt("pseqSongLights", 852, 80, 16 * 57, 14);
+    // ...each played REPEATS times (x1..x16) before the song moves on.
+    for (int i = 0; i < 16; ++i)
+        add("pseq.song." + juce::String(i + 1) + ".rep", K::Selector, 852 + i * 57, 76, "", 54, 22);
+    utilityAt("pseqSongLights", 852, 102, 16 * 57, 14);
+    // SONG LIBRARY: whole songs (eight patterns, the slots and their repeats, tempo, swing).
+    utilityAt("pseqSongLoad", 20, 92, 120, 24);
+    utilityAt("pseqSongSave", 144, 92, 80, 24);
     for (int r = 0; r < 2; ++r)
     {
         const juce::String rowId = r == 0 ? "a" : "b", rowName = r == 0 ? "A" : "B";
-        const int y0 = r == 0 ? 100 : 422;
+        const int y0 = r == 0 ? 126 : 448;
         sectionAt("pseqRow" + rowName, "ROW " + rowName, 8, y0, 1764, 314, true);
         const juce::String p = "pseq." + rowId + ".";
         add(p + "on", K::Switch, 16, y0 + 22, "ON");

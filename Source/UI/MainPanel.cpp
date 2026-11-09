@@ -772,12 +772,17 @@ void MainPanel::buildUtilities()
         button("pseqCopy" + rowName, "COPY", "Copy row " + rowName + " (steps and settings)", [this, r] { processor.copyRow(r); });
         button("pseqPaste" + rowName, "PASTE", "Paste the copied row into row " + rowName + " (it keeps its PLAYS routing)",
                [this, r] { processor.pasteRow(r); });
-        button("pseqClear" + rowName, "CLEAR", "Every step of row " + rowName + " back to a plain gate at the root",
+        button("pseqClear" + rowName, "CLEAR", "Every step of row " + rowName + " back to a plain gate on its home note",
                [this, r] { processor.clearRow(r); });
         button("pseqLoad" + rowName, juce::String::fromUTF8("LOAD \xe2\x96\xbe"),
                "Fill row " + rowName + " from a built-in phrase or a MIDI file (row A takes the top line, row B the bass line)",
                [this, r] { showPhraseMenu(r); });
     }
+    button("pseqSongLoad", juce::String::fromUTF8("LOAD SONG \xe2\x96\xbe"),
+           "Load a whole song: its eight patterns, song slots and repeats, tempo and swing (factory songs, or your saved ones)",
+           [this] { showSongMenu(); });
+    button("pseqSongSave", juce::String::fromUTF8("SAVE\xe2\x80\xa6"), "Save the eight patterns, song slots, tempo and swing as a song",
+           [this] { saveSong(); });
     keyboardParts.push_back(&button("kbdOctDown", "OCT -", "Shift the on-screen keyboard down one octave", [this] { keyboard->shiftOctave(-1); }));
     keyboardParts.push_back(&button("kbdOctUp", "OCT +", "Shift the on-screen keyboard up one octave", [this] { keyboard->shiftOctave(1); }));
 }
@@ -1455,6 +1460,81 @@ void MainPanel::showPhraseMenu(int row)
                                                                             nullptr);
                                        });
     });
+}
+
+void MainPanel::showSongMenu()
+{
+    juce::PopupMenu menu;
+    const auto factory = ZSynthProcessor::getFactorySongNames();
+    const auto current = processor.getSongName();
+    menu.addSectionHeader("Factory songs");
+    for (int i = 0; i < factory.size(); ++i)
+        menu.addItem(i + 1, factory[i], true, factory[i] == current);
+    const auto dir = processor.getSongDirectory();
+    auto files = dir.findChildFiles(juce::File::findFiles, false, "*.zsong");
+    std::sort(files.begin(), files.end(), [](const juce::File& a, const juce::File& b) {
+        return a.getFileName().compareNatural(b.getFileName()) < 0; });
+    menu.addSectionHeader("My songs");
+    if (files.isEmpty())
+        menu.addItem(-1, "(none saved yet)", false);
+    for (int i = 0; i < files.size(); ++i)
+        menu.addItem(1000 + i, files[i].getFileNameWithoutExtension(), true, files[i].getFileNameWithoutExtension() == current);
+    menu.addSeparator();
+    menu.addItem(10000, juce::String::fromUTF8("Song file\xe2\x80\xa6"));
+    juce::Component::SafePointer<MainPanel> safe(this);
+    juce::Rectangle<int> target;
+    for (const auto& u : PanelLayout::get().utilities())
+        if (u.id == "pseqSongLoad")
+            target = parentForPage(u.page).localAreaToGlobal(u.bounds);
+    auto report = [safe](const juce::Result& r) {
+        if (safe != nullptr && r.failed())
+            juce::AlertWindow::showAsync(juce::MessageBoxOptions().withIconType(juce::MessageBoxIconType::WarningIcon)
+                                             .withTitle("ZYNTH").withMessage(r.getErrorMessage()).withButton("OK"),
+                                         nullptr);
+    };
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetScreenArea(target), [safe, files, dir, report](int result) {
+        if (safe == nullptr || result <= 0)
+            return;
+        if (result < 1000)
+        {
+            safe->processor.loadFactorySong(result - 1);
+            return;
+        }
+        if (result < 10000)
+        {
+            report(safe->processor.loadSongFile(files[result - 1000]));
+            return;
+        }
+        safe->midiChooser = std::make_unique<juce::FileChooser>("Load a song", dir.isDirectory() ? dir : juce::File::getSpecialLocation(juce::File::userMusicDirectory),
+                                                                 "*.zsong");
+        safe->midiChooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                                       [safe, report](const juce::FileChooser& fc) {
+                                           if (safe != nullptr && fc.getResult() != juce::File())
+                                               report(safe->processor.loadSongFile(fc.getResult()));
+                                       });
+    });
+}
+
+void MainPanel::saveSong()
+{
+    const auto dir = processor.getSongDirectory();
+    dir.createDirectory();
+    auto name = processor.getSongName();
+    if (name.isEmpty() || ZSynthProcessor::getFactorySongNames().contains(name))
+        name = name.isEmpty() ? juce::String("My Song") : name + " (mine)";
+    juce::Component::SafePointer<MainPanel> safe(this);
+    midiChooser = std::make_unique<juce::FileChooser>("Save the song", dir.getChildFile(juce::File::createLegalFileName(name) + ".zsong"), "*.zsong");
+    midiChooser->launchAsync(juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
+                                 | juce::FileBrowserComponent::warnAboutOverwriting,
+                             [safe](const juce::FileChooser& fc) {
+                                 if (safe == nullptr || fc.getResult() == juce::File())
+                                     return;
+                                 const auto r = safe->processor.saveSongFile(fc.getResult().withFileExtension("zsong"));
+                                 if (r.failed())
+                                     juce::AlertWindow::showAsync(juce::MessageBoxOptions().withIconType(juce::MessageBoxIconType::WarningIcon)
+                                                                      .withTitle("ZYNTH").withMessage(r.getErrorMessage()).withButton("OK"),
+                                                                  nullptr);
+                             });
 }
 
 } // namespace zsynth::ui

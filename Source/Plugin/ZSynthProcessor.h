@@ -12,6 +12,7 @@
 #include "../Parameters/ParameterLayout.h"
 #include "../Presets/PresetManager.h"
 #include "AuditionPlayer.h"
+#include "SongLibrary.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_utils/juce_audio_utils.h>
@@ -88,12 +89,33 @@ public:
     bool loadPhraseIntoRow(int phrase, int row);
     /** Loads the first bars of a standard MIDI file into a row, quantised to its steps. */
     juce::Result loadMidiFileIntoRow(const juce::File& file, int row);
+
+    // ---- song library: whole songs (patterns, song slots and repeats, tempo, swing)
+    static juce::StringArray getFactorySongNames();
+    bool loadFactorySong(int index);
+    juce::Result loadSongFile(const juce::File& file);
+    juce::Result saveSongFile(const juce::File& file);
+    /** Where saved songs live (beside the user presets). */
+    juce::File getSongDirectory() const;
+    /** The song last loaded or saved ("" for none). */
+    juce::String getSongName() const { return songName; }
+    SongData captureSong() const;
+    /** Replaces the patterns, slots, tempo and swing; SONG on, pattern A, back to the top. */
+    void applySong(const SongData& song);
     /** The step a row is on (0..15), or -1 when stopped (any thread). */
     int getSeqStep(int row) const { return pseq.getShownStep(row); }
     /** Is the sequencer playing (RUN, or the host with HOST SYNC)? (any thread) */
     bool isSeqRunning() const { return seqRunning.load(std::memory_order_relaxed); }
     /** SONG mode: the slot playing (0..15), or -1 (any thread). */
     int getSongSlot() const { return pseq.getSongSlot(); }
+    /** SONG mode: which time through the playing slot's repeats (0 = first). */
+    int getSongPass() const { return pseq.getSongPass(); }
+    /** SONG mode: the playing slot's repeats (1..16), or 1. */
+    int getSongRepeats() const
+    {
+        const int s = getSongSlot();
+        return s >= 0 ? juce::roundToInt(getValue(P::PseqRep1 + s)) + 1 : 1;
+    }
     /** Sequencer back to the top (step 1 / song slot 1); keeps playing if it was. */
     void restartSequencer() { pseq.requestRestart(); }
     /** Plays a note briefly on a row's sound (choosing a step's note on the sequencer page). */
@@ -205,6 +227,7 @@ private:
     void applyPattern(int index);
     void setParamValue(int index, float value);
     void importIntoRow(const AuditionPlayer::Clip& clip, int row);
+    juce::String songName;
 
     std::vector<dsp::MidiEvent> events;
     std::vector<float> monoScratch;

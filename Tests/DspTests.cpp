@@ -2031,8 +2031,10 @@ ZS_TEST(pattern_sequencer_song_slots_loop_and_end)
     struct TestSong : PseqSong
     {
         int slots[kSlots];
-        TestSong() { for (auto& v : slots) v = kEmpty; }
+        int reps[kSlots];
+        TestSong() { for (auto& v : slots) v = kEmpty; for (auto& v : reps) v = 1; }
         int slot(int i) const override { return slots[i]; }
+        int repeats(int i) const override { return reps[i]; }
         void rowsOf(int pattern, PseqRow rows[2]) const override
         {
             rows[0] = {};
@@ -2093,6 +2095,19 @@ ZS_TEST(pattern_sequencer_song_slots_loop_and_end)
     if (ons.size() >= 20)
         ZS_CHECK(ons[0].second == 60 && ons[4].second == 72 && ons[8].second == 60 && ons[12].second == 72 && ons[16].second == 60);
     ZS_CHECK(! finished);
+    // REPEATS: A x3, B x2, END: twelve steps at 60, eight at 72, then the end.
+    song.slots[1] = 1;
+    song.slots[2] = PseqSong::kEnd;
+    song.reps[0] = 3;
+    song.reps[1] = 2;
+    ons = play(song, 4.0, &finished);
+    ZS_CHECK(ons.size() == 20);
+    for (size_t k = 0; k < ons.size(); ++k)
+    {
+        ZS_CHECK(ons[k].second == (k < 12 ? 60 : 72));
+        ZS_CHECK(std::abs((double) ons[k].first - 6000.0 * (double) k) <= 1.0);
+    }
+    ZS_CHECK(finished);
     // Pendulum doubles a pass (back and forth): 4 steps -> a 6-step pass.
     PseqRow rows[2];
     rows[0].length = 4;

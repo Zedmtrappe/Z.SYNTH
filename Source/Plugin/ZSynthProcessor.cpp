@@ -332,6 +332,90 @@ bool ZSynthProcessor::loadPhraseIntoRow(int phrase, int row)
     return true;
 }
 
+juce::StringArray ZSynthProcessor::getFactorySongNames()
+{
+    juce::StringArray names;
+    for (const auto& song : factorySongs())
+        names.add(song.name);
+    return names;
+}
+
+bool ZSynthProcessor::loadFactorySong(int index)
+{
+    const auto& songs = factorySongs();
+    if (index < 0 || index >= (int) songs.size())
+        return false;
+    applySong(songs[(size_t) index]);
+    return true;
+}
+
+juce::File ZSynthProcessor::getSongDirectory() const
+{
+    return presets->getUserDirectory().getParentDirectory().getChildFile("Songs");
+}
+
+juce::Result ZSynthProcessor::loadSongFile(const juce::File& file)
+{
+    const auto xml = juce::XmlDocument::parse(file);
+    SongData song;
+    if (xml == nullptr || ! songFromXml(*xml, song))
+        return juce::Result::fail("Not a ZYNTH song: " + file.getFileName());
+    if (song.name.isEmpty())
+        song.name = file.getFileNameWithoutExtension();
+    applySong(song);
+    return juce::Result::ok();
+}
+
+juce::Result ZSynthProcessor::saveSongFile(const juce::File& file)
+{
+    auto song = captureSong();
+    song.name = file.getFileNameWithoutExtension();
+    file.getParentDirectory().createDirectory();
+    if (! songToXml(song)->writeTo(file))
+        return juce::Result::fail("Could not write " + file.getFullPathName());
+    songName = song.name;
+    return juce::Result::ok();
+}
+
+SongData ZSynthProcessor::captureSong() const
+{
+    SongData song;
+    song.name = songName;
+    song.tempo = getValue(P::Tempo);
+    song.swing = getValue(P::PseqSwing);
+    for (int pi = 0; pi < kPatterns; ++pi)
+        for (int k = 0; k < 2 * kPseqRowParams; ++k)
+            song.patterns[(size_t) pi][(size_t) k] = pi == currentPattern.load() ? getValue(P::PseqAOn + k)
+                                                                                 : patterns[(size_t) pi][(size_t) k].load();
+    for (int i = 0; i < SongData::kSlots; ++i)
+    {
+        song.slots[(size_t) i] = juce::roundToInt(getValue(P::PseqSlot1 + i));
+        song.repeats[(size_t) i] = juce::roundToInt(getValue(P::PseqRep1 + i));
+    }
+    return song;
+}
+
+void ZSynthProcessor::applySong(const SongData& song)
+{
+    for (int pi = 0; pi < kPatterns; ++pi)
+        for (int k = 0; k < 2 * kPseqRowParams; ++k)
+            patterns[(size_t) pi][(size_t) k].store(song.patterns[(size_t) pi][(size_t) k]);
+    applyingPattern.store(true);
+    currentPattern = 0;
+    applyPattern(0);
+    applyingPattern.store(false);
+    for (int i = 0; i < SongData::kSlots; ++i)
+    {
+        setParamValue(P::PseqSlot1 + i, (float) song.slots[(size_t) i]);
+        setParamValue(P::PseqRep1 + i, (float) song.repeats[(size_t) i]);
+    }
+    setParamValue(P::Tempo, song.tempo);
+    setParamValue(P::PseqSwing, song.swing);
+    setParamValue(P::PseqSongOn, 1.0f);
+    songName = song.name;
+    restartSequencer();
+}
+
 juce::Result ZSynthProcessor::loadMidiFileIntoRow(const juce::File& file, int row)
 {
     juce::MemoryBlock data;
@@ -582,6 +666,7 @@ void ZSynthProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
                 const int v = juce::roundToInt(g[P::PseqSlot1 + index]);
                 return v == 0 ? kEmpty : (v <= 8 ? v - 1 : (v == 9 ? kLoop : kEnd));
             }
+            int repeats(int index) const override { return juce::roundToInt(g[P::PseqRep1 + index]) + 1; }
             void rowsOf(int pattern, dsp::PseqRow rows[2]) const override
             {
                 if (pattern == owner.currentPattern.load() && ! owner.applyingPattern.load())
@@ -1085,6 +1170,7 @@ void ZSynthProcessor::getStateInformation(juce::MemoryBlock& destData)
         auto* seq = root.createNewChildElement("PatternSeq");
         seq->setAttribute("current", currentPattern.load());
         seq->setAttribute("notes", "absolute"); // step pitches are notes, not offsets from ROOT
+        seq->setAttribute("song", songName);
         for (int pi = 0; pi < kPatterns; ++pi)
         {
             if (pi == currentPattern)
@@ -1135,6 +1221,7 @@ void ZSynthProcessor::setStateInformation(const void* data, int sizeInBytes)
     if (auto* seq = xml->getChildByName("PatternSeq"))
     {
         const bool absoluteNotes = seq->getStringAttribute("notes") == "absolute";
+        songName = seq->getStringAttribute("song");
         int pi = 0;
         for (auto* pat : seq->getChildWithTagNameIterator("Pattern"))
         {

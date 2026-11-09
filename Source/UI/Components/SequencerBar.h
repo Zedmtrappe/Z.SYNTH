@@ -82,7 +82,9 @@ public:
 private:
     void timerCallback() override
     {
-        const int s = processor.getValue(P::PseqSongOn) >= 0.5f && processor.isSeqRunning() ? processor.getSongSlot() : -1;
+        int s = processor.getValue(P::PseqSongOn) >= 0.5f && processor.isSeqRunning() ? processor.getSongSlot() : -1;
+        if (s >= 0)
+            s += 100 * processor.getSongPass() + 10000 * processor.getSongRepeats();
         if (s != shown)
         {
             shown = s;

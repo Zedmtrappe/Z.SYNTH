@@ -172,6 +172,8 @@ private:
     juce::TextButton* seqPlayButton = nullptr;
     std::unique_ptr<juce::FileChooser> midiChooser;
     void showPhraseMenu(int row);
+    void showSongMenu();
+    void saveSong();
     juce::Component* fmDisplay = nullptr;
     std::vector<std::pair<int, juce::TextButton*>> blockButtons; // (on param, ADVANCED button)
     ParamControl* trackSwitch = nullptr;

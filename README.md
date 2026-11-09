@@ -13,7 +13,7 @@ advanced sections.
 |---|---|
 | Formats | Standalone app, VST3 and Audio Unit (macOS universal builds from CI, AU checked with auval) |
 | Engine | JUCE-free C++17 library, usable without any GUI |
-| Parameters | 683, all host-automatable, one authoritative table |
+| Parameters | 699, all host-automatable, one authoritative table |
 | Factory library | 272 presets: *ZYNTH Originals* (160, 15 categories) and *Classic Machines* (112 sounds in 26 instrument folders), level-matched by measurement |
 | Tests | 51 DSP tests, 23 state/preset/layout/editor tests, a VST3 host test |
 | Tested on | Ubuntu 24.04, x86-64, GCC 13.3, CMake 3.28, JUCE 8.0.9 |
@@ -250,7 +250,7 @@ These are honest gaps in the current version, not hidden features:
   circuits or copies of their factory patches. Instrument names are trademarks
   of their owners, used descriptively; ZYNTH is not affiliated with them.
 * The VST3 exposes JUCE's 2048 hidden MIDI-CC proxy parameters in addition to
-  the 683 synth parameters (needed for controller input in VST3 hosts).
+  the 699 synth parameters (needed for controller input in VST3 hosts).
 
 ## Licence
 

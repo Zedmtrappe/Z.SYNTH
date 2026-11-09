@@ -743,6 +743,73 @@ ZS_TEST(sequencer_phrases_load_into_rows)
     ZS_CHECK(! f.processor.loadPhraseIntoRow(names.size(), 0));
 }
 
+ZS_TEST(song_library_factory_songs_save_and_load)
+{
+    const auto names = ZSynthProcessor::getFactorySongNames();
+    ZS_CHECK(names.size() >= 4);
+    ZS_CHECK(names.contains("Grieg - In the Hall of the Mountain King"));
+    ProcessorFixture f("songs");
+    auto& p = f.processor;
+    for (int i = 0; i < names.size(); ++i)
+    {
+        ZS_CHECK(p.loadFactorySong(i));
+        ZS_CHECK(p.getSongName() == names[i]);
+        ZS_CHECK(p.getValue(P::PseqSongOn) >= 0.5f);
+        ZS_CHECK(p.getPattern() == 0);
+        ZS_CHECK(juce::roundToInt(p.getValue(P::PseqSlot1)) == 1); // every song opens on pattern A
+        // Pattern A has notes on both rows, all on the keyboard.
+        for (int r = 0; r < 2; ++r)
+        {
+            int gates = 0;
+            const int off = r * kPseqRowStride;
+            for (int st = 0; st < juce::roundToInt(p.getValue(P::PseqALen + off)); ++st)
+            {
+                gates += p.getValue(P::PseqAGate1 + off + st * kPseqStepStride) >= 0.5f ? 1 : 0;
+                const float n = p.getValue(P::PseqAPitch1 + off + st * kPseqStepStride);
+                ZS_CHECK(n >= 21.0f && n <= 108.0f);
+            }
+            ZS_CHECK(gates > 0);
+        }
+    }
+    // The Mountain King: B3 C#4 D4 ... in B minor, x1 slots, ending on END.
+    p.loadFactorySong(names.indexOf("Grieg - In the Hall of the Mountain King"));
+    ZS_CHECK(juce::roundToInt(p.getValue(P::PseqAPitch1)) == 59);
+    ZS_CHECK(juce::roundToInt(p.getValue(P::PseqAPitch1 + kPseqStepStride)) == 61);
+    ZS_CHECK(juce::roundToInt(p.getValue(P::PseqSlot1 + 9)) == 10);
+
+    // Save and load: an edit, the slots and repeats and the tempo come back as saved.
+    p.getState().getParameter("pseq.song.2.rep")->setValueNotifyingHost(p.getState().getParameter("pseq.song.2.rep")->convertTo0to1(3.0f));
+    p.selectPattern(4);
+    auto* step = p.getState().getParameter("pseq.a.s2.pitch");
+    step->setValueNotifyingHost(step->convertTo0to1(30.0f));
+    const auto file = f.dir.getChildFile("My Tune.zsong");
+    ZS_CHECK(p.saveSongFile(file).wasOk());
+    ZS_CHECK(p.getSongName() == "My Tune");
+    p.loadFactorySong(0);
+    ZS_CHECK(juce::roundToInt(p.getValue(P::PseqRep1 + 1)) == 0);
+    ZS_CHECK(p.loadSongFile(file).wasOk());
+    ZS_CHECK(p.getSongName() == "My Tune");
+    ZS_CHECK(juce::roundToInt(p.getValue(P::PseqRep1 + 1)) == 3);
+    ZS_CHECK_NEAR(p.getValue(P::Tempo), 132.0f, 1e-3);
+    p.selectPattern(4);
+    ZS_CHECK(juce::roundToInt(p.getValue(P::PseqAPitch2)) == 30);
+    ZS_CHECK(p.loadSongFile(f.dir.getChildFile("missing.zsong")).failed());
+
+    // A song plays through its slots and stops at END.
+    p.loadFactorySong(names.indexOf("Petzold - Minuet in G"));
+    p.prepareToPlay(48000.0, 512);
+    p.getState().getParameter("pseq.run")->setValueNotifyingHost(1.0f);
+    juce::AudioBuffer<float> buffer(2, 512);
+    juce::MidiBuffer midi;
+    int maxSlot = -1;
+    for (int b = 0; b < 48000 * 40 / 512; ++b)
+    {
+        p.processBlock(buffer, midi);
+        maxSlot = std::max(maxSlot, p.getSongSlot());
+    }
+    ZS_CHECK(maxSlot == 7);
+}
+
 ZS_TEST(sequencer_imports_a_midi_file_and_plays)
 {
     // A typical DAW export: type 1, a tempo track, then a note track on

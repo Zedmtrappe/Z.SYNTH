@@ -11,8 +11,8 @@
 // locked to the bars. Each row has its own length, direction and step size
 // (polymeter is allowed).
 //
-// NOTES. A step with its gate on plays root + octave + pitch (+ key
-// transpose) at the row's velocity (127 when accented) for GATE % of the step.
+// NOTES. A step with its gate on plays its note (root + pitch; the plug-in
+// stores absolute notes with root 0) plus any key transpose at the row's velocity (127 when accented) for GATE % of the step.
 // A SLIDE step is held into the next one, which starts before it ends
 // (legato: mono / legato voices glide). A step whose gate is off is a rest.
 // Each note ends on the parts it started on, even if the routing changes.
@@ -59,6 +59,8 @@ struct PseqSong
     static constexpr int kEmpty = -1, kLoop = 8, kEnd = 9; // 0..7 = patterns A..H
     virtual ~PseqSong() = default;
     virtual int slot(int index) const = 0;
+    /** Times the slot's pattern plays (1..16) before the song moves on. */
+    virtual int repeats(int /*index*/) const { return 1; }
     virtual void rowsOf(int pattern, PseqRow rows[2]) const = 0;
 };
 
@@ -218,6 +220,8 @@ public:
 
     /** SONG mode: the slot playing (0..15), or -1 (any thread). */
     int getSongSlot() const { return shownSlot.load(std::memory_order_relaxed); }
+    /** SONG mode: which time through the slot's repeats (0 = first). */
+    int getSongPass() const { return shownPass.load(std::memory_order_relaxed); }
     /** SONG mode: the pattern playing (0..7), or -1 (any thread). */
     int getSongPattern() const { return shownSlot.load(std::memory_order_relaxed) >= 0 ? shownPattern.load(std::memory_order_relaxed) : -1; }
     /** SONG mode: the song reached END (or ran off its last slot); cleared when RUN goes off. */
@@ -325,6 +329,17 @@ private:
     /** SONG mode: moves to the next slot with a pattern, starting at `at`. False when the song ends. */
     bool nextSlot(const PseqSettings& s, double at)
     {
+        // The slot plays its pattern REPEATS times before the song moves on.
+        if (slotIndex >= 0 && ++slotPass < std::clamp(s.song->repeats(slotIndex), 1, 16))
+        {
+            s.song->rowsOf(slotPattern, cur);
+            passStart = at;
+            passBeats = passLength(cur);
+            for (auto& r : rows)
+                r.nextK = 0;
+            shownPass.store(slotPass, std::memory_order_relaxed);
+            return true;
+        }
         int i = slotIndex;
         for (int tries = 0; tries < 2 * PseqSong::kSlots + 2; ++tries)
         {
@@ -342,6 +357,8 @@ private:
             if (v < 0 || v > 7)
                 continue; // empty: skip
             slotIndex = i;
+            slotPass = 0;
+            shownPass.store(0, std::memory_order_relaxed);
             slotPattern = v;
             shownPattern.store(v, std::memory_order_relaxed);
             s.song->rowsOf(v, cur);
@@ -456,8 +473,8 @@ private:
     std::atomic<bool> songDone { false }; // read by the message thread
     PseqRow cur[kRows];
     double passStart = 0.0, passBeats = 4.0;
-    int slotIndex = -1, slotPattern = 0;
-    std::atomic<int> shownSlot { -1 }, shownPattern { 0 };
+    int slotIndex = -1, slotPattern = 0, slotPass = 0;
+    std::atomic<int> shownSlot { -1 }, shownPattern { 0 }, shownPass { 0 };
     std::atomic<bool> restartRequested { false };
     double clock = 0.0; // beats
     RowState rows[kRows];
