@@ -181,7 +181,7 @@ void ZSynthProcessor::fillRows(const float* v, int edit, bool single, dsp::PseqR
         row.direction = juce::roundToInt(at(P::PseqADir));
         row.stepBeats = pseqStepBeats(juce::roundToInt(at(P::PseqADiv)));
         row.gate = at(P::PseqAGateLen) * 0.01f;
-        row.root = juce::roundToInt(at(P::PseqARoot));
+        row.root = 0; // steps hold absolute notes
         row.velocity = juce::roundToInt(at(P::PseqAVel));
         for (int st = 0; st < kPseqSteps; ++st)
         {
@@ -226,12 +226,12 @@ void ZSynthProcessor::pasteRow(int row)
 
 void ZSynthProcessor::clearRow(int row)
 {
-    // Every step back to a plain gate at the root (the row's setup stays).
+    // Every step back to a plain gate on the row's home note (the row's setup stays).
     const int base = P::PseqAOn + juce::jlimit(0, 1, row) * kPseqRowStride;
     for (int st = 0; st < kPseqSteps; ++st)
     {
         const int s0 = base + (P::PseqAPitch1 - P::PseqAOn) + st * kPseqStepStride;
-        setParamValue(s0, 0.0f);
+        setParamValue(s0, paramDef(s0).def);
         setParamValue(s0 + 1, 1.0f);
         setParamValue(s0 + 2, 0.0f);
         setParamValue(s0 + 3, 0.0f);
@@ -301,15 +301,16 @@ void ZSynthProcessor::importIntoRow(const AuditionPlayer::Clip& clip, int row)
     }
     if (lowest == 127)
         return;
-    const int root = juce::jlimit(12, 108, lowest);
-    setParamValue(base + (P::PseqARoot - P::PseqAOn), (float) root);
     setParamValue(base + (P::PseqALen - P::PseqAOn), (float) length);
     for (int st = 0; st < kPseqSteps; ++st)
     {
         const int s0 = base + (P::PseqAPitch1 - P::PseqAOn) + st * kPseqStepStride;
-        int pitch = chosen[st] >= 0 ? chosen[st] - root : 0;
-        while (pitch > 24)
+        // Rests keep the lowest note, so the keyboard opens near the phrase.
+        int pitch = chosen[st] >= 0 ? chosen[st] : lowest;
+        while (pitch > 108)
             pitch -= 12;
+        while (pitch < 21)
+            pitch += 12;
         const bool held = st + 1 < kPseqSteps && tie[st + 1];
         setParamValue(s0, (float) pitch);
         setParamValue(s0 + 1, chosen[st] >= 0 ? 1.0f : 0.0f);
@@ -1083,6 +1084,7 @@ void ZSynthProcessor::getStateInformation(juce::MemoryBlock& destData)
     {
         auto* seq = root.createNewChildElement("PatternSeq");
         seq->setAttribute("current", currentPattern.load());
+        seq->setAttribute("notes", "absolute"); // step pitches are notes, not offsets from ROOT
         for (int pi = 0; pi < kPatterns; ++pi)
         {
             if (pi == currentPattern)
@@ -1132,6 +1134,7 @@ void ZSynthProcessor::setStateInformation(const void* data, int sizeInBytes)
         midiLearn.fromValueTree(juce::ValueTree::fromXml(*learn));
     if (auto* seq = xml->getChildByName("PatternSeq"))
     {
+        const bool absoluteNotes = seq->getStringAttribute("notes") == "absolute";
         int pi = 0;
         for (auto* pat : seq->getChildWithTagNameIterator("Pattern"))
         {
@@ -1141,8 +1144,29 @@ void ZSynthProcessor::setStateInformation(const void* data, int sizeInBytes)
             auto& dst = patterns[(size_t) pi++];
             for (int k = 0; k < (int) dst.size() && k < tokens.size(); ++k)
                 dst[(size_t) k].store(tokens[k].getFloatValue());
+            if (! absoluteNotes)
+                for (int r = 0; r < 2; ++r)
+                {
+                    // Older projects: a step's pitch was semitones from the row's ROOT.
+                    const int off = r * kPseqRowStride - P::PseqAOn;
+                    const float root = dst[(size_t) (P::PseqARoot + off)].load();
+                    for (int st = 0; st < kPseqSteps; ++st)
+                    {
+                        auto& v = dst[(size_t) (P::PseqAPitch1 + off + st * kPseqStepStride)];
+                        float n = root + v.load();
+                        while (n > 108.0f)
+                            n -= 12.0f;
+                        while (n < 21.0f)
+                            n += 12.0f;
+                        v.store(n);
+                    }
+                }
         }
         currentPattern = juce::jlimit(0, kPatterns - 1, seq->getIntAttribute("current", 0));
+        // The panel shows the current pattern (also brings older projects' notes up to date).
+        applyingPattern.store(true);
+        applyPattern(currentPattern);
+        applyingPattern.store(false);
     }
     if (auto* split = xml->getChildByName("Split"))
     {

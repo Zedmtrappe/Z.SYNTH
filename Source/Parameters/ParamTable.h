@@ -404,8 +404,8 @@ ZS_PSEQ_SLOT(X, 9, 0.f)  ZS_PSEQ_SLOT(X, 10, 0.f) ZS_PSEQ_SLOT(X, 11, 0.f) ZS_PS
 ZS_PSEQ_SLOT(X, 13, 0.f) ZS_PSEQ_SLOT(X, 14, 0.f) ZS_PSEQ_SLOT(X, 15, 0.f) ZS_PSEQ_SLOT(X, 16, 0.f)
 
 
-#define ZS_PSEQ_STEP(X, R, r, n) \
-X(Pseq##R##Pitch##n, "pseq." r ".s" #n ".pitch", "Seq " r " Step " #n " Pitch", "Global", Int, -12.f, 24.f, 0.f, LIN, "st", nullptr, "Step pitch in semitones above (or below) the row's ROOT.") \
+#define ZS_PSEQ_STEP(X, R, r, n, def) \
+X(Pseq##R##Pitch##n, "pseq." r ".s" #n ".pitch", "Seq " r " Step " #n " Note", "Global", Int, 21.f, 108.f, def, LIN, "note", nullptr, "NOTE: the note the step plays (A0 to C8; KEY TRANSPOSE moves it).") \
 X(Pseq##R##Gate##n,  "pseq." r ".s" #n ".gate",  "Seq " r " Step " #n " Gate",  "Global", Bool, 0.f, 1.f, 1.f, LIN, "", nullptr, "GATE: the step plays (on) or rests (off).") \
 X(Pseq##R##Acc##n,   "pseq." r ".s" #n ".acc",   "Seq " r " Step " #n " Accent","Global", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "ACCENT: the step plays at full velocity.") \
 X(Pseq##R##Slide##n, "pseq." r ".s" #n ".slide", "Seq " r " Step " #n " Slide", "Global", Bool, 0.f, 1.f, 0.f, LIN, "", nullptr, "SLIDE: the step is held into the next one (legato: mono and legato voices glide).")
@@ -420,12 +420,12 @@ X(Pseq##R##Len,    "pseq." r ".len",    "Seq " label " Length",   "Global", Int,
 X(Pseq##R##Dir,    "pseq." r ".dir",    "Seq " label " Direction","Global", Choice, 0, 0, 0.f, LIN, "", ZS_CH_PSEQ_DIR, "DIRECTION: forward, backward, pendulum (back and forth) or random.") \
 X(Pseq##R##Div,    "pseq." r ".div",    "Seq " label " Step Size","Global", Choice, 0, 0, 2.f, LIN, "", ZS_CH_PSEQ_DIV, "STEP: the length of one step, against the tempo.") \
 X(Pseq##R##GateLen,"pseq." r ".glen",   "Seq " label " Gate Time","Global", Float, 5.f, 100.f, 50.f, LIN, "%", nullptr, "GATE TIME: how much of each step a note lasts.") \
-X(Pseq##R##Root,   "pseq." r ".root",   "Seq " label " Root",     "Global", Int, 12.f, 108.f, root, LIN, "note", nullptr, "ROOT: the note a step plays with its PITCH knob at 0.") \
+X(Pseq##R##Root,   "pseq." r ".root",   "Seq " label " Root",     "Global", Int, 12.f, 108.f, root, LIN, "note", nullptr, "Unused: kept so older projects load (steps now hold their own notes).") \
 X(Pseq##R##Vel,    "pseq." r ".vel",    "Seq " label " Velocity", "Global", Int, 1.f, 127.f, 96.f, LIN, "", nullptr, "VELOCITY of the row's notes (accented steps play at 127).") \
-ZS_PSEQ_STEP(X, R, r, 1)  ZS_PSEQ_STEP(X, R, r, 2)  ZS_PSEQ_STEP(X, R, r, 3)  ZS_PSEQ_STEP(X, R, r, 4) \
-ZS_PSEQ_STEP(X, R, r, 5)  ZS_PSEQ_STEP(X, R, r, 6)  ZS_PSEQ_STEP(X, R, r, 7)  ZS_PSEQ_STEP(X, R, r, 8) \
-ZS_PSEQ_STEP(X, R, r, 9)  ZS_PSEQ_STEP(X, R, r, 10) ZS_PSEQ_STEP(X, R, r, 11) ZS_PSEQ_STEP(X, R, r, 12) \
-ZS_PSEQ_STEP(X, R, r, 13) ZS_PSEQ_STEP(X, R, r, 14) ZS_PSEQ_STEP(X, R, r, 15) ZS_PSEQ_STEP(X, R, r, 16)
+ZS_PSEQ_STEP(X, R, r, 1, root)  ZS_PSEQ_STEP(X, R, r, 2, root)  ZS_PSEQ_STEP(X, R, r, 3, root)  ZS_PSEQ_STEP(X, R, r, 4, root) \
+ZS_PSEQ_STEP(X, R, r, 5, root)  ZS_PSEQ_STEP(X, R, r, 6, root)  ZS_PSEQ_STEP(X, R, r, 7, root)  ZS_PSEQ_STEP(X, R, r, 8, root) \
+ZS_PSEQ_STEP(X, R, r, 9, root)  ZS_PSEQ_STEP(X, R, r, 10, root) ZS_PSEQ_STEP(X, R, r, 11, root) ZS_PSEQ_STEP(X, R, r, 12, root) \
+ZS_PSEQ_STEP(X, R, r, 13, root) ZS_PSEQ_STEP(X, R, r, 14, root) ZS_PSEQ_STEP(X, R, r, 15, root) ZS_PSEQ_STEP(X, R, r, 16, root)
 
 #define ZS_OSC_WT_PARAMS(X, n) \
 X(Osc##n##WtTable, "osc" #n ".wt.table", "Osc " #n " Table", "Wavetable", Choice, 0, 0, 0.f, LIN, "", ZS_CH_OSC_TABLE, "Wavetable for this oscillator (Wavetable wave): SECTION = the WAVETABLE section's TABLE.") \

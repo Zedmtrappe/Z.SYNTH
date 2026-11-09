@@ -40,10 +40,9 @@ ParamControl::ParamControl(juce::AudioProcessorValueTreeState& s, int paramIndex
     attachment.sendInitialUpdate();
     if (kind == ControlKind::NoteStrip)
     {
-        // "pseq.a.s3.pitch" -> "pseq.a.root" and "pseq.a.s3.gate".
+        // "pseq.a.s3.pitch" -> "pseq.a.s3.gate".
         const juce::String id(paramDef(index).id);
-        const auto row = id.upToLastOccurrenceOf(".s", false, false);
-        linkedRoot = state.getRawParameterValue(row + ".root");
+        viewOctave = juce::roundToInt(value) / 12;
         linkedGate = state.getRawParameterValue(id.upToLastOccurrenceOf(".", false, false) + ".gate");
         gateParam = state.getParameter(id.upToLastOccurrenceOf(".", false, false) + ".gate");
     }
@@ -59,6 +58,8 @@ ParamControl::~ParamControl() = default;
 void ParamControl::valueChanged(float v)
 {
     value = v;
+    if (kind == ControlKind::NoteStrip)
+        viewOctave = stepNote() / 12; // the keyboard shows the step's note
     repaint();
     if (auto* h = getAccessibilityHandler())
         h->notifyAccessibilityEvent(juce::AccessibilityEvent::valueChanged);
@@ -80,12 +81,15 @@ juce::String ParamControl::getTooltip()
         // The key under the mouse names its note; the arrows say what they do.
         const auto m = getMouseXYRelative().toFloat();
         const int k = keyAt(m);
-        if (k >= 0)
+        if (k >= 0 && noteForKey(k) >= 0)
             return juce::MidiMessage::getMidiNoteName(noteForKey(k), true, true, 4);
         if (noteArrow(true).contains(m))
-            return "Octave up";
+            return "Show the octave above (the step keeps its note)";
         if (noteArrow(false).contains(m))
-            return "Octave down";
+            return "Show the octave below (the step keeps its note)";
+        if (noteOverview().expanded(2.0f, 0.0f).contains(m))
+            return "All 88 keys: the lit octave is on show, green is the step's note (" + juce::MidiMessage::getMidiNoteName(stepNote(), true, true, 4)
+                   + "). Click to show another octave.";
     }
     const auto& d = paramDef(index);
     juce::String t = juce::String(d.name) + ":  " + formatValue(index, value) + "\n" + d.help;
@@ -1049,13 +1053,33 @@ void ParamControl::paintSegmented(juce::Graphics& g)
 // below. The step's value stays semitones from the row's ROOT (-12..+24).
 juce::Rectangle<float> ParamControl::noteArrow(bool up) const
 {
-    const auto r = getLocalBounds().toFloat().reduced(4.0f, 0.0f);
+    const auto r = noteKeysArea();
     return up ? r.withHeight(16.0f) : juce::Rectangle<float>(r.getX(), r.getBottom() - 34.0f, r.getWidth(), 16.0f);
+}
+
+juce::Rectangle<float> ParamControl::noteKeysArea() const
+{
+    // The octave keyboard, arrows and readout; a narrow 88-key overview at the right.
+    return getLocalBounds().toFloat().reduced(4.0f, 0.0f).withTrimmedRight(13.0f);
+}
+
+juce::Rectangle<float> ParamControl::noteOverview() const
+{
+    const auto k = noteKeysArea();
+    const float top = 19.0f, bottom = k.getBottom() - 37.0f;
+    return { k.getRight() + 3.0f, top, 10.0f, bottom - top };
+}
+
+float ParamControl::overviewY(float note) const
+{
+    // A0 (21) at the bottom to C8 (108) at the top, a semitone per row.
+    const auto o = noteOverview();
+    return o.getBottom() - (note - 20.5f) / 88.0f * o.getHeight();
 }
 
 juce::Rectangle<float> ParamControl::noteReadout() const
 {
-    const auto r = getLocalBounds().toFloat().reduced(4.0f, 0.0f);
+    const auto r = noteKeysArea();
     return { r.getX(), r.getBottom() - 15.0f, r.getWidth(), 15.0f };
 }
 
@@ -1069,7 +1093,7 @@ namespace
 
 juce::Rectangle<float> ParamControl::noteKey(int pitchClass) const
 {
-    const auto r = getLocalBounds().toFloat().reduced(4.0f, 0.0f);
+    const auto r = noteKeysArea();
     const float top = 19.0f, bottom = r.getBottom() - 37.0f;
     const float wh = (bottom - top) / 7.0f;
     const int slot = whiteSlot[pitchClass];
@@ -1092,15 +1116,10 @@ int ParamControl::keyAt(juce::Point<float> p) const
 
 int ParamControl::noteForKey(int pc) const
 {
-    const int root = linkedRoot != nullptr ? juce::roundToInt(linkedRoot->load()) : 60;
+    // That key in the octave on show; -1 if it is outside the step's range (A0 to C8).
     const int lo = juce::roundToInt(param.convertFrom0to1(0.0f)), hi = juce::roundToInt(param.convertFrom0to1(1.0f));
-    const int note = root + juce::roundToInt(value);
-    int target = note - ((note % 12) + 12) % 12 + pc;
-    while (target - root > hi)
-        target -= 12;
-    while (target - root < lo)
-        target += 12;
-    return target;
+    const int n = viewOctave * 12 + pc;
+    return n >= lo && n <= hi ? n : -1;
 }
 
 void ParamControl::mouseMove(const juce::MouseEvent& e)
@@ -1119,11 +1138,9 @@ void ParamControl::refreshLinked()
 {
     if (kind != ControlKind::NoteStrip)
         return;
-    const float root = linkedRoot != nullptr ? linkedRoot->load() : 60.0f;
     const float gate = linkedGate != nullptr ? linkedGate->load() : 1.0f;
-    if (root != shownRoot || gate != shownGate)
+    if (gate != shownGate)
     {
-        shownRoot = root;
         shownGate = gate;
         repaint();
     }
@@ -1131,9 +1148,8 @@ void ParamControl::refreshLinked()
 
 void ParamControl::noteStripClick(juce::Point<float> p)
 {
-    const int root = linkedRoot != nullptr ? juce::roundToInt(linkedRoot->load()) : 60;
     const int lo = juce::roundToInt(param.convertFrom0to1(0.0f)), hi = juce::roundToInt(param.convertFrom0to1(1.0f));
-    const int note = root + juce::roundToInt(value);
+    const int note = stepNote();
     const bool gate = linkedGate == nullptr || linkedGate->load() >= 0.5f;
     auto setGate = [this](bool on) {
         if (gateParam != nullptr)
@@ -1143,52 +1159,56 @@ void ParamControl::noteStripClick(juce::Point<float> p)
             gateParam->endChangeGesture();
         }
     };
-    // The lit note again: the step goes blank (a rest). Any note on a blank step: it plays again.
-    const int key = keyAt(p);
-    if (key >= 0 && key == ((note % 12) + 12) % 12)
+    // The arrows and the overview only change the octave on show; the step keeps its note.
+    if (noteArrow(true).contains(p) || noteArrow(false).contains(p))
     {
+        const int next = viewOctave + (noteArrow(true).contains(p) ? 1 : -1);
+        if (next * 12 + 11 >= lo && next * 12 <= hi)
+            viewOctave = next;
+        repaint();
+        return;
+    }
+    if (noteOverview().expanded(2.0f, 0.0f).contains(p))
+    {
+        const auto o = noteOverview();
+        const int n = juce::jlimit(lo, hi, juce::roundToInt(20.5f + (o.getBottom() - p.y) / o.getHeight() * 88.0f));
+        viewOctave = n / 12;
+        repaint();
+        return;
+    }
+    const int key = keyAt(p);
+    const int target = key >= 0 ? noteForKey(key) : -1;
+    if (target < 0)
+        return;
+    if (target == note)
+    {
+        // The green key again: the step becomes a rest; on a rest, it plays again.
         setGate(! gate);
         if (! gate && onNoteChosen)
-            onNoteChosen(note); // back from a rest: hear it
+            onNoteChosen(note);
         return;
     }
-    if (! gate && ! noteArrow(true).contains(p) && ! noteArrow(false).contains(p))
+    if (! gate)
         setGate(true);
-    auto chosen = [this](int n) {
-        if (onNoteChosen)
-            onNoteChosen(n);
-    };
-    int target = note;
-    if (noteArrow(true).contains(p))
-        target = note + 12;
-    else if (noteArrow(false).contains(p))
-        target = note - 12;
-    else if (key >= 0)
-        target = noteForKey(key); // that note, in the octave the step is in
-    if (target - root < lo || target - root > hi || target == note)
-    {
-        if (target == note && ! gate)
-            chosen(note);
-        return;
-    }
-    attachment.setValueAsCompleteGesture((float) (target - root));
-    chosen(target);
+    attachment.setValueAsCompleteGesture((float) target);
+    if (onNoteChosen)
+        onNoteChosen(target);
 }
 
 void ParamControl::paintNoteStrip(juce::Graphics& g)
 {
-    const int root = linkedRoot != nullptr ? juce::roundToInt(linkedRoot->load()) : 60;
     const bool gate = linkedGate == nullptr || linkedGate->load() >= 0.5f;
     const int lo = juce::roundToInt(param.convertFrom0to1(0.0f)), hi = juce::roundToInt(param.convertFrom0to1(1.0f));
-    const int note = root + juce::roundToInt(value);
-    const int pc = ((note % 12) + 12) % 12;
+    const int note = stepNote();
+    const bool inView = note / 12 == viewOctave;
+    const int pc = inView ? note % 12 : -1; // green only while its octave is on show
     const juce::Colour led(0xffff4a2a), amber(0xffffb347);
 
     // Octave arrows: moulded buttons, dark when the step cannot go further.
     for (bool up : { true, false })
     {
         const auto a = noteArrow(up);
-        const bool can = up ? (note + 12 - root <= hi) : (note - 12 - root >= lo);
+        const bool can = up ? ((viewOctave + 1) * 12 <= hi) : ((viewOctave - 1) * 12 + 11 >= lo);
         juce::ColourGradient body(juce::Colour(0xff45474c), 0.0f, a.getY(), juce::Colour(0xff17181b), 0.0f, a.getBottom(), false);
         g.setGradientFill(body);
         g.fillRoundedRectangle(a, 3.0f);
@@ -1205,9 +1225,8 @@ void ParamControl::paintNoteStrip(juce::Graphics& g)
     }
 
     // A one-octave keyboard on its side (C at the bottom, black keys on the left):
-    // the step's note is the green key, the row's ROOT has an amber dot.
+    // the step's note is the green key (when its octave is on show).
     const juce::Colour green(0xff3fdc5a);
-    const int rootPc = ((root % 12) + 12) % 12;
     {
         auto bed = noteKey(0).getUnion(noteKey(11)).expanded(1.5f);
         g.setColour(juce::Colours::black);
@@ -1217,6 +1236,7 @@ void ParamControl::paintNoteStrip(juce::Graphics& g)
         const auto r = noteKey(k);
         const bool black = isBlackKey(k);
         const bool lit = k == pc && gate; // a rest shows no note
+        const bool usable = noteForKey(k) >= 0;
         const auto kr = black ? r : r.reduced(0.0f, 0.5f);
         juce::Colour top, bottom;
         if (lit)
@@ -1260,20 +1280,53 @@ void ParamControl::paintNoteStrip(juce::Graphics& g)
             g.setColour(juce::Colours::black.withAlpha(0.45f)); // the gap to the key above
             g.drawLine(kr.getX(), kr.getY(), kr.getRight(), kr.getY(), 0.8f);
         }
-        if (k == rootPc)
+        if (! usable) // beyond A0 / C8
         {
-            const float d = 4.0f;
-            const float cx = kr.getRight() - 6.0f;
-            g.setColour(amber);
-            g.fillEllipse(cx - d * 0.5f, kr.getCentreY() - d * 0.5f, d, d);
-            g.setColour(juce::Colours::black.withAlpha(0.5f));
-            g.drawEllipse(cx - d * 0.5f, kr.getCentreY() - d * 0.5f, d, d, 0.6f);
+            g.setColour(juce::Colours::black.withAlpha(0.55f));
+            g.fillRoundedRectangle(kr, 1.0f);
         }
     };
     for (int k : { 0, 2, 4, 5, 7, 9, 11 })
         drawKey(k);
     for (int k : { 1, 3, 6, 8, 10 })
         drawKey(k);
+
+    // The whole 88-key range in miniature: the octave on show is lit, the rest
+    // greyed; the step's note is a green mark wherever it is.
+    {
+        const auto o = noteOverview();
+        g.setColour(juce::Colours::black);
+        g.fillRoundedRectangle(o.expanded(1.5f), 2.0f);
+        g.setColour(juce::Colour(0xff6b6a66));
+        g.fillRect(o);
+        const float vTop = overviewY((float) juce::jmin(hi, viewOctave * 12 + 11) + 0.5f);
+        const float vBottom = overviewY((float) juce::jmax(lo, viewOctave * 12) - 0.5f);
+        g.setColour(juce::Colour(0xfff4f1ea));
+        g.fillRect(o.getX(), vTop, o.getWidth(), vBottom - vTop);
+        const float row = o.getHeight() / 88.0f;
+        for (int n = lo; n <= hi; ++n)
+        {
+            const bool shown = n / 12 == viewOctave;
+            if (isBlackKey(n % 12))
+            {
+                g.setColour(shown ? juce::Colour(0xff111113) : juce::Colour(0xff2c2c2e));
+                g.fillRect(o.getX(), overviewY((float) n) - row * 0.4f, o.getWidth() * 0.6f, row * 0.8f);
+            }
+            else if (n % 12 == 0 || n % 12 == 5) // the gaps under C and F
+            {
+                g.setColour(juce::Colours::black.withAlpha(shown ? 0.45f : 0.3f));
+                g.fillRect(o.getX(), overviewY((float) n) + row * 0.5f - 0.4f, o.getWidth(), 0.8f);
+            }
+        }
+        g.setColour(amber.withAlpha(0.9f)); // frame round the octave on show
+        g.drawRect(juce::Rectangle<float>(o.getX() - 1.0f, vTop - 1.0f, o.getWidth() + 2.0f, vBottom - vTop + 2.0f), 1.0f);
+        if (gate)
+        {
+            const float y = overviewY((float) note);
+            g.setColour(green);
+            g.fillRect(o.getX() - 1.0f, y - juce::jmax(1.2f, row * 0.6f), o.getWidth() + 2.0f, juce::jmax(2.4f, row * 1.2f));
+        }
+    }
 
     // The note itself, on a small red LED readout.
     const auto rd = noteReadout();

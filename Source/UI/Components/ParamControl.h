@@ -50,7 +50,7 @@ public:
     void setGlowWhenOn(bool g) { glowWhenOn = g; repaint(); }
     /** Switch lit while the parameter is OFF (a switch for the opposite setting, e.g. POST FX for peq.pre). */
     void setInverted(bool i) { inverted = i; repaint(); }
-    /** NoteStrip: repaints when the row's ROOT or the step's GATE changed (call from a timer). */
+    /** NoteStrip: repaints when the step's GATE changed (call from a timer). */
     void refreshLinked();
     /** NoteStrip: called with the step's note whenever one is chosen (to hear it). */
     std::function<void(int note)> onNoteChosen;
@@ -84,11 +84,16 @@ public:
     void resetToDefault();
 
 private:
-    // NoteStrip: the step's row ROOT and GATE (labels and dimming).
-    std::atomic<float>* linkedRoot = nullptr;
+    // NoteStrip: the step's GATE (a rest shows no note), and the octave the
+    // little keyboard shows (MIDI octave: note / 12; follows the note when it changes).
     std::atomic<float>* linkedGate = nullptr;
     juce::RangedAudioParameter* gateParam = nullptr;
-    float shownRoot = -1.0f, shownGate = -1.0f;
+    float shownGate = -1.0f;
+    int viewOctave = 5;
+    int stepNote() const { return juce::roundToInt(value); }
+    juce::Rectangle<float> noteKeysArea() const;
+    juce::Rectangle<float> noteOverview() const;
+    float overviewY(float note) const;
     void paintNoteStrip(juce::Graphics&);
     void noteStripClick(juce::Point<float>);
     /** Mini keyboard (C at the bottom, black keys on the left): the key of one pitch class. */

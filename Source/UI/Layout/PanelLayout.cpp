@@ -895,8 +895,7 @@ PanelLayout::PanelLayout()
         add(p + "dir", K::Selector, 252, y0 + 22, "DIRECTION", 100);
         add(p + "len", K::Knob, 16, y0 + 72, "LENGTH");
         add(p + "glen", K::Knob, 72, y0 + 72, "GATE TIME");
-        add(p + "root", K::Knob, 128, y0 + 72, "ROOT");
-        add(p + "vel", K::Knob, 184, y0 + 72, "VELOCITY");
+        add(p + "vel", K::Knob, 128, y0 + 72, "VELOCITY");
         utilityAt("pseqCopy" + rowName, 248, y0 + 72, 104, 20);
         utilityAt("pseqPaste" + rowName, 248, y0 + 96, 104, 20);
         utilityAt("pseqClear" + rowName, 248, y0 + 120, 104, 20);
@@ -906,7 +905,7 @@ PanelLayout::PanelLayout()
         {
             const juce::String n(s + 1);
             const int x = 372 + s * 87;
-            add(p + "s" + n + ".pitch", K::NoteStrip, x + 12, y0 + 50, n, 62, 196);
+            add(p + "s" + n + ".pitch", K::NoteStrip, x + 12, y0 + 50, n, 74, 196);
             add(p + "s" + n + ".gate", K::StepToggle, x + 13, y0 + 252, "GATE", 60, 18);
             add(p + "s" + n + ".acc", K::StepToggle, x + 13, y0 + 272, "ACCENT", 60, 18);
             add(p + "s" + n + ".slide", K::StepToggle, x + 13, y0 + 292, "SLIDE", 60, 18);

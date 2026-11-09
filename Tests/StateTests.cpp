@@ -600,7 +600,7 @@ ZS_TEST(layout_every_parameter_exactly_once)
     {
         // MASTER is both the header knob and the OUTPUT fader (two views of one value).
         // (The sequencer's RUN is driven by the PLAY / STOP transport keys, not a control of its own.)
-        const int expected = i == P::MasterVolume ? 2 : (i == P::PseqRun ? 0 : 1);
+        const int expected = i == P::MasterVolume ? 2 : (i == P::PseqRun || i == P::PseqARoot || i == P::PseqBRoot ? 0 : 1);
         if (count[(size_t) i] != expected)
             std::printf("    %s appears %d times\n", paramDef(i).id, count[(size_t) i]);
         ZS_CHECK(count[(size_t) i] == expected);
@@ -736,7 +736,7 @@ ZS_TEST(sequencer_phrases_load_into_rows)
         {
             gates += f.processor.getValue(P::PseqAGate1 + base + st * kPseqStepStride) >= 0.5f ? 1 : 0;
             const float pitch = f.processor.getValue(P::PseqAPitch1 + base + st * kPseqStepStride);
-            ZS_CHECK(pitch >= -12.0f && pitch <= 24.0f);
+            ZS_CHECK(pitch >= 21.0f && pitch <= 108.0f);
         }
         ZS_CHECK(gates > 0);
     }
@@ -776,9 +776,8 @@ ZS_TEST(sequencer_imports_a_midi_file_and_plays)
     }
     ZS_CHECK(f.processor.loadMidiFileIntoRow(midiFile, 0).wasOk());
     // Row A takes the top line: G (67) on the two bar downbeats, held (slides) between them.
-    ZS_CHECK(juce::roundToInt(f.processor.getValue(P::PseqARoot)) == 67);
     ZS_CHECK(f.processor.getValue(P::PseqAGate1) >= 0.5f);
-    ZS_CHECK(juce::roundToInt(f.processor.getValue(P::PseqAPitch1)) == 0);
+    ZS_CHECK(juce::roundToInt(f.processor.getValue(P::PseqAPitch1)) == 67);
 
     f.processor.prepareToPlay(48000.0, 512);
     auto* run = f.processor.getState().getParameter("pseq.run");
@@ -1094,14 +1093,12 @@ ZS_TEST(sequencer_patterns_state_routing_and_key_transpose)
     SplitRig r("pseq1");
     auto& p = r.p;
     // Pattern memories: an edit stays with its pattern; switching recalls the other.
-    const float demoRoot = p.getValue(P::PseqARoot);
-    r.set("pseq.a.root", 48.0f);
+    r.set("pseq.a.s1.pitch", 23.0f);
     p.selectPattern(3);
     ZS_CHECK(p.getPattern() == 3);
-    ZS_CHECK(std::abs(p.getValue(P::PseqARoot) - 48.0f) > 0.5f);
+    ZS_CHECK(std::abs(p.getValue(P::PseqAPitch1) - 23.0f) > 0.5f);
     p.selectPattern(0);
-    ZS_CHECK_NEAR(p.getValue(P::PseqARoot), 48.0f, 1e-3);
-    juce::ignoreUnused(demoRoot);
+    ZS_CHECK_NEAR(p.getValue(P::PseqAPitch1), 23.0f, 1e-3);
 
     // ...and they are saved with the project.
     juce::MemoryBlock state;
@@ -1113,7 +1110,29 @@ ZS_TEST(sequencer_patterns_state_routing_and_key_transpose)
     ZS_CHECK(r2.p.getPattern() == 5);
     ZS_CHECK(juce::roundToInt(r2.p.getValue(P::PseqBLen)) == 7);
     r2.p.selectPattern(0);
-    ZS_CHECK_NEAR(r2.p.getValue(P::PseqARoot), 48.0f, 1e-3);
+    ZS_CHECK_NEAR(r2.p.getValue(P::PseqAPitch1), 23.0f, 1e-3);
+
+    // Projects saved before steps held their own notes (pitch = semitones from ROOT)
+    // load with the same notes.
+    {
+        auto xml = juce::AudioProcessor::getXmlFromBinary(state.getData(), (int) state.getSize());
+        auto* seq = xml->getChildByName("PatternSeq");
+        seq->removeAttribute("notes");
+        auto* pat = seq->getChildByName("Pattern"); // pattern A
+        auto tokens = juce::StringArray::fromTokens(pat->getStringAttribute("values"), " ", "");
+        tokens.set(P::PseqARoot - P::PseqAOn, "48");
+        tokens.set(P::PseqAPitch1 - P::PseqAOn, "7");
+        tokens.set(P::PseqAPitch1 - P::PseqAOn + kPseqStepStride, "-12");
+        pat->setAttribute("values", tokens.joinIntoString(" "));
+        seq->setAttribute("current", 0);
+        juce::MemoryBlock old;
+        juce::AudioProcessor::copyXmlToBinary(*xml, old);
+        SplitRig r3("pseq3");
+        r3.p.setStateInformation(old.getData(), (int) old.getSize());
+        ZS_CHECK(r3.p.getPattern() == 0);
+        ZS_CHECK_NEAR(r3.p.getValue(P::PseqAPitch1), 55.0f, 1e-3);
+        ZS_CHECK_NEAR(r3.p.getValue(P::PseqAPitch1 + kPseqStepStride), 36.0f, 1e-3);
+    }
 
     // Routing: with SPLIT, row A plays UPPER and row B plays LOWER; with SINGLE both play the panel's sound.
     p.selectPattern(0);
@@ -1455,6 +1474,17 @@ ZS_TEST(editor_layout_is_fixed_across_presets_and_modes)
         ZS_CHECK(snapshot() == reference);
     }
     panel.showPage({});
+    ZS_CHECK(panel.getVisiblePage().isEmpty());
+
+    // PITCH TRACK: switching it on opens its window (in place of any other); off closes it.
+    auto* track = f.processor.getState().getParameter("trk.on");
+    panel.refreshNow();
+    panel.showPage("pseq");
+    track->setValueNotifyingHost(1.0f);
+    panel.refreshNow();
+    ZS_CHECK(panel.getVisiblePage() == "track");
+    track->setValueNotifyingHost(0.0f);
+    panel.refreshNow();
     ZS_CHECK(panel.getVisiblePage().isEmpty());
 }
 
